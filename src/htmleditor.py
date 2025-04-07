@@ -29,7 +29,6 @@ class HTMLEditorApp(Adw.Application):
         self.auto_save_interval = 60
         self.current_file = None
         self.auto_save_source_id = None
-        self.overlay_setup_done = False
 
     def do_startup(self):
         Adw.Application.do_startup(self)
@@ -78,12 +77,28 @@ class HTMLEditorApp(Adw.Application):
         win.set_default_size(900, 700)
         win.set_title("Untitled - HTML Editor")
         
+        # Create main box to contain all UI elements
         win.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        win.main_box.set_vexpand(True)  # Ensure main_box expands vertically
+        win.main_box.set_vexpand(True)
         win.main_box.set_hexpand(True)
-        self.create_header_bar(win)
         
-        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        # Create headerbar with revealer
+        win.headerbar_revealer = Gtk.Revealer()
+        win.headerbar_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_DOWN)
+        win.headerbar_revealer.set_transition_duration(250)
+        win.headerbar_revealer.set_reveal_child(True)  # Visible by default
+        
+        win.headerbar = Adw.HeaderBar()
+        self.setup_headerbar_content(win)
+        win.headerbar_revealer.set_child(win.headerbar)
+        win.main_box.append(win.headerbar_revealer)
+        
+        # Create content box (for webview and toolbar)
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        content_box.set_vexpand(True)
+        content_box.set_hexpand(True)
+        
+        # Create webview
         win.webview = WebKit.WebView()
         win.webview.set_vexpand(True)
         win.webview.set_hexpand(True) 
@@ -103,6 +118,23 @@ class HTMLEditorApp(Adw.Application):
             print("Warning: Could not set up JavaScript message handlers")
             
         win.webview.load_html(self.get_initial_html(), None)
+        content_box.append(win.webview)
+        
+        # Create toolbar with revealer
+        win.toolbar_revealer = Gtk.Revealer()
+        win.toolbar_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_UP)
+        win.toolbar_revealer.set_transition_duration(250)
+        win.toolbar_revealer.set_reveal_child(True)  # Visible by default
+        
+        win.toolbar = self.create_toolbar(win)
+        win.toolbar_revealer.set_child(win.toolbar)
+        content_box.append(win.toolbar_revealer)
+        
+        # Create statusbar with revealer
+        win.statusbar_revealer = Gtk.Revealer()
+        win.statusbar_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_UP)
+        win.statusbar_revealer.set_transition_duration(250)
+        win.statusbar_revealer.set_reveal_child(True)  # Visible by default
         
         win.statusbar = Gtk.Label(label="Ready")
         win.statusbar.set_halign(Gtk.Align.START)
@@ -110,33 +142,23 @@ class HTMLEditorApp(Adw.Application):
         win.statusbar.set_margin_end(10)
         win.statusbar.set_margin_top(5)
         win.statusbar.set_margin_bottom(5)
-        
-        win.bottom_toolbar = self.create_bottom_toolbar(win)
-        win.bottom_toolbar.set_visible(False)
-        
-        content_box.append(win.webview)
-        content_box.append(win.bottom_toolbar)
-        content_box.append(win.statusbar)
+        win.statusbar_revealer.set_child(win.statusbar)
+        content_box.append(win.statusbar_revealer)
         
         win.main_box.append(content_box)
         win.set_content(win.main_box)
         
-        self.setup_toolbar_animation(win)
         self.setup_keyboard_shortcuts(win)
         
         win.connect("close-request", self.on_window_close_request)
         
         # Add to windows list
         self.windows.append(win)
-        self.setup_header_bar(win)
         
         return win
         
-    def create_header_bar(self, win):
-        """Create a header bar for the window"""
-        # Create a header bar
-        header = Adw.HeaderBar()
-        
+    def setup_headerbar_content(self, win):
+        """Create buttons for the header bar"""
         # Create buttons for header bar
         new_button = Gtk.Button(icon_name="document-new-symbolic")
         new_button.set_tooltip_text("New Document in New Window")
@@ -173,17 +195,18 @@ class HTMLEditorApp(Adw.Application):
         menu_button.set_menu_model(menu)
         
         # Add buttons to header bar
-        header.pack_start(new_button)
-        header.pack_start(open_button)
-        header.pack_start(save_button)
-        header.pack_start(win.undo_button)
-        header.pack_start(win.redo_button)
-        header.pack_end(menu_button)
+        win.headerbar.pack_start(new_button)
+        win.headerbar.pack_start(open_button)
+        win.headerbar.pack_start(save_button)
+        win.headerbar.pack_start(win.undo_button)
+        win.headerbar.pack_start(win.redo_button)
+        win.headerbar.pack_end(menu_button)
         
-        win.main_box.append(header)
+        # Create window menu button
+        self.add_window_menu_button(win)
     
-    def create_bottom_toolbar(self, win):
-        """Create the bottom toolbar for a window"""
+    def create_toolbar(self, win):
+        """Create the toolbar for formatting options"""
         toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         toolbar.set_margin_start(10)
         toolbar.set_margin_end(10)
@@ -207,16 +230,18 @@ class HTMLEditorApp(Adw.Application):
         spacer = Gtk.Box()
         spacer.set_hexpand(True)
         
-        # Add a close button
-        close_button = Gtk.Button(label="Close")
-        close_button.connect("clicked", lambda btn: self.on_close_toolbar_clicked(win, btn))
+        # No need for close button since we toggle with keyboard shortcut
         
         # Add all widgets to the toolbar
         toolbar.append(bold_button)
         toolbar.append(italic_button)
         toolbar.append(underline_button)
         toolbar.append(spacer)
-        toolbar.append(close_button)
+        
+        # Optional: Add a status indicator
+        toolbar_status = Gtk.Label(label="Formatting Toolbar")
+        toolbar_status.add_css_class("dim-label")
+        toolbar.append(toolbar_status)
         
         return toolbar
         
@@ -226,10 +251,22 @@ class HTMLEditorApp(Adw.Application):
         controller = Gtk.ShortcutController()
         
         # Create Ctrl+T shortcut for toggling the toolbar
-        trigger = Gtk.ShortcutTrigger.parse_string("<Control>t")
-        action = Gtk.CallbackAction.new(lambda *args: self.toggle_toolbar(win, *args))
-        shortcut = Gtk.Shortcut.new(trigger, action)
-        controller.add_shortcut(shortcut)
+        trigger_toolbar = Gtk.ShortcutTrigger.parse_string("<Control>t")
+        action_toolbar = Gtk.CallbackAction.new(lambda *args: self.toggle_toolbar(win, *args))
+        shortcut_toolbar = Gtk.Shortcut.new(trigger_toolbar, action_toolbar)
+        controller.add_shortcut(shortcut_toolbar)
+        
+        # Create Ctrl+Shift+S shortcut for toggling the statusbar
+        trigger_statusbar = Gtk.ShortcutTrigger.parse_string("<Control><Shift>s")
+        action_statusbar = Gtk.CallbackAction.new(lambda *args: self.toggle_statusbar(win, *args))
+        shortcut_statusbar = Gtk.Shortcut.new(trigger_statusbar, action_statusbar)
+        controller.add_shortcut(shortcut_statusbar)
+        
+        # Create Ctrl+Shift+H shortcut for toggling the headerbar
+        trigger_headerbar = Gtk.ShortcutTrigger.parse_string("<Control><Shift>h")
+        action_headerbar = Gtk.CallbackAction.new(lambda *args: self.toggle_headerbar(win, *args))
+        shortcut_headerbar = Gtk.Shortcut.new(trigger_headerbar, action_headerbar)
+        controller.add_shortcut(shortcut_headerbar)
         
         # Create Ctrl+Z shortcut for undo
         trigger_undo = Gtk.ShortcutTrigger.parse_string("<Control>z")
@@ -255,7 +292,7 @@ class HTMLEditorApp(Adw.Application):
         shortcut_close_others = Gtk.Shortcut.new(trigger_close_others, action_close_others)
         controller.add_shortcut(shortcut_close_others)
         
-        # Add controller to the window (not the webview)
+        # Add controller to the window
         win.add_controller(controller)
         
         # Make it capture events at the capture phase
@@ -263,6 +300,30 @@ class HTMLEditorApp(Adw.Application):
         
         # Make shortcut work regardless of who has focus
         controller.set_scope(Gtk.ShortcutScope.GLOBAL)
+
+    def toggle_toolbar(self, win, *args):
+        """Toggle the visibility of the toolbar with animation"""
+        is_revealed = win.toolbar_revealer.get_reveal_child()
+        win.toolbar_revealer.set_reveal_child(not is_revealed)
+        status = "hidden" if is_revealed else "shown"
+        win.statusbar.set_text(f"Toolbar {status}")
+        return True
+        
+    def toggle_statusbar(self, win, *args):
+        """Toggle the visibility of the statusbar with animation"""
+        is_revealed = win.statusbar_revealer.get_reveal_child()
+        win.statusbar_revealer.set_reveal_child(not is_revealed)
+        if not is_revealed:
+            win.statusbar.set_text("Statusbar shown")
+        return True
+    
+    def toggle_headerbar(self, win, *args):
+        """Toggle the visibility of the headerbar with animation"""
+        is_revealed = win.headerbar_revealer.get_reveal_child()
+        win.headerbar_revealer.set_reveal_child(not is_revealed)
+        status = "hidden" if is_revealed else "shown"
+        win.statusbar.set_text(f"Headerbar {status}")
+        return True
 
     def on_close_shortcut(self, win, *args):
         """Handle Ctrl+W shortcut to close current window"""
@@ -273,139 +334,6 @@ class HTMLEditorApp(Adw.Application):
         """Handle Ctrl+Shift+W shortcut to close other windows"""
         self.on_close_other_windows(None, None)
         return True
-    
-    def setup_toolbar_animation(self, win):
-        if hasattr(win, 'overlay_setup_done') and win.overlay_setup_done:
-            return
-        
-        # Create an overlay
-        win.overlay = Gtk.Overlay()
-        win.overlay.set_vexpand(True)  # Ensure overlay expands vertically
-        win.overlay.set_hexpand(True)  # Ensure overlay expands horizontally
-        
-        # Get the content box and remove the webview from its current parent
-        content_box = win.webview.get_parent()
-        if win.webview.get_parent():
-            win.webview.get_parent().remove(win.webview)
-        
-        # Create a box to hold the webview
-        webview_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        webview_box.set_vexpand(True)  # Ensure webview_box expands vertically
-        webview_box.set_hexpand(True)  # Ensure webview_box expands horizontally
-        webview_box.append(win.webview)
-        
-        # Set webview_box as the main child of the overlay
-        win.overlay.set_child(webview_box)
-        
-        # Create the toolbar box
-        win.toolbar_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        win.toolbar_box.set_halign(Gtk.Align.FILL)
-        win.toolbar_box.set_valign(Gtk.Align.END)
-        win.toolbar_box.set_margin_start(0)
-        win.toolbar_box.set_margin_end(0)
-        win.toolbar_box.set_margin_bottom(0)
-        win.toolbar_box.add_css_class("toolbar-overlay")
-        
-        # Create and populate the overlay toolbar
-        win.overlay_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        win.overlay_toolbar.set_margin_start(0)
-        win.overlay_toolbar.set_margin_end(0)
-        win.overlay_toolbar.set_margin_top(0)
-        win.overlay_toolbar.set_margin_bottom(0)
-        
-        bold_button = Gtk.Button(icon_name="format-text-bold-symbolic")
-        bold_button.set_tooltip_text("Bold")
-        bold_button.connect("clicked", lambda btn: self.on_bold_clicked(win, btn))
-        
-        italic_button = Gtk.Button(icon_name="format-text-italic-symbolic")
-        italic_button.set_tooltip_text("Italic")
-        italic_button.connect("clicked", lambda btn: self.on_italic_clicked(win, btn))
-        
-        underline_button = Gtk.Button(icon_name="format-text-underline-symbolic")
-        underline_button.set_tooltip_text("Underline")
-        underline_button.connect("clicked", lambda btn: self.on_underline_clicked(win, btn))
-        
-        spacer = Gtk.Box()
-        spacer.set_hexpand(True)
-        
-        close_button = Gtk.Button(label="Close")
-        close_button.connect("clicked", lambda btn: self.on_close_toolbar_clicked(win, btn))
-        
-        win.overlay_toolbar.append(bold_button)
-        win.overlay_toolbar.append(italic_button)
-        win.overlay_toolbar.append(underline_button)
-        win.overlay_toolbar.append(spacer)
-        win.overlay_toolbar.append(close_button)
-        
-        win.toolbar_box.append(win.overlay_toolbar)
-        
-        # Add toolbar_box as an overlay child
-        win.overlay.add_overlay(win.toolbar_box)
-        
-        # Remove existing children from content_box and add the overlay
-        if content_box:
-            child = content_box.get_first_child()
-            while child:
-                next_child = child.get_next_sibling()
-                if child != win.statusbar and child != win.bottom_toolbar:
-                    content_box.remove(child)
-                child = next_child
-            content_box.append(win.overlay)
-        
-        # Ensure statusbar is at the bottom
-        if win.statusbar.get_parent():
-            win.statusbar.get_parent().remove(win.statusbar)
-        content_box.append(win.statusbar)
-        
-        # Set initial state: hidden with zero opacity
-        win.toolbar_box.set_opacity(0.0)  # Start fully transparent
-        win.toolbar_box.set_visible(True)  # Keep visible but transparent
-        
-        # Add CSS for toolbar styling and fade animation
-        css_provider = Gtk.CssProvider()
-        css_data = """
-            .toolbar-overlay {
-                background-color: @theme_bg_color;
-                border-radius: 0px;
-                min-height: 36px;
-        }
-        """
-        css_provider.load_from_data(css_data.encode('utf-8'))
-        display = win.get_display()
-        Gtk.StyleContext.add_provider_for_display(
-            display,
-            css_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
-        
-        win.overlay_setup_done = True
-        print("Overlay toolbar setup complete with fade animation")
-        
-    def toggle_toolbar(self, win, *args):
-        """Toggle the visibility of the toolbar overlay with a fade effect"""
-        if hasattr(win, 'toolbar_box'):
-            current_opacity = win.toolbar_box.get_opacity()
-            
-            if current_opacity > 0.0:  # Currently visible, fade out
-                win.toolbar_box.set_opacity(0.0)
-                win.statusbar.set_text("Toolbar hidden")
-                print("Toolbar faded out")
-            else:  # Currently hidden, fade in
-                win.toolbar_box.set_opacity(1.0)
-                win.statusbar.set_text("Toolbar shown")
-                print("Toolbar faded in")
-        else:
-            print("Toolbar box not initialized")
-        
-        return True
-        
-    def on_close_toolbar_clicked(self, win, button):
-        """Handle the close button click with fade-out"""
-        if hasattr(win, 'toolbar_box'):
-            win.toolbar_box.set_opacity(0.0)
-            win.statusbar.set_text("Toolbar hidden")
-        else:
-            win.bottom_toolbar.set_visible(False)  # Fallback for old toolbar
 
     def get_editor_html(self, content=""):
         content = content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
@@ -952,19 +880,29 @@ class HTMLEditorApp(Adw.Application):
         win.set_title(title)
     
     def on_save_clicked(self, win, button):
-        dialog = Gtk.FileDialog()
-        dialog.set_title("Save HTML File")
-        
-        filter = Gtk.FileFilter()
-        filter.set_name("HTML files")
-        filter.add_pattern("*.html")
-        filter.add_pattern("*.htm")
-        
-        filters = Gio.ListStore.new(Gtk.FileFilter)
-        filters.append(filter)
-        
-        dialog.set_filters(filters)
-        dialog.save(win, None, lambda dialog, result: self._on_save_response(win, dialog, result))
+        if win.current_file:
+            # Save to existing file
+            win.webview.evaluate_javascript(
+                "document.getElementById('editor').innerHTML;",
+                -1, None, None, None,
+                lambda webview, result, file: self._on_get_html_content(win, webview, result, win.current_file), 
+                None
+            )
+        else:
+            # Show save dialog for new file
+            dialog = Gtk.FileDialog()
+            dialog.set_title("Save HTML File")
+            
+            filter = Gtk.FileFilter()
+            filter.set_name("HTML files")
+            filter.add_pattern("*.html")
+            filter.add_pattern("*.htm")
+            
+            filters = Gio.ListStore.new(Gtk.FileFilter)
+            filters.append(filter)
+            
+            dialog.set_filters(filters)
+            dialog.save(win, None, lambda dialog, result: self._on_save_response(win, dialog, result))
     
     def _on_save_response(self, win, dialog, result):
         try:
@@ -979,19 +917,6 @@ class HTMLEditorApp(Adw.Application):
                 )
         except GLib.Error as error:
             print(f"Error saving file: {error.message}")
-    
-    def _on_snapshot_ready(self, win, webview, result, file):
-        try:
-            # Get just the editor content using JavaScript instead of the whole document
-            win.webview.evaluate_javascript(
-                "document.getElementById('editor').innerHTML;",
-                -1, None, None,
-                None,
-                lambda webview, result, file: self._on_get_html_content(win, webview, result, file), 
-                file
-            )
-        except Exception as e:
-            print(f"Error preparing content: {e}")
             
     def save_html_content(self, win, editor_content, file, callback):
         try:
@@ -1226,7 +1151,6 @@ class HTMLEditorApp(Adw.Application):
         # Present the dialog
         dialog.set_child(content_box)
         dialog.present(win)
-        #/ Window Close Request
 
     def create_actions(self):
         """Set up application actions"""
@@ -1319,13 +1243,9 @@ class HTMLEditorApp(Adw.Application):
     
     def add_window_menu_button(self, win, menu_model=None):
         """Add a window menu button to a window or update an existing one"""
-        header = win.main_box.get_first_child()
-        if not header or not isinstance(header, Adw.HeaderBar):
-            return
-        
         # Look for existing window menu button
-        child = header.get_first_child()
         window_button = None
+        child = win.headerbar.get_first_child()
         while child:
             if (isinstance(child, Gtk.MenuButton) and 
                 child.get_icon_name() == "window-new-symbolic"):
@@ -1351,7 +1271,7 @@ class HTMLEditorApp(Adw.Application):
             window_button.set_tooltip_text("Window List")
             window_button.set_menu_model(menu_model)
             window_button.set_visible(show_button)
-            header.pack_end(window_button)
+            win.headerbar.pack_end(window_button)
             
             # Store reference to the button
             self.window_buttons[id(win)] = window_button
@@ -1360,15 +1280,6 @@ class HTMLEditorApp(Adw.Application):
         if window_button:
             self.window_buttons[id(win)] = window_button
             
-    def setup_header_bar(self, win):
-        """Initialize the header bar for a window"""
-        header = win.main_box.get_first_child()
-        if not header:
-            self.create_header_bar(win)
-        
-        # Add window menu button (uses cached menu if available)
-        self.add_window_menu_button(win)
-
     def on_switch_window(self, action, param):
         """Handle window switching action"""
         index = param.get_int32()
@@ -1478,6 +1389,7 @@ class HTMLEditorApp(Adw.Application):
             # Focus the next window if available
             if self.windows:
                 self.windows[0].present()
+    
     # On Quit
     def on_quit(self, action, param):
         """Quit the application with save confirmation if needed"""
@@ -1654,7 +1566,7 @@ class HTMLEditorApp(Adw.Application):
             remaining_windows = windows_with_changes[1:]
             if remaining_windows:
                 GLib.idle_add(lambda: self._handle_quit_with_unsaved_changes(remaining_windows))
-        #/On Quit
+    
     def on_about(self, action, param):
         """Show about dialog"""
         parent_window = self.windows[0] if self.windows else None
@@ -1704,7 +1616,75 @@ class HTMLEditorApp(Adw.Application):
         header.set_margin_bottom(12)
         content_box.append(header)
         
+        # Show/Hide UI elements section
+        ui_header = Gtk.Label()
+        ui_header.set_markup("<b>User Interface</b>")
+        ui_header.set_halign(Gtk.Align.START)
+        ui_header.set_margin_bottom(12)
+        ui_header.set_margin_top(24)
+        content_box.append(ui_header)
+        
+        # Show Toolbar option
+        toolbar_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        toolbar_box.set_margin_start(12)
+        
+        toolbar_label = Gtk.Label(label="Show Toolbar:")
+        toolbar_label.set_halign(Gtk.Align.START)
+        toolbar_label.set_hexpand(True)
+        
+        toolbar_switch = Gtk.Switch()
+        toolbar_switch.set_active(active_win.toolbar_revealer.get_reveal_child())
+        toolbar_switch.set_valign(Gtk.Align.CENTER)
+        toolbar_switch.connect("state-set", lambda sw, state: active_win.toolbar_revealer.set_reveal_child(state))
+        
+        toolbar_box.append(toolbar_label)
+        toolbar_box.append(toolbar_switch)
+        content_box.append(toolbar_box)
+        
+        # Show Statusbar option
+        statusbar_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        statusbar_box.set_margin_start(12)
+        statusbar_box.set_margin_top(12)
+        
+        statusbar_label = Gtk.Label(label="Show Statusbar:")
+        statusbar_label.set_halign(Gtk.Align.START)
+        statusbar_label.set_hexpand(True)
+        
+        statusbar_switch = Gtk.Switch()
+        statusbar_switch.set_active(active_win.statusbar_revealer.get_reveal_child())
+        statusbar_switch.set_valign(Gtk.Align.CENTER)
+        statusbar_switch.connect("state-set", lambda sw, state: active_win.statusbar_revealer.set_reveal_child(state))
+        
+        statusbar_box.append(statusbar_label)
+        statusbar_box.append(statusbar_switch)
+        content_box.append(statusbar_box)
+        
+        # Show Headerbar option
+        headerbar_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        headerbar_box.set_margin_start(12)
+        headerbar_box.set_margin_top(12)
+        
+        headerbar_label = Gtk.Label(label="Show Headerbar:")
+        headerbar_label.set_halign(Gtk.Align.START)
+        headerbar_label.set_hexpand(True)
+        
+        headerbar_switch = Gtk.Switch()
+        headerbar_switch.set_active(active_win.headerbar_revealer.get_reveal_child())
+        headerbar_switch.set_valign(Gtk.Align.CENTER)
+        headerbar_switch.connect("state-set", lambda sw, state: active_win.headerbar_revealer.set_reveal_child(state))
+        
+        headerbar_box.append(headerbar_label)
+        headerbar_box.append(headerbar_switch)
+        content_box.append(headerbar_box)
+        
         # Auto-save toggle
+        auto_save_section = Gtk.Label()
+        auto_save_section.set_markup("<b>Auto Save</b>")
+        auto_save_section.set_halign(Gtk.Align.START)
+        auto_save_section.set_margin_bottom(12)
+        auto_save_section.set_margin_top(24)
+        content_box.append(auto_save_section)
+        
         auto_save_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         auto_save_box.set_margin_start(12)
         
@@ -1789,6 +1769,63 @@ class HTMLEditorApp(Adw.Application):
         
         dialog.close()
 
+    def start_auto_save_timer(self, win):
+        """Start auto-save timer for a window"""
+        if win.auto_save_source_id:
+            GLib.source_remove(win.auto_save_source_id)
+            
+        # Set up auto-save timer
+        win.auto_save_source_id = GLib.timeout_add_seconds(
+            win.auto_save_interval,
+            lambda: self.auto_save(win)
+        )
+
+    def stop_auto_save_timer(self, win):
+        """Stop auto-save timer for a window"""
+        if win.auto_save_source_id:
+            GLib.source_remove(win.auto_save_source_id)
+            win.auto_save_source_id = None
+
+    def auto_save(self, win):
+        """Perform auto-save if needed"""
+        if win.modified and win.current_file:
+            win.statusbar.set_text("Auto-saving...")
+            win.webview.evaluate_javascript(
+                "document.getElementById('editor').innerHTML;",
+                -1, None, None, None,
+                lambda webview, result, file: self._on_get_html_content_auto_save(win, webview, result, win.current_file),
+                None
+            )
+        return win.auto_save_enabled  # Continue timer if enabled
+
+    def _on_get_html_content_auto_save(self, win, webview, result, file):
+        """Handle auto-save content retrieval"""
+        try:
+            js_result = webview.evaluate_javascript_finish(result)
+            if js_result:
+                editor_content = (js_result.get_js_value().to_string() if hasattr(js_result, 'get_js_value') else
+                                js_result.to_string() if hasattr(js_result, 'to_string') else str(js_result))
+                
+                self.save_html_content(win, editor_content, file, 
+                                      lambda file, result: self._on_auto_save_completed(win, file, result))
+        except Exception as e:
+            print(f"Error getting HTML content for auto-save: {e}")
+            win.statusbar.set_text(f"Auto-save failed: {e}")
+
+    def _on_auto_save_completed(self, win, file, result):
+        """Handle auto-save completion"""
+        try:
+            success, _ = file.replace_contents_finish(result)
+            if success:
+                win.modified = False  # Reset modified flag after save
+                self.update_window_title(win)
+                win.statusbar.set_text(f"Auto-saved at {GLib.DateTime.new_now_local().format('%H:%M:%S')}")
+            else:
+                win.statusbar.set_text("Auto-save failed")
+        except GLib.Error as error:
+            print(f"Error during auto-save: {error.message}")
+            win.statusbar.set_text(f"Auto-save failed: {error.message}")
+
     def show_error_dialog(self, message):
         """Show error message dialog"""
         if not self.windows:
@@ -1846,4 +1883,4 @@ def main():
 
 if __name__ == "__main__":
     Adw.init()
-    sys.exit(main())       
+    sys.exit(main())
