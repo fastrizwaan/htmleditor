@@ -176,7 +176,12 @@ class HTMLEditorApp(Adw.Application):
         save_button = Gtk.Button(icon_name="document-save-symbolic")
         save_button.set_tooltip_text("Save File")
         save_button.connect("clicked", lambda btn: self.on_save_clicked(win, btn))
-        
+
+        # Add Save As button
+        save_as_button = Gtk.Button(icon_name="document-save-as-symbolic")
+        save_as_button.set_tooltip_text("Save File As")
+        save_as_button.connect("clicked", lambda btn: self.on_save_as_clicked(win, btn))
+
         # Create undo/redo buttons
         win.undo_button = Gtk.Button(icon_name="edit-undo-symbolic")
         win.undo_button.set_tooltip_text("Undo")
@@ -203,6 +208,7 @@ class HTMLEditorApp(Adw.Application):
         win.headerbar.pack_start(new_button)
         win.headerbar.pack_start(open_button)
         win.headerbar.pack_start(save_button)
+        win.headerbar.pack_start(save_as_button)
         win.headerbar.pack_start(win.undo_button)
         win.headerbar.pack_start(win.redo_button)
         win.headerbar.pack_end(menu_button)
@@ -1002,7 +1008,53 @@ class HTMLEditorApp(Adw.Application):
                 print("File save was not successful")
         except GLib.Error as error:
             print(f"Error writing file: {error.message}")
-            
+    
+    ## Save As
+    def on_save_as_clicked(self, win, button):
+        """Show save as dialog to save current document with a new filename"""
+        dialog = Gtk.FileDialog()
+        dialog.set_title("Save As")
+        
+        filter = Gtk.FileFilter()
+        filter.set_name("HTML files")
+        filter.add_pattern("*.html")
+        filter.add_pattern("*.htm")
+        
+        filters = Gio.ListStore.new(Gtk.FileFilter)
+        filters.append(filter)
+        
+        dialog.set_filters(filters)
+        
+        # If there's a current file, use its parent directory as the initial folder
+        if win.current_file:
+            parent_dir = win.current_file.get_parent()
+            if parent_dir:
+                dialog.set_initial_folder(parent_dir)
+        
+        dialog.save(win, None, lambda dialog, result: self._on_save_as_response(win, dialog, result))
+
+    # 3. Add a method to handle the Save As dialog response
+    def _on_save_as_response(self, win, dialog, result):
+        """Handle save as dialog response"""
+        try:
+            file = dialog.save_finish(result)
+            if file:
+                # Store the new file path
+                win.current_file = file
+                
+                # Get content and save it
+                win.webview.evaluate_javascript(
+                    "document.getElementById('editor').innerHTML;",
+                    -1, None, None, None,
+                    lambda webview, result, file: self._on_get_html_content(win, webview, result, file),
+                    file
+                )
+        except GLib.Error as error:
+            if error.domain != 'gtk-dialog-error-quark' or error.code != 2:  # Ignore cancel
+                print(f"Error saving file: {error.message}")
+                self.show_error_dialog(f"Error saving file: {error.message}")
+    ## Save As Ends
+
     def on_bold_clicked(self, win, button):
         self.execute_js(win, "document.execCommand('bold', false, null);")
     
