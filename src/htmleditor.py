@@ -38,7 +38,12 @@ class HTMLEditorApp(Adw.Application):
         """Handle application activation (new window)"""
         win = self.create_window()
         win.present()
+        
+        # Set focus after window is shown - this is crucial
+        GLib.timeout_add(500, lambda: self.set_initial_focus(win))
+        
         self.update_window_menu()
+
 
     def on_open(self, app, files, n_files, hint):
         """Handle file opening"""
@@ -735,6 +740,7 @@ class HTMLEditorApp(Adw.Application):
         # Create a new window with a blank document
         new_win = self.create_window()
         new_win.present()
+        GLib.timeout_add(500, lambda: self.set_initial_focus(new_win))
         self.update_window_menu()
         new_win.statusbar.set_text("New document created")
     
@@ -1876,6 +1882,55 @@ class HTMLEditorApp(Adw.Application):
         
         dialog.set_child(content_box)
         dialog.present(active_window)
+
+    # Show Caret in the window (for new and fresh start)
+    def set_initial_focus(self, win):
+        """Set focus to the WebView and its editor element after window is shown"""
+        try:
+            # First grab focus on the WebView widget itself
+            win.webview.grab_focus()
+            
+            # Then focus the editor element inside the WebView
+            js_code = """
+            (function() {
+                const editor = document.getElementById('editor');
+                if (!editor) return false;
+                
+                editor.focus();
+                
+                // Set cursor position
+                try {
+                    const range = document.createRange();
+                    const sel = window.getSelection();
+                    
+                    // Find or create a text node to place cursor
+                    let textNode = null;
+                    let firstDiv = editor.querySelector('div');
+                    
+                    if (!firstDiv) {
+                        editor.innerHTML = '<div><br></div>';
+                        firstDiv = editor.querySelector('div');
+                    }
+                    
+                    if (firstDiv) {
+                        range.setStart(firstDiv, 0);
+                        range.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                    }
+                } catch (e) {
+                    console.log("Error setting cursor position:", e);
+                }
+                
+                return true;
+            })();
+            """
+            
+            win.webview.evaluate_javascript(js_code, -1, None, None, None, None, None)
+            return False  # Don't call again
+        except Exception as e:
+            print(f"Error setting initial focus: {e}")
+            return False  # Don't call again
 
         
 def main():
