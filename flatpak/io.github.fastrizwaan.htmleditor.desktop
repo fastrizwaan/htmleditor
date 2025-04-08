@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=HTML Editor
+Type=Application
+Comment=A HTML Rich Text Editor
+Exec=htmleditor %F
+MimeType=text/html;
+Icon=io.github.fastrizwaan.htmleditor
+StartupNotify=true
+Categories=Office;
+Keywords=html;editor;text;web;code;

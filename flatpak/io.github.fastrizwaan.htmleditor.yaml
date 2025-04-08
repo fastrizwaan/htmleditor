@@ -1,0 +1,59 @@
+id: io.github.fastrizwaan.htmleditor
+sdk: org.gnome.Sdk
+runtime: org.gnome.Platform
+runtime-version: '47'
+command: htmleditor
+
+finish-args:
+  - --allow=devel
+  - --allow=multiarch
+  - --device=all
+  - --filesystem=~/.local/share/applications:create
+  - --filesystem=~/.var/app/io.github.fastrizwaan.htmleditor/data/htmleditor:create
+  - --share=ipc
+  - --share=network
+  - --socket=pulseaudio
+  - --socket=x11
+  - --system-talk-name=org.freedesktop.UDisks2
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=io.github.fastrizwaan.htmleditor
+  - --own-name=io.github.fastrizwaan.htmleditor
+  - --talk-name=org.gnome.SettingsDaemon
+  - --talk-name=org.gnome.SessionManager
+  - --talk-name=org.a11y.Bus
+  - --filesystem=host
+  - --filesystem=xdg-run/gvfs
+  - --filesystem=xdg-run/gvfsd
+
+modules:
+  - name: pyyaml
+    buildsystem: simple
+    build-commands:
+      - pip3 install --prefix=/app PyYAML*.whl
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/b9/2b/614b4752f2e127db5cc206abc23a8c19678e92b23c3db30fc86ab731d3bd/PyYAML-6.0.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+        sha256: 80bab7bfc629882493af4aa31a4cfa43a4c57c83813253626916b8c7ada83476
+        only-arches:
+          - x86_64
+        x-checker-data:
+          type: pypi
+          name: PyYAML
+          packagetype: bdist_wheel
+
+  - name: htmleditor
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 htmleditor.py /app/bin/htmleditor
+      - mkdir -p /app/share/icons/hicolor/scalable/apps
+      - mkdir -p /app/share/applications
+      - install -Dm755 io.github.fastrizwaan.htmleditor.desktop /app/share/applications
+      - install -Dm755 io.github.fastrizwaan.htmleditor.svg /app/share/icons/hicolor/scalable/apps/io.github.fastrizwaan.htmleditor.svg
+      - ls -la /app/bin/
+    sources:
+      - type: file
+        path: htmleditor.py
+      - type: file
+        path: io.github.fastrizwaan.htmleditor.desktop
+      - type: file
+        path: io.github.fastrizwaan.htmleditor.svg
