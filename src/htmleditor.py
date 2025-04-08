@@ -375,6 +375,18 @@ class HTMLEditorApp(Adw.Application):
                 top: 10px;
                 left: 10px;
             }}
+            @media (prefers-color-scheme: dark) {{
+                html, body {{
+                    background-color: #1e1e1e;
+                    color: #c0c0c0;
+                }}
+            }}
+            @media (prefers-color-scheme: light) {{
+                html, body {{
+                    background-color: #ffffff;
+                    color: #000000;
+                }}
+            }}
         </style>
         <script>
             window.initialContent = "{content or '<div><br></div>'}";
