@@ -605,9 +605,17 @@ class HTMLEditorApp(Adw.Application):
     
     # Undo/Redo related methods
     def on_content_changed(self, win, manager, result):
+        # Check current modified state before changing it
+        was_modified = win.modified
+        
+        # Set new state and update window title
         win.modified = True
         self.update_window_title(win)
         self.update_undo_redo_state(win)
+        
+        # Only update window menu if the modified state changed
+        if not was_modified:  # If it wasn't modified before but now is
+            self.update_window_menu()
         
     def update_undo_redo_state(self, win):
         try:
@@ -723,11 +731,21 @@ class HTMLEditorApp(Adw.Application):
 
                 if success:
                     win.statusbar.set_text(f"{operation.capitalize()} performed")
-                    if operation == "undo" and is_initial_state:
-                        win.modified = False  # Reset when fully undone
-                    else:
-                        win.modified = True  # Set for redo or partial undo
-                    self.update_window_title(win)
+                    
+                    # Check current modified state before changing it
+                    was_modified = win.modified
+                    
+                    # Determine new state based on operation and result
+                    new_modified_state = not (operation == "undo" and is_initial_state)
+                    
+                    # Set new state if it's different
+                    if win.modified != new_modified_state:
+                        win.modified = new_modified_state
+                        self.update_window_title(win)
+                        
+                        # Only update window menu if modified state changed
+                        self.update_window_menu()
+                    
                     self.update_undo_redo_state(win)
                 else:
                     win.statusbar.set_text(f"No more {operation} actions available")
