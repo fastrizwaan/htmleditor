@@ -884,9 +884,9 @@ class HTMLEditorApp(Adw.Application):
                 path = win.current_file
             # Extract filename without extension and show modified marker
             filename = os.path.splitext(os.path.basename(path))[0]
-            return f"{'⃰' if win.modified else ''}{filename}"
+            return f"{' ⃰  ' if win.modified else ''}{filename}"
         else:
-            return f"{'⃰' if win.modified else ''}Untitled"
+            return f"{' ⃰  ' if win.modified else ''}Untitled"
 
     def update_window_title(self, win):
         """Update window title to show document name (without extension) and modified status"""
@@ -898,11 +898,11 @@ class HTMLEditorApp(Adw.Application):
                 path = win.current_file
             # Extract filename without extension
             filename = os.path.splitext(os.path.basename(path))[0]
-            title = f"{'⃰' if win.modified else ''}{filename} - HTML Editor"
+            title = f"{' ⃰  ' if win.modified else ''}{filename} - HTML Editor"
         else:
-            title = f"{'⃰' if win.modified else ''}Untitled - HTML Editor"
+            title = f"{' ⃰  ' if win.modified else ''}Untitled - HTML Editor"
         win.set_title(title)
-    
+     
     def on_save_clicked(self, win, button):
         if win.current_file:
             # Save to existing file
@@ -1949,6 +1949,7 @@ class HTMLEditorApp(Adw.Application):
         except Exception as e:
             print(f"Error setting initial focus: {e}")
             return False  # Don't call again
+
 
         
 def main():
