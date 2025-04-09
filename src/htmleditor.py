@@ -116,11 +116,21 @@ class HTMLEditorApp(Adw.Application):
         win.headerbar_revealer.set_child(win.headerbar)
         win.main_box.append(win.headerbar_revealer)
         
-        # Create content box (for webview and toolbar)
+        # Create content box (for webview and toolbars)
         content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         content_box.set_vexpand(True)
         content_box.set_hexpand(True)
         
+        # Create formatting toolbar with revealer
+        win.formatting_toolbar_revealer = Gtk.Revealer()
+        win.formatting_toolbar_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_UP)
+        win.formatting_toolbar_revealer.set_transition_duration(250)
+        win.formatting_toolbar_revealer.set_reveal_child(True)  # Visible by default
+        
+        win.toolbar = self.create_formatting_toolbar(win)
+        win.formatting_toolbar_revealer.set_child(win.toolbar)
+        content_box.append(win.formatting_toolbar_revealer)
+
         # Create webview
         win.webview = WebKit.WebView()
         win.webview.set_vexpand(True)
@@ -143,15 +153,6 @@ class HTMLEditorApp(Adw.Application):
         win.webview.load_html(self.get_initial_html(), None)
         content_box.append(win.webview)
         
-        # Create toolbar with revealer
-        win.toolbar_revealer = Gtk.Revealer()
-        win.toolbar_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_UP)
-        win.toolbar_revealer.set_transition_duration(250)
-        win.toolbar_revealer.set_reveal_child(True)  # Visible by default
-        
-        win.toolbar = self.create_toolbar(win)
-        win.toolbar_revealer.set_child(win.toolbar)
-        content_box.append(win.toolbar_revealer)
         
         # Create statusbar with revealer
         win.statusbar_revealer = Gtk.Revealer()
@@ -234,13 +235,13 @@ class HTMLEditorApp(Adw.Application):
         # Create window menu button
         self.add_window_menu_button(win)
     
-    def create_toolbar(self, win):
+    def create_formatting_toolbar(self, win):
         """Create the toolbar for formatting options"""
-        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        toolbar.set_margin_start(10)
-        toolbar.set_margin_end(10)
-        toolbar.set_margin_top(5)
-        toolbar.set_margin_bottom(5)
+        formatting_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        formatting_toolbar.set_margin_start(10)
+        formatting_toolbar.set_margin_end(10)
+        formatting_toolbar.set_margin_top(5)
+        formatting_toolbar.set_margin_bottom(5)
         
         # Add some HTML editing buttons
         bold_button = Gtk.Button(icon_name="format-text-bold-symbolic")
@@ -261,18 +262,17 @@ class HTMLEditorApp(Adw.Application):
         
         # No need for close button since we toggle with keyboard shortcut
         
-        # Add all widgets to the toolbar
-        toolbar.append(bold_button)
-        toolbar.append(italic_button)
-        toolbar.append(underline_button)
-        toolbar.append(spacer)
+        # Add all widgets to the formatting toolbar
+        formatting_toolbar.append(bold_button)
+        formatting_toolbar.append(italic_button)
+        formatting_toolbar.append(underline_button)
+        formatting_toolbar.append(spacer)
         
         # Optional: Add a status indicator
-        toolbar_status = Gtk.Label(label="Formatting Toolbar")
-        toolbar_status.add_css_class("dim-label")
-        toolbar.append(toolbar_status)
+        formatting_toolbar_status = Gtk.Label(label="Formatting Toolbar")
+        formatting_toolbar_status.add_css_class("dim-label")
         
-        return toolbar
+        return formatting_toolbar
         
     def setup_keyboard_shortcuts(self, win):
         """Setup keyboard shortcuts for the window"""
@@ -281,7 +281,7 @@ class HTMLEditorApp(Adw.Application):
         
         # Create Ctrl+T shortcut for toggling the toolbar
         trigger_toolbar = Gtk.ShortcutTrigger.parse_string("<Control>t")
-        action_toolbar = Gtk.CallbackAction.new(lambda *args: self.toggle_toolbar(win, *args))
+        action_toolbar = Gtk.CallbackAction.new(lambda *args: self.toggle_formatting_toolbar(win, *args))
         shortcut_toolbar = Gtk.Shortcut.new(trigger_toolbar, action_toolbar)
         controller.add_shortcut(shortcut_toolbar)
         
@@ -330,12 +330,12 @@ class HTMLEditorApp(Adw.Application):
         # Make shortcut work regardless of who has focus
         controller.set_scope(Gtk.ShortcutScope.GLOBAL)
 
-    def toggle_toolbar(self, win, *args):
+    def toggle_formatting_toolbar(self, win, *args):
         """Toggle the visibility of the toolbar with animation"""
-        is_revealed = win.toolbar_revealer.get_reveal_child()
-        win.toolbar_revealer.set_reveal_child(not is_revealed)
+        is_revealed = win.formatting_toolbar_revealer.get_reveal_child()
+        win.formatting_toolbar_revealer.set_reveal_child(not is_revealed)
         status = "hidden" if is_revealed else "shown"
-        win.statusbar.set_text(f"Toolbar {status}")
+        win.statusbar.set_text(f"Formatting Toolbar {status}")
         return True
         
     def toggle_statusbar(self, win, *args):
@@ -1484,21 +1484,21 @@ class HTMLEditorApp(Adw.Application):
         content_box.append(ui_header)
         
         # Show Toolbar option
-        toolbar_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        toolbar_box.set_margin_start(12)
+        formatting_toolbar_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        formatting_toolbar_box.set_margin_start(12)
         
-        toolbar_label = Gtk.Label(label="Show Toolbar:")
-        toolbar_label.set_halign(Gtk.Align.START)
-        toolbar_label.set_hexpand(True)
+        formatting_toolbar_label = Gtk.Label(label="Show Toolbar:")
+        formatting_toolbar_label.set_halign(Gtk.Align.START)
+        formatting_toolbar_label.set_hexpand(True)
         
-        toolbar_switch = Gtk.Switch()
-        toolbar_switch.set_active(active_win.toolbar_revealer.get_reveal_child())
-        toolbar_switch.set_valign(Gtk.Align.CENTER)
-        toolbar_switch.connect("state-set", lambda sw, state: active_win.toolbar_revealer.set_reveal_child(state))
+        formatting_toolbar_switch = Gtk.Switch()
+        formatting_toolbar_switch.set_active(active_win.formatting_toolbar_revealer.get_reveal_child())
+        formatting_toolbar_switch.set_valign(Gtk.Align.CENTER)
+        formatting_toolbar_switch.connect("state-set", lambda sw, state: active_win.formatting_toolbar_revealer.set_reveal_child(state))
         
-        toolbar_box.append(toolbar_label)
-        toolbar_box.append(toolbar_switch)
-        content_box.append(toolbar_box)
+        formatting_toolbar_box.append(formatting_toolbar_label)
+        formatting_toolbar_box.append(formatting_toolbar_switch)
+        content_box.append(formatting_toolbar_box)
         
         # Show Statusbar option
         statusbar_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
