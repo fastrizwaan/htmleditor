@@ -156,7 +156,7 @@ class HTMLEditorApp(Adw.Application):
         win.current_file = None
         win.auto_save_source_id = None
         
-        win.set_default_size(900, 700)
+        win.set_default_size(800, 600)
         win.set_title("Untitled - HTML Editor")
         
         # Create main box to contain all UI elements
@@ -356,10 +356,20 @@ class HTMLEditorApp(Adw.Application):
         win.underline_button.add_css_class("flat")  # Add flat style
         win.underline_handler_id = win.underline_button.connect("toggled", lambda btn: self.on_underline_toggled(win, btn))
         
+        # Add strikeout button
+        win.strikeout_button = Gtk.ToggleButton()
+        strikeout_icon = Gtk.Image.new_from_icon_name("format-text-strikethrough-symbolic")
+        win.strikeout_button.set_child(strikeout_icon)
+        win.strikeout_button.set_tooltip_text("Strikeout")
+        win.strikeout_button.set_focus_on_click(False)  # Prevent focus stealing
+        win.strikeout_button.add_css_class("flat")  # Add flat style
+        win.strikeout_handler_id = win.strikeout_button.connect("toggled", lambda btn: self.on_strikeout_toggled(win, btn))
+        
         # Add buttons to the formatting group
         formatting_group.append(win.bold_button)
         formatting_group.append(win.italic_button)
         formatting_group.append(win.underline_button)
+        formatting_group.append(win.strikeout_button)  # Add strikeout button
         
         # Add a separator
         separator = Gtk.Box()
@@ -442,6 +452,13 @@ class HTMLEditorApp(Adw.Application):
         action_underline = Gtk.CallbackAction.new(lambda *args: self.on_underline_shortcut(win, *args))
         shortcut_underline = Gtk.Shortcut.new(trigger_underline, action_underline)
         controller.add_shortcut(shortcut_underline)       
+        
+        # Ctrl+Shift+X for Strikeout
+        trigger_strikeout = Gtk.ShortcutTrigger.parse_string("<Control><Shift>x")
+        action_strikeout = Gtk.CallbackAction.new(lambda *args: self.on_strikeout_shortcut(win, *args))
+        shortcut_strikeout = Gtk.Shortcut.new(trigger_strikeout, action_strikeout)
+        controller.add_shortcut(shortcut_strikeout)
+        
         # Add controller to the window
         win.add_controller(controller)
         
@@ -504,7 +521,25 @@ class HTMLEditorApp(Adw.Application):
         
         win.statusbar.set_text("Underline formatting applied")
         return True
+
+    def on_strikeout_shortcut(self, win, *args):
+        """Handle Ctrl+Shift+X shortcut for strikeout formatting"""
+        # Execute the strikeout command directly in JavaScript
+        self.execute_js(win, """
+            document.execCommand('strikeThrough', false, null);
+            // Return the current state so we can update the button
+            document.queryCommandState('strikeThrough');
+        """)
         
+        # Immediately toggle the button state to provide instant feedback
+        if win.strikeout_handler_id is not None:
+            win.strikeout_button.handler_block(win.strikeout_handler_id)
+            win.strikeout_button.set_active(not win.strikeout_button.get_active())
+            win.strikeout_button.handler_unblock(win.strikeout_handler_id)
+        
+        win.statusbar.set_text("Strikeout formatting applied")
+        return True  
+              
     def toggle_formatting_toolbar(self, win, *args):
         """Toggle the visibility of the toolbar with animation"""
         is_revealed = win.formatting_toolbar_revealer.get_reveal_child()
@@ -752,10 +787,16 @@ class HTMLEditorApp(Adw.Application):
                 const isBold = document.queryCommandState('bold');
                 const isItalic = document.queryCommandState('italic');
                 const isUnderline = document.queryCommandState('underline');
+                const isStrikeThrough = document.queryCommandState('strikeThrough');
                 
                 // Send the state to Python
                 window.webkit.messageHandlers.formattingChanged.postMessage(
-                    JSON.stringify({bold: isBold, italic: isItalic, underline: isUnderline})
+                    JSON.stringify({
+                        bold: isBold, 
+                        italic: isItalic, 
+                        underline: isUnderline,
+                        strikeThrough: isStrikeThrough
+                    })
                 );
             } catch(e) {
                 console.log("Error updating formatting state:", e);
@@ -1104,6 +1145,22 @@ class HTMLEditorApp(Adw.Application):
             if win.underline_handler_id is not None:
                 button.handler_unblock(win.underline_handler_id)
 
+    def on_strikeout_toggled(self, win, button):
+        """Handle strikeout toggle button state changes"""
+        # Block the handler temporarily
+        if win.strikeout_handler_id is not None:
+            button.handler_block(win.strikeout_handler_id)
+        
+        try:
+            # Apply formatting
+            self.execute_js(win, "document.execCommand('strikeThrough', false, null);")
+            # Force focus back to the webview after a small delay
+            GLib.timeout_add(50, lambda: win.webview.grab_focus())
+        finally:
+            # Unblock the handler
+            if win.strikeout_handler_id is not None:
+                button.handler_unblock(win.strikeout_handler_id)
+
     def on_formatting_changed(self, win, manager, result):
         """Update toggle button states based on current formatting"""
         try:
@@ -1142,6 +1199,11 @@ class HTMLEditorApp(Adw.Application):
                 win.underline_button.handler_block(win.underline_handler_id)
                 win.underline_button.set_active(format_state.get('underline', False))
                 win.underline_button.handler_unblock(win.underline_handler_id)
+                
+            if win.strikeout_handler_id is not None:
+                win.strikeout_button.handler_block(win.strikeout_handler_id)
+                win.strikeout_button.set_active(format_state.get('strikeThrough', False))
+                win.strikeout_button.handler_unblock(win.strikeout_handler_id)
                 
         except Exception as e:
             print(f"Error updating formatting buttons: {e}")
