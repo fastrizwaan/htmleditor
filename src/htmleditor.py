@@ -715,6 +715,27 @@ class HTMLEditorApp(Adw.Application):
         document.addEventListener('DOMContentLoaded', function() {
             const editor = document.getElementById('editor');
             
+            // Give the editor a proper tabindex to ensure it can capture keyboard focus
+            editor.setAttribute('tabindex', '0');
+            
+            // Capture tab key to prevent focus from shifting
+            editor.addEventListener('keydown', function(e) {
+                if (e.key === 'Tab') {
+                    // Prevent the default focus shift action
+                    e.preventDefault();
+                    
+                    // Insert tab character as a styled span
+                    document.execCommand('insertHTML', false, '<span class="Apple-tab-span" style="white-space:pre">\\t</span>');
+                    
+                    // Trigger input event to register the change for undo/redo
+                    const event = new Event('input', {
+                        bubbles: true,
+                        cancelable: true
+                    });
+                    editor.dispatchEvent(event);
+                }
+            });
+            
             editor.addEventListener('focus', function onFirstFocus(e) {
                 if (!editor.textContent.trim() && editor.innerHTML === '') {
                     editor.innerHTML = '<div><br></div>';
