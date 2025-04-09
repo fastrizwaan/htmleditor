@@ -70,8 +70,46 @@ class HTMLEditorApp(Adw.Application):
             self._simple_markdown_to_html = file_operations._simple_markdown_to_html
         
     def do_startup(self):
+        """Initialize application and set up CSS provider"""
         Adw.Application.do_startup(self)
+        
+        # Set up CSS provider
+        self.setup_css_provider()
+        
+        # Create actions
         self.create_actions()
+        
+    def setup_css_provider(self):
+        """Set up CSS provider for custom styling"""
+        self.css_provider = Gtk.CssProvider()
+        self.css_provider.load_from_data(b"""
+            .toolbar-container { padding: 0px 0px; background-color: rgba(127, 127, 127, 0.15); }
+            .flat { background: none; }
+            .flat:hover { background: rgba(127, 127, 127, 0.25); }
+            .flat:checked { background: rgba(127, 127, 127, 0.25); }
+            colorbutton.flat, colorbutton.flat button { background: none; }
+            colorbutton.flat:hover, colorbutton.flat button:hover { background: rgba(127, 127, 127, 0.25); }
+            dropdown.flat, dropdown.flat button { background: none; border-radius: 5px; }
+            dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
+            .flat-header { background: rgba(127, 127, 127, 0.15); border: none; box-shadow: none; padding: 0; }
+            .button-box button { min-width: 80px; min-height: 36px; }
+            .highlighted { background-color: rgba(127, 127, 127, 0.15); }
+            .toolbar-group { margin: 0px 3px; }
+            .toolbar-separator { min-height: 16px; min-width: 1px; background-color: alpha(currentColor, 0.15); margin: 10px 6px; }
+            .color-indicator { min-height: 3px; min-width: 16px; margin-top: 1px; margin-bottom: 0px; border-radius: 2px; }
+            .color-box { padding: 0px; }
+            menubutton.flat { border-radius: 6px; }
+            menubutton.flat:hover { background: rgba(127, 127, 127, 0.25); border-radius: 6px; }
+            menubutton.flat > button { border-radius: 6px; }
+            menubutton.flat > button:hover { border-radius: 6px; }
+        """)
+        
+        # Apply the CSS to the default display
+        Gtk.StyleContext.add_provider_for_display(
+            Gdk.Display.get_default(),
+            self.css_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
 
     def on_activate(self, app):
         """Handle application activation (new window)"""
@@ -133,6 +171,7 @@ class HTMLEditorApp(Adw.Application):
         win.headerbar_revealer.set_reveal_child(True)  # Visible by default
         
         win.headerbar = Adw.HeaderBar()
+        win.headerbar.add_css_class("flat-header")  # Add flat-header style
         self.setup_headerbar_content(win)
         win.headerbar_revealer.set_child(win.headerbar)
         win.main_box.append(win.headerbar_revealer)
@@ -148,8 +187,13 @@ class HTMLEditorApp(Adw.Application):
         win.formatting_toolbar_revealer.set_transition_duration(250)
         win.formatting_toolbar_revealer.set_reveal_child(True)  # Visible by default
         
+        # Create toolbar container with CSS class
+        win.toolbar_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        win.toolbar_container.add_css_class("toolbar-container")
+        
         win.toolbar = self.create_formatting_toolbar(win)
-        win.formatting_toolbar_revealer.set_child(win.toolbar)
+        win.toolbar_container.append(win.toolbar)
+        win.formatting_toolbar_revealer.set_child(win.toolbar_container)
         content_box.append(win.formatting_toolbar_revealer)
 
         # Create webview
@@ -182,6 +226,7 @@ class HTMLEditorApp(Adw.Application):
         
         # Create statusbar with revealer
         win.statusbar_revealer = Gtk.Revealer()
+        win.statusbar_revealer.add_css_class("flat-header")
         win.statusbar_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_UP)
         win.statusbar_revealer.set_transition_duration(250)
         win.statusbar_revealer.set_reveal_child(True)  # Visible by default
@@ -209,38 +254,45 @@ class HTMLEditorApp(Adw.Application):
         
     def setup_headerbar_content(self, win):
         """Create buttons for the header bar"""
-        # Create buttons for header bar
+        # Create buttons for header bar with flat style
         new_button = Gtk.Button(icon_name="document-new-symbolic")
         new_button.set_tooltip_text("New Document in New Window")
         new_button.connect("clicked", lambda btn: self.on_new_clicked(win, btn))
+        new_button.add_css_class("flat")  # Add flat style
         
         open_button = Gtk.Button(icon_name="document-open-symbolic")
         open_button.set_tooltip_text("Open File in New Window")
         open_button.connect("clicked", lambda btn: self.on_open_clicked(win, btn))
+        open_button.add_css_class("flat")  # Add flat style
         
         save_button = Gtk.Button(icon_name="document-save-symbolic")
         save_button.set_tooltip_text("Save File")
         save_button.connect("clicked", lambda btn: self.on_save_clicked(win, btn))
+        save_button.add_css_class("flat")  # Add flat style
 
         # Add Save As button
         save_as_button = Gtk.Button(icon_name="document-save-as-symbolic")
         save_as_button.set_tooltip_text("Save File As")
         save_as_button.connect("clicked", lambda btn: self.on_save_as_clicked(win, btn))
+        save_as_button.add_css_class("flat")  # Add flat style
 
         # Create undo/redo buttons
         win.undo_button = Gtk.Button(icon_name="edit-undo-symbolic")
         win.undo_button.set_tooltip_text("Undo")
         win.undo_button.connect("clicked", lambda btn: self.on_undo_clicked(win, btn))
         win.undo_button.set_sensitive(False)  # Initially disabled
+        win.undo_button.add_css_class("flat")  # Add flat style
         
         win.redo_button = Gtk.Button(icon_name="edit-redo-symbolic")
         win.redo_button.set_tooltip_text("Redo")
         win.redo_button.connect("clicked", lambda btn: self.on_redo_clicked(win, btn))
         win.redo_button.set_sensitive(False)  # Initially disabled
+        win.redo_button.add_css_class("flat")  # Add flat style
         
         # Create menu
         menu_button = Gtk.MenuButton()
         menu_button.set_icon_name("open-menu-symbolic")
+        menu_button.add_css_class("flat")  # Add flat style
         
         menu = Gio.Menu()
         menu.append("Preferences", "app.preferences")
@@ -268,11 +320,16 @@ class HTMLEditorApp(Adw.Application):
         formatting_toolbar.set_margin_end(10)
         formatting_toolbar.set_margin_top(5)
         formatting_toolbar.set_margin_bottom(5)
+        formatting_toolbar.add_css_class("toolbar-group")  # Add toolbar-group class
         
         # Store the handlers for blocking
         win.bold_handler_id = None
         win.italic_handler_id = None
         win.underline_handler_id = None
+        
+        # Create a toolbar group for formatting buttons
+        formatting_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+        formatting_group.add_css_class("toolbar-group")
         
         # Add HTML editing toggle buttons
         win.bold_button = Gtk.ToggleButton()
@@ -280,6 +337,7 @@ class HTMLEditorApp(Adw.Application):
         win.bold_button.set_child(bold_icon)
         win.bold_button.set_tooltip_text("Bold")
         win.bold_button.set_focus_on_click(False)  # Prevent focus stealing
+        win.bold_button.add_css_class("flat")  # Add flat style
         win.bold_handler_id = win.bold_button.connect("toggled", lambda btn: self.on_bold_toggled(win, btn))
         
         win.italic_button = Gtk.ToggleButton()
@@ -287,6 +345,7 @@ class HTMLEditorApp(Adw.Application):
         win.italic_button.set_child(italic_icon)
         win.italic_button.set_tooltip_text("Italic")
         win.italic_button.set_focus_on_click(False)  # Prevent focus stealing
+        win.italic_button.add_css_class("flat")  # Add flat style
         win.italic_handler_id = win.italic_button.connect("toggled", lambda btn: self.on_italic_toggled(win, btn))
         
         win.underline_button = Gtk.ToggleButton()
@@ -294,16 +353,25 @@ class HTMLEditorApp(Adw.Application):
         win.underline_button.set_child(underline_icon)
         win.underline_button.set_tooltip_text("Underline")
         win.underline_button.set_focus_on_click(False)  # Prevent focus stealing
+        win.underline_button.add_css_class("flat")  # Add flat style
         win.underline_handler_id = win.underline_button.connect("toggled", lambda btn: self.on_underline_toggled(win, btn))
+        
+        # Add buttons to the formatting group
+        formatting_group.append(win.bold_button)
+        formatting_group.append(win.italic_button)
+        formatting_group.append(win.underline_button)
+        
+        # Add a separator
+        separator = Gtk.Box()
+        separator.add_css_class("toolbar-separator")
         
         # Add a spacer (expanding box)
         spacer = Gtk.Box()
         spacer.set_hexpand(True)
         
         # Add all widgets to the formatting toolbar
-        formatting_toolbar.append(win.bold_button)
-        formatting_toolbar.append(win.italic_button)
-        formatting_toolbar.append(win.underline_button)
+        formatting_toolbar.append(formatting_group)
+        formatting_toolbar.append(separator)
         formatting_toolbar.append(spacer)
         
         return formatting_toolbar
@@ -1374,6 +1442,7 @@ class HTMLEditorApp(Adw.Application):
             window_button.set_tooltip_text("Window List")
             window_button.set_menu_model(menu_model)
             window_button.set_visible(show_button)
+            window_button.add_css_class("flat")
             win.headerbar.pack_end(window_button)
             
             # Store reference to the button
