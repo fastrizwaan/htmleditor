@@ -147,9 +147,14 @@ class HTMLEditorApp(Adw.Application):
             user_content_manager.register_script_message_handler("contentChanged")
             user_content_manager.connect("script-message-received::contentChanged", 
                                         lambda mgr, res: self.on_content_changed(win, mgr, res))
+            
+            # Add handler for formatting changes
+            user_content_manager.register_script_message_handler("formattingChanged")
+            user_content_manager.connect("script-message-received::formattingChanged", 
+                                        lambda mgr, res: self.on_formatting_changed(win, mgr, res))
         except:
             print("Warning: Could not set up JavaScript message handlers")
-            
+                    
         win.webview.load_html(self.get_initial_html(), None)
         content_box.append(win.webview)
         
@@ -236,41 +241,49 @@ class HTMLEditorApp(Adw.Application):
         self.add_window_menu_button(win)
     
     def create_formatting_toolbar(self, win):
-        """Create the toolbar for formatting options"""
+        """Create the toolbar for formatting options with toggle buttons"""
         formatting_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         formatting_toolbar.set_margin_start(10)
         formatting_toolbar.set_margin_end(10)
         formatting_toolbar.set_margin_top(5)
         formatting_toolbar.set_margin_bottom(5)
         
-        # Add some HTML editing buttons
-        bold_button = Gtk.Button(icon_name="format-text-bold-symbolic")
-        bold_button.set_tooltip_text("Bold")
-        bold_button.connect("clicked", lambda btn: self.on_bold_clicked(win, btn))
+        # Store the handlers for blocking
+        win.bold_handler_id = None
+        win.italic_handler_id = None
+        win.underline_handler_id = None
         
-        italic_button = Gtk.Button(icon_name="format-text-italic-symbolic")
-        italic_button.set_tooltip_text("Italic")
-        italic_button.connect("clicked", lambda btn: self.on_italic_clicked(win, btn))
+        # Add HTML editing toggle buttons
+        win.bold_button = Gtk.ToggleButton()
+        bold_icon = Gtk.Image.new_from_icon_name("format-text-bold-symbolic")
+        win.bold_button.set_child(bold_icon)
+        win.bold_button.set_tooltip_text("Bold")
+        win.bold_button.set_focus_on_click(False)  # Prevent focus stealing
+        win.bold_handler_id = win.bold_button.connect("toggled", lambda btn: self.on_bold_toggled(win, btn))
         
-        underline_button = Gtk.Button(icon_name="format-text-underline-symbolic")
-        underline_button.set_tooltip_text("Underline")
-        underline_button.connect("clicked", lambda btn: self.on_underline_clicked(win, btn))
+        win.italic_button = Gtk.ToggleButton()
+        italic_icon = Gtk.Image.new_from_icon_name("format-text-italic-symbolic")
+        win.italic_button.set_child(italic_icon)
+        win.italic_button.set_tooltip_text("Italic")
+        win.italic_button.set_focus_on_click(False)  # Prevent focus stealing
+        win.italic_handler_id = win.italic_button.connect("toggled", lambda btn: self.on_italic_toggled(win, btn))
+        
+        win.underline_button = Gtk.ToggleButton()
+        underline_icon = Gtk.Image.new_from_icon_name("format-text-underline-symbolic")
+        win.underline_button.set_child(underline_icon)
+        win.underline_button.set_tooltip_text("Underline")
+        win.underline_button.set_focus_on_click(False)  # Prevent focus stealing
+        win.underline_handler_id = win.underline_button.connect("toggled", lambda btn: self.on_underline_toggled(win, btn))
         
         # Add a spacer (expanding box)
         spacer = Gtk.Box()
         spacer.set_hexpand(True)
         
-        # No need for close button since we toggle with keyboard shortcut
-        
         # Add all widgets to the formatting toolbar
-        formatting_toolbar.append(bold_button)
-        formatting_toolbar.append(italic_button)
-        formatting_toolbar.append(underline_button)
+        formatting_toolbar.append(win.bold_button)
+        formatting_toolbar.append(win.italic_button)
+        formatting_toolbar.append(win.underline_button)
         formatting_toolbar.append(spacer)
-        
-        # Optional: Add a status indicator
-        formatting_toolbar_status = Gtk.Label(label="Formatting Toolbar")
-        formatting_toolbar_status.add_css_class("dim-label")
         
         return formatting_toolbar
         
@@ -321,6 +334,25 @@ class HTMLEditorApp(Adw.Application):
         shortcut_close_others = Gtk.Shortcut.new(trigger_close_others, action_close_others)
         controller.add_shortcut(shortcut_close_others)
         
+        # FORMATTING SHORTCUTS
+        
+        # Ctrl+B for Bold
+        trigger_bold = Gtk.ShortcutTrigger.parse_string("<Control>b")
+        action_bold = Gtk.CallbackAction.new(lambda *args: self.on_bold_shortcut(win, *args))
+        shortcut_bold = Gtk.Shortcut.new(trigger_bold, action_bold)
+        controller.add_shortcut(shortcut_bold)
+        
+        # Ctrl+I for Italic
+        trigger_italic = Gtk.ShortcutTrigger.parse_string("<Control>i")
+        action_italic = Gtk.CallbackAction.new(lambda *args: self.on_italic_shortcut(win, *args))
+        shortcut_italic = Gtk.Shortcut.new(trigger_italic, action_italic)
+        controller.add_shortcut(shortcut_italic)
+        
+        # Ctrl+U for Underline
+        trigger_underline = Gtk.ShortcutTrigger.parse_string("<Control>u")
+        action_underline = Gtk.CallbackAction.new(lambda *args: self.on_underline_shortcut(win, *args))
+        shortcut_underline = Gtk.Shortcut.new(trigger_underline, action_underline)
+        controller.add_shortcut(shortcut_underline)       
         # Add controller to the window
         win.add_controller(controller)
         
@@ -330,6 +362,60 @@ class HTMLEditorApp(Adw.Application):
         # Make shortcut work regardless of who has focus
         controller.set_scope(Gtk.ShortcutScope.GLOBAL)
 
+    def on_bold_shortcut(self, win, *args):
+        """Handle Ctrl+B shortcut for bold formatting"""
+        # Execute the bold command directly in JavaScript
+        self.execute_js(win, """
+            document.execCommand('bold', false, null);
+            // Return the current state so we can update the button
+            document.queryCommandState('bold');
+        """)
+        
+        # Immediately toggle the button state to provide instant feedback
+        if win.bold_handler_id is not None:
+            win.bold_button.handler_block(win.bold_handler_id)
+            win.bold_button.set_active(not win.bold_button.get_active())
+            win.bold_button.handler_unblock(win.bold_handler_id)
+        
+        win.statusbar.set_text("Bold formatting applied")
+        return True
+
+    def on_italic_shortcut(self, win, *args):
+        """Handle Ctrl+I shortcut for italic formatting"""
+        # Execute the italic command directly in JavaScript
+        self.execute_js(win, """
+            document.execCommand('italic', false, null);
+            // Return the current state so we can update the button
+            document.queryCommandState('italic');
+        """)
+        
+        # Immediately toggle the button state to provide instant feedback
+        if win.italic_handler_id is not None:
+            win.italic_button.handler_block(win.italic_handler_id)
+            win.italic_button.set_active(not win.italic_button.get_active())
+            win.italic_button.handler_unblock(win.italic_handler_id)
+        
+        win.statusbar.set_text("Italic formatting applied")
+        return True
+
+    def on_underline_shortcut(self, win, *args):
+        """Handle Ctrl+U shortcut for underline formatting"""
+        # Execute the underline command directly in JavaScript
+        self.execute_js(win, """
+            document.execCommand('underline', false, null);
+            // Return the current state so we can update the button
+            document.queryCommandState('underline');
+        """)
+        
+        # Immediately toggle the button state to provide instant feedback
+        if win.underline_handler_id is not None:
+            win.underline_button.handler_block(win.underline_handler_id)
+            win.underline_button.set_active(not win.underline_button.get_active())
+            win.underline_button.handler_unblock(win.underline_handler_id)
+        
+        win.statusbar.set_text("Underline formatting applied")
+        return True
+        
     def toggle_formatting_toolbar(self, win, *args):
         """Toggle the visibility of the toolbar with animation"""
         is_revealed = win.formatting_toolbar_revealer.get_reveal_child()
@@ -438,6 +524,7 @@ class HTMLEditorApp(Adw.Application):
         {self.find_last_text_node_js()}
         {self.get_stack_sizes_js()}
         {self.set_content_js()}
+        {self.selection_change_js()}
         {self.init_editor_js()}
         """
 
@@ -566,6 +653,39 @@ class HTMLEditorApp(Adw.Application):
             window.redoStack = [];
             editor.focus();
         }
+        """
+
+    def selection_change_js(self):
+        """JavaScript to track selection changes and update formatting buttons"""
+        return """
+        function updateFormattingState() {
+            try {
+                const isBold = document.queryCommandState('bold');
+                const isItalic = document.queryCommandState('italic');
+                const isUnderline = document.queryCommandState('underline');
+                
+                // Send the state to Python
+                window.webkit.messageHandlers.formattingChanged.postMessage(
+                    JSON.stringify({bold: isBold, italic: isItalic, underline: isUnderline})
+                );
+            } catch(e) {
+                console.log("Error updating formatting state:", e);
+            }
+        }
+        
+        document.addEventListener('selectionchange', function() {
+            // Only update if the selection is in our editor
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                const editor = document.getElementById('editor');
+                
+                // Check if the selection is within our editor
+                if (editor.contains(range.commonAncestorContainer)) {
+                    updateFormattingState();
+                }
+            }
+        });
         """
 
     def init_editor_js(self):
@@ -826,15 +946,97 @@ class HTMLEditorApp(Adw.Application):
             title = f"{'  ⃰' if win.modified else ''}Untitled - HTML Editor"
         win.set_title(title)
      
-    def on_bold_clicked(self, win, button):
-        self.execute_js(win, "document.execCommand('bold', false, null);")
-    
-    def on_italic_clicked(self, win, button):
-        self.execute_js(win, "document.execCommand('italic', false, null);")
-    
-    def on_underline_clicked(self, win, button):
-        self.execute_js(win, "document.execCommand('underline', false, null);")
-    
+    def on_bold_toggled(self, win, button):
+        """Handle bold toggle button state changes"""
+        # Block the handler temporarily
+        if win.bold_handler_id is not None:
+            button.handler_block(win.bold_handler_id)
+        
+        try:
+            # Apply formatting
+            self.execute_js(win, "document.execCommand('bold', false, null);")
+            # Force focus back to the webview after a small delay
+            GLib.timeout_add(50, lambda: win.webview.grab_focus())
+        finally:
+            # Unblock the handler
+            if win.bold_handler_id is not None:
+                button.handler_unblock(win.bold_handler_id)
+
+    def on_italic_toggled(self, win, button):
+        """Handle italic toggle button state changes"""
+        # Block the handler temporarily
+        if win.italic_handler_id is not None:
+            button.handler_block(win.italic_handler_id)
+        
+        try:
+            # Apply formatting
+            self.execute_js(win, "document.execCommand('italic', false, null);")
+            # Force focus back to the webview after a small delay
+            GLib.timeout_add(50, lambda: win.webview.grab_focus())
+        finally:
+            # Unblock the handler
+            if win.italic_handler_id is not None:
+                button.handler_unblock(win.italic_handler_id)
+
+    def on_underline_toggled(self, win, button):
+        """Handle underline toggle button state changes"""
+        # Block the handler temporarily
+        if win.underline_handler_id is not None:
+            button.handler_block(win.underline_handler_id)
+        
+        try:
+            # Apply formatting
+            self.execute_js(win, "document.execCommand('underline', false, null);")
+            # Force focus back to the webview after a small delay
+            GLib.timeout_add(50, lambda: win.webview.grab_focus())
+        finally:
+            # Unblock the handler
+            if win.underline_handler_id is not None:
+                button.handler_unblock(win.underline_handler_id)
+
+    def on_formatting_changed(self, win, manager, result):
+        """Update toggle button states based on current formatting"""
+        try:
+            # Extract the message differently based on WebKit version
+            message = None
+            if hasattr(result, 'get_js_value'):
+                message = result.get_js_value().to_string()
+            elif hasattr(result, 'to_string'):
+                message = result.to_string()
+            elif hasattr(result, 'get_value'):
+                message = result.get_value().get_string()
+            else:
+                # Try to get the value directly
+                try:
+                    message = str(result)
+                except:
+                    print("Could not extract message from result")
+                    return
+            
+            # Parse the JSON
+            import json
+            format_state = json.loads(message)
+            
+            # Update button states without triggering their handlers
+            if win.bold_handler_id is not None:
+                win.bold_button.handler_block(win.bold_handler_id)
+                win.bold_button.set_active(format_state.get('bold', False))
+                win.bold_button.handler_unblock(win.bold_handler_id)
+            
+            if win.italic_handler_id is not None:
+                win.italic_button.handler_block(win.italic_handler_id)
+                win.italic_button.set_active(format_state.get('italic', False))
+                win.italic_button.handler_unblock(win.italic_handler_id)
+            
+            if win.underline_handler_id is not None:
+                win.underline_button.handler_block(win.underline_handler_id)
+                win.underline_button.set_active(format_state.get('underline', False))
+                win.underline_button.handler_unblock(win.underline_handler_id)
+                
+        except Exception as e:
+            print(f"Error updating formatting buttons: {e}")
+
+
     # Window Close Request
     def on_window_close_request(self, win, *args):
         """Handle window close request with save confirmation if needed"""
