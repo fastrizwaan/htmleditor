@@ -144,7 +144,7 @@ class HTMLEditorApp(Adw.Application):
                 
         if windows_added:
             self.update_window_menu()
-            
+                
     def create_window(self):
         """Create a new window with all initialization (former HTMLEditorWindow.__init__)"""
         win = Adw.ApplicationWindow(application=self)
@@ -180,6 +180,22 @@ class HTMLEditorApp(Adw.Application):
         content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         content_box.set_vexpand(True)
         content_box.set_hexpand(True)
+        
+        # Create file toolbar with revealer
+        win.file_toolbar_revealer = Gtk.Revealer()
+        win.file_toolbar_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_DOWN)
+        win.file_toolbar_revealer.set_transition_duration(250)
+        win.file_toolbar_revealer.set_reveal_child(True)  # Visible by default
+        
+        # Create toolbar container with CSS class
+        win.file_toolbar_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        win.file_toolbar_container.add_css_class("toolbar-container")
+        
+        # Create and add file toolbar
+        win.file_toolbar = self.create_file_toolbar(win)
+        win.file_toolbar_container.append(win.file_toolbar)
+        win.file_toolbar_revealer.set_child(win.file_toolbar_container)
+        content_box.append(win.file_toolbar_revealer)
         
         # Create formatting toolbar with revealer
         win.formatting_toolbar_revealer = Gtk.Revealer()
@@ -253,71 +269,367 @@ class HTMLEditorApp(Adw.Application):
         return win
         
     def setup_headerbar_content(self, win):
-        """Create buttons for the header bar"""
-        # Create buttons for header bar with flat style
-        new_button = Gtk.Button(icon_name="document-new-symbolic")
-        new_button.set_tooltip_text("New Document in New Window")
-        new_button.connect("clicked", lambda btn: self.on_new_clicked(win, btn))
-        new_button.add_css_class("flat")  # Add flat style
-        
-        open_button = Gtk.Button(icon_name="document-open-symbolic")
-        open_button.set_tooltip_text("Open File in New Window")
-        open_button.connect("clicked", lambda btn: self.on_open_clicked(win, btn))
-        open_button.add_css_class("flat")  # Add flat style
-        
-        save_button = Gtk.Button(icon_name="document-save-symbolic")
-        save_button.set_tooltip_text("Save File")
-        save_button.connect("clicked", lambda btn: self.on_save_clicked(win, btn))
-        save_button.add_css_class("flat")  # Add flat style
-
-        # Add Save As button
-        save_as_button = Gtk.Button(icon_name="document-save-as-symbolic")
-        save_as_button.set_tooltip_text("Save File As")
-        save_as_button.connect("clicked", lambda btn: self.on_save_as_clicked(win, btn))
-        save_as_button.add_css_class("flat")  # Add flat style
-
-        # Create undo/redo buttons
-        win.undo_button = Gtk.Button(icon_name="edit-undo-symbolic")
-        win.undo_button.set_tooltip_text("Undo")
-        win.undo_button.connect("clicked", lambda btn: self.on_undo_clicked(win, btn))
-        win.undo_button.set_sensitive(False)  # Initially disabled
-        win.undo_button.add_css_class("flat")  # Add flat style
-        
-        win.redo_button = Gtk.Button(icon_name="edit-redo-symbolic")
-        win.redo_button.set_tooltip_text("Redo")
-        win.redo_button.connect("clicked", lambda btn: self.on_redo_clicked(win, btn))
-        win.redo_button.set_sensitive(False)  # Initially disabled
-        win.redo_button.add_css_class("flat")  # Add flat style
-        
+        """Create simplified headerbar content (menu and window buttons)"""
         # Create menu
         menu_button = Gtk.MenuButton()
         menu_button.set_icon_name("open-menu-symbolic")
         menu_button.add_css_class("flat")  # Add flat style
         
         menu = Gio.Menu()
-        menu.append("Preferences", "app.preferences")
-        menu.append("About", "app.about")
-        menu.append("Quit", "app.quit")
+        
+        # File menu section
+        file_section = Gio.Menu()
+        file_section.append("New Window", "app.new-window")
+        file_section.append("Open", "app.open") # You'll need to add this action
+        file_section.append("Save", "app.save") # You'll need to add this action
+        file_section.append("Save As", "app.save-as") # You'll need to add this action
+        menu.append_section("File", file_section)
+        
+        # View menu section
+        view_section = Gio.Menu()
+        view_section.append("Show/Hide File Toolbar", "app.toggle-file-toolbar") # You'll need to add this action
+        view_section.append("Show/Hide Format Toolbar", "app.toggle-format-toolbar") # You'll need to add this action
+        view_section.append("Show/Hide Statusbar", "app.toggle-statusbar") # You'll need to add this action
+        menu.append_section("View", view_section)
+        
+        # App menu section
+        app_section = Gio.Menu()
+        app_section.append("Preferences", "app.preferences")
+        app_section.append("About", "app.about")
+        app_section.append("Quit", "app.quit")
+        menu.append_section("Application", app_section)
         
         menu_button.set_menu_model(menu)
         
-        # Add buttons to header bar
-        win.headerbar.pack_start(new_button)
-        win.headerbar.pack_start(open_button)
-        win.headerbar.pack_start(save_button)
-        win.headerbar.pack_start(save_as_button)
-        win.headerbar.pack_start(win.undo_button)
-        win.headerbar.pack_start(win.redo_button)
-        win.headerbar.pack_end(menu_button)
+        # Set up the window title widget (can be customized further)
+        title_widget = Adw.WindowTitle()
+        title_widget.set_title("Untitled  - HTML Editor")
+#        title_widget.set_subtitle("Untitled")  # Will be updated with document name
+        win.title_widget = title_widget  # Store for later updates
         
-        # Create window menu button
+        # Save reference to update title 
+        win.headerbar.set_title_widget(title_widget)
+        
+        # Add buttons to header bar
+        win.headerbar.pack_start(menu_button)
+        
+        # Create window menu button on the right side
         self.add_window_menu_button(win)
-    
+        
+    def create_file_toolbar(self, win):
+        """Create the file toolbar with button groups"""
+        file_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        file_toolbar.set_margin_start(0)
+        file_toolbar.set_margin_end(0)
+        file_toolbar.set_margin_top(5)
+        file_toolbar.set_margin_bottom(5)
+        file_toolbar.add_css_class("toolbar-group")
+        
+        # --- File operations group ---
+        file_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+        file_group.add_css_class("toolbar-group")
+        
+        # New button
+        new_button = Gtk.Button(icon_name="document-new-symbolic")
+        new_button.set_tooltip_text("New Document in New Window")
+        new_button.connect("clicked", lambda btn: self.on_new_clicked(win, btn))
+        new_button.add_css_class("flat")
+        
+        # Open button
+        open_button = Gtk.Button(icon_name="document-open-symbolic")
+        open_button.set_tooltip_text("Open File in New Window")
+        open_button.connect("clicked", lambda btn: self.on_open_clicked(win, btn))
+        open_button.add_css_class("flat")
+        
+        # Save button
+        save_button = Gtk.Button(icon_name="document-save-symbolic")
+        save_button.set_tooltip_text("Save File")
+        save_button.connect("clicked", lambda btn: self.on_save_clicked(win, btn))
+        save_button.add_css_class("flat")
+        
+        # Save As button
+        save_as_button = Gtk.Button(icon_name="document-save-as-symbolic")
+        save_as_button.set_tooltip_text("Save File As")
+        save_as_button.connect("clicked", lambda btn: self.on_save_as_clicked(win, btn))
+        save_as_button.add_css_class("flat")
+        
+        # Print button (placeholder)
+        print_button = Gtk.Button(icon_name="document-print-symbolic")
+        print_button.set_tooltip_text("Print Document")
+        print_button.connect("clicked", lambda btn: self.on_print_clicked(win, btn) if hasattr(self, "on_print_clicked") else None)
+        print_button.add_css_class("flat")
+
+        # Add buttons to file group
+        file_group.append(new_button)
+        file_group.append(open_button)
+        file_group.append(save_button)
+        file_group.append(save_as_button)
+        file_group.append(print_button)
+        
+        # Add file group to toolbar
+        file_toolbar.append(file_group)
+        
+        # Add separator
+        separator1 = Gtk.Box()
+        separator1.add_css_class("toolbar-separator")
+        file_toolbar.append(separator1)
+        
+        # --- Edit operations group ---
+        edit_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+        edit_group.add_css_class("toolbar-group")
+        
+        # Cut button
+        cut_button = Gtk.Button(icon_name="edit-cut-symbolic")
+        cut_button.set_tooltip_text("Cut")
+        cut_button.connect("clicked", lambda btn: self.on_cut_clicked(win, btn))
+        cut_button.add_css_class("flat")
+
+        # Copy button
+        copy_button = Gtk.Button(icon_name="edit-copy-symbolic")
+        copy_button.set_tooltip_text("Copy")
+        copy_button.connect("clicked", lambda btn: self.on_copy_clicked(win, btn))
+        copy_button.add_css_class("flat")
+
+        # Paste button
+        paste_button = Gtk.Button(icon_name="edit-paste-symbolic")
+        paste_button.set_tooltip_text("Paste")
+        paste_button.connect("clicked", lambda btn: self.on_paste_clicked(win, btn))
+        paste_button.add_css_class("flat")
+        
+        # Add buttons to edit group
+        edit_group.append(cut_button)
+        edit_group.append(copy_button)
+        edit_group.append(paste_button)
+        
+        # Add edit group to toolbar
+        file_toolbar.append(edit_group)
+        
+        # Add separator
+        separator2 = Gtk.Box()
+        separator2.add_css_class("toolbar-separator")
+        file_toolbar.append(separator2)
+        
+        # --- History operations group ---
+        history_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+        history_group.add_css_class("toolbar-group")
+        
+        # Undo button
+        win.undo_button = Gtk.Button(icon_name="edit-undo-symbolic")
+        win.undo_button.set_tooltip_text("Undo")
+        win.undo_button.connect("clicked", lambda btn: self.on_undo_clicked(win, btn))
+        win.undo_button.set_sensitive(False)  # Initially disabled
+        win.undo_button.add_css_class("flat")
+        
+        # Redo button
+        win.redo_button = Gtk.Button(icon_name="edit-redo-symbolic")
+        win.redo_button.set_tooltip_text("Redo")
+        win.redo_button.connect("clicked", lambda btn: self.on_redo_clicked(win, btn))
+        win.redo_button.set_sensitive(False)  # Initially disabled
+        win.redo_button.add_css_class("flat")
+        
+        # Find-Replace button (placeholder)
+        find_button = Gtk.Button(icon_name="edit-find-replace-symbolic")
+        find_button.set_tooltip_text("Find and Replace")
+        find_button.connect("clicked", lambda btn: self.on_find_replace_clicked(win, btn) if hasattr(self, "on_find_replace_clicked") else None)
+        find_button.add_css_class("flat")
+        
+        # Add buttons to history group
+        history_group.append(win.undo_button)
+        history_group.append(win.redo_button)
+        history_group.append(find_button)
+        
+        # Add history group to toolbar
+        file_toolbar.append(history_group)
+        
+        # Add separator
+        separator3 = Gtk.Box()
+        separator3.add_css_class("toolbar-separator")
+        file_toolbar.append(separator3)
+        
+        # --- Zoom control ---
+        zoom_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+        zoom_group.add_css_class("toolbar-group")
+        
+        # Zoom button with popup menu
+        zoom_button = Gtk.MenuButton()
+        zoom_button.set_label("100%")
+        zoom_button.set_tooltip_text("Zoom")
+        zoom_button.add_css_class("flat")
+        
+        # Create zoom scale menu
+        popover = Gtk.Popover()
+        popover_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        popover_box.set_margin_start(10)
+        popover_box.set_margin_end(10)
+        popover_box.set_margin_top(10)
+        popover_box.set_margin_bottom(10)
+        
+        # Add slider for zoom
+        scale_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        zoom_out_icon = Gtk.Image.new_from_icon_name("zoom-out-symbolic")
+        scale_box.append(zoom_out_icon)
+        
+        adjustment = Gtk.Adjustment(
+            value=100,
+            lower=50,
+            upper=300,
+            step_increment=10
+        )
+        
+        scale = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, adjustment=adjustment)
+        scale.set_draw_value(False)
+        scale.set_size_request(200, -1)
+        scale.connect("value-changed", lambda s: self.on_zoom_changed(win, s, zoom_button))
+        scale_box.append(scale)
+        
+        zoom_in_icon = Gtk.Image.new_from_icon_name("zoom-in-symbolic")
+        scale_box.append(zoom_in_icon)
+        
+        popover_box.append(scale_box)
+        
+        # Add preset zoom levels
+        presets_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        presets_box.set_homogeneous(True)
+        
+        # Create and add preset buttons 
+        zoom_presets = [100, 200, 300]
+        
+        for preset in zoom_presets:
+            preset_button = Gtk.Button(label=f"{preset}%")
+            preset_button.set_valign(Gtk.Align.CENTER)
+            preset_button.connect("clicked", lambda btn, p=preset: self.on_zoom_preset_clicked(win, p, scale, zoom_button, popover))
+            presets_box.append(preset_button)
+        
+        # Make the presets box scrollable for small screens
+        presets_scroll = Gtk.ScrolledWindow()
+        presets_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
+        presets_scroll.set_min_content_width(250)
+        presets_scroll.set_child(presets_box)
+        
+        popover_box.append(presets_scroll)
+        
+        # Set up the popover
+        popover.set_child(popover_box)
+        zoom_button.set_popover(popover)
+        
+        # Store references for updating
+        win.zoom_button = zoom_button
+        win.zoom_scale = scale
+        win.zoom_level = 100  # Initial zoom level
+        
+        # Add zoom button to zoom group
+        zoom_group.append(zoom_button)
+        
+        # Add zoom group to toolbar
+        file_toolbar.append(zoom_group)
+        
+        # Add spacer (expanding box) at the end
+        spacer = Gtk.Box()
+        spacer.set_hexpand(True)
+        file_toolbar.append(spacer)
+        
+        return file_toolbar
+
+    def on_cut_clicked(self, win, btn):
+        """Handle cut button click"""
+        self.execute_js(win, """
+            (function() {
+                let sel = window.getSelection();
+                if (sel.rangeCount) {
+                    document.execCommand('cut');
+                    return true;
+                }
+                return false;
+            })();
+        """)
+        win.statusbar.set_text("Cut to clipboard")
+
+    def on_copy_clicked(self, win, btn):
+        """Handle copy button click"""
+        self.execute_js(win, """
+            (function() {
+                let sel = window.getSelection();
+                if (sel.rangeCount) {
+                    document.execCommand('copy');
+                    return true;
+                }
+                return false;
+            })();
+        """)
+        win.statusbar.set_text("Copied to clipboard")
+
+    def on_paste_clicked(self, win, btn):
+        """Handle paste button click"""
+        # Try to get text from clipboard
+        clipboard = Gdk.Display.get_default().get_clipboard()
+        clipboard.read_text_async(None, self.on_text_received, win)
+        win.statusbar.set_text("Pasting from clipboard...")
+
+    def on_text_received(self, clipboard, result, win):
+        """Handle clipboard text retrieval"""
+        try:
+            text = clipboard.read_text_finish(result)
+            if text:
+                # Escape text for JavaScript
+                import json
+                text_json = json.dumps(text)
+                # Insert the text at cursor position
+                self.execute_js(win, f"""
+                    (function() {{
+                        document.execCommand('insertText', false, {text_json});
+                        return true;
+                    }})();
+                """)
+                win.statusbar.set_text("Pasted from clipboard")
+            else:
+                win.statusbar.set_text("No text in clipboard")
+        except GLib.Error as e:
+            print("Paste error:", e.message)
+            win.statusbar.set_text(f"Paste failed: {e.message}")
+            
+    def on_zoom_changed(self, win, scale, zoom_button):
+        """Handle zoom scale change"""
+        zoom_level = int(scale.get_value())
+        zoom_button.set_label(f"{zoom_level}%")
+        win.zoom_level = zoom_level
+        
+        # Apply zoom to the editor
+        self.apply_zoom(win, zoom_level)
+
+    def on_zoom_preset_clicked(self, win, preset, scale, zoom_button, popover):
+        """Handle zoom preset button click"""
+        scale.set_value(preset)
+        zoom_button.set_label(f"{preset}%")
+        win.zoom_level = preset
+        
+        # Apply zoom to the editor
+        self.apply_zoom(win, preset)
+        
+        # Close the popover
+        popover.popdown()
+
+    def apply_zoom(self, win, zoom_level):
+        """Apply zoom level to the editor"""
+        # Convert percentage to scale factor (1.0 = 100%)
+        scale_factor = zoom_level / 100.0
+        
+        # Apply zoom using JavaScript
+        js_code = f"""
+        (function() {{
+            document.body.style.zoom = "{scale_factor}";
+            document.getElementById('editor').style.zoom = "{scale_factor}";
+            return true;
+        }})();
+        """
+        
+        self.execute_js(win, js_code)
+        win.statusbar.set_text(f"Zoom level: {zoom_level}%")    
+        
     def create_formatting_toolbar(self, win):
         """Create the toolbar for formatting options with toggle buttons"""
         formatting_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        formatting_toolbar.set_margin_start(10)
-        formatting_toolbar.set_margin_end(10)
+        formatting_toolbar.set_margin_start(0)
+        formatting_toolbar.set_margin_end(0)
         formatting_toolbar.set_margin_top(5)
         formatting_toolbar.set_margin_bottom(5)
         formatting_toolbar.add_css_class("toolbar-group")  # Add toolbar-group class
@@ -396,6 +708,18 @@ class HTMLEditorApp(Adw.Application):
         action_toolbar = Gtk.CallbackAction.new(lambda *args: self.toggle_formatting_toolbar(win, *args))
         shortcut_toolbar = Gtk.Shortcut.new(trigger_toolbar, action_toolbar)
         controller.add_shortcut(shortcut_toolbar)
+        
+        # Create Ctrl+Shift+F shortcut for toggling the file toolbar
+        trigger_file_toolbar = Gtk.ShortcutTrigger.parse_string("<Control><Shift>f")
+        action_file_toolbar = Gtk.CallbackAction.new(lambda *args: self.toggle_file_toolbar(win, *args))
+        shortcut_file_toolbar = Gtk.Shortcut.new(trigger_file_toolbar, action_file_toolbar)
+        controller.add_shortcut(shortcut_file_toolbar)
+
+        # Create Ctrl+P shortcut for print
+        trigger_print = Gtk.ShortcutTrigger.parse_string("<Control>p")
+        action_print = Gtk.CallbackAction.new(lambda *args: self.on_print_clicked(win, None))
+        shortcut_print = Gtk.Shortcut.new(trigger_print, action_print)
+        controller.add_shortcut(shortcut_print)
         
         # Create Ctrl+Shift+S shortcut for toggling the statusbar
         trigger_statusbar = Gtk.ShortcutTrigger.parse_string("<Control><Shift>s")
@@ -539,7 +863,15 @@ class HTMLEditorApp(Adw.Application):
         
         win.statusbar.set_text("Strikeout formatting applied")
         return True  
-              
+
+    def toggle_file_toolbar(self, win, *args):
+        """Toggle the visibility of the file toolbar with animation"""
+        is_revealed = win.file_toolbar_revealer.get_reveal_child()
+        win.file_toolbar_revealer.set_reveal_child(not is_revealed)
+        status = "hidden" if is_revealed else "shown"
+        win.statusbar.set_text(f"File Toolbar {status}")
+        return True         
+             
     def toggle_formatting_toolbar(self, win, *args):
         """Toggle the visibility of the toolbar with animation"""
         is_revealed = win.formatting_toolbar_revealer.get_reveal_child()
@@ -584,17 +916,17 @@ class HTMLEditorApp(Adw.Application):
         <style>
             html, body {{
                 height: 100%;
-                margin: 40px; /*Change this for page border*/
+                /*margin: 40px; */ /*Change this for page border*/
                 padding: 0;
                 font-family: Arial, sans-serif;
             }}
             #editor {{
-                border: 1px solid #ccc;
-                padding: 10px;
+                /*border: 1px solid #ccc;*/
+                padding: 0px;
                 outline: none;
-                min-height: 200px; /* Reduced fallback minimum height */
+                /*min-height: 200px; */ /* Reduced fallback minimum height */
                 height: 100%; /* Allow it to expand fully */
-                box-sizing: border-box; /* Include padding/border in height */
+                /*box-sizing: border-box; */ /* Include padding/border in height */
             }}
             #editor div {{
                 margin: 0;
@@ -1092,10 +1424,19 @@ class HTMLEditorApp(Adw.Application):
                 path = win.current_file
             # Extract filename without extension
             filename = os.path.splitext(os.path.basename(path))[0]
-            title = f"{'  ⃰' if win.modified else ''}{filename} - HTML Editor"
+            title = f"{'  ⃰' if win.modified else ''}{filename}"
+            win.set_title(f"{title} - HTML Editor")
+            
+            # Update the title widget if it exists
+            if hasattr(win, 'title_widget'):
+                win.title_widget.set_title(f"{'  ⃰' if win.modified else ''}{filename} - HTML Editor")
         else:
-            title = f"{'  ⃰' if win.modified else ''}Untitled - HTML Editor"
-        win.set_title(title)
+            title = f"{'  ⃰' if win.modified else ''}Untitled"
+            win.set_title(f"{title} - HTML Editor")
+            
+            # Update the title widget if it exists
+            if hasattr(win, 'title_widget'):
+                win.title_widget.set_title(f"{'  ⃰' if win.modified else ''}Untitled  - HTML Editor")
      
     def on_bold_toggled(self, win, button):
         """Handle bold toggle button state changes"""
@@ -2159,6 +2500,17 @@ class HTMLEditorApp(Adw.Application):
         except Exception as e:
             print(f"Error setting initial focus: {e}")
             return False  # Don't call again
+
+    def on_print_clicked(self, win, btn):
+        """Handle print button click using WebKit's print operation"""
+        win.statusbar.set_text("Preparing to print...")
+        
+        # Create a print operation with WebKit
+        print_op = WebKit.PrintOperation.new(win.webview)
+        
+        # Run the print dialog
+        print_op.run_dialog(win)
+
 
 
         
