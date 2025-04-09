@@ -34,19 +34,40 @@ class HTMLEditorApp(Adw.Application):
         self.auto_save_source_id = None
         
         # Add modular methods from file_operations to the class
+        # File opening methods
         self.on_open_clicked = file_operations.on_open_clicked.__get__(self, HTMLEditorApp)
         self.on_open_new_window_response = file_operations.on_open_new_window_response.__get__(self, HTMLEditorApp)
         self.on_open_current_window_response = file_operations.on_open_current_window_response.__get__(self, HTMLEditorApp)
         self.load_file = file_operations.load_file.__get__(self, HTMLEditorApp)
         
+        # File saving methods from the updated implementation
         self.on_save_clicked = file_operations.on_save_clicked.__get__(self, HTMLEditorApp)
+        self.on_save_as_clicked = file_operations.on_save_as_clicked.__get__(self, HTMLEditorApp)
+        self.show_save_dialog = file_operations.show_save_dialog.__get__(self, HTMLEditorApp)
+        self.save_dialog_callback = file_operations.save_dialog_callback.__get__(self, HTMLEditorApp)
+        
+        # Format-specific save methods
+        self.save_as_mhtml = file_operations.save_as_mhtml.__get__(self, HTMLEditorApp)
+        self.save_webkit_callback = file_operations.save_webkit_callback.__get__(self, HTMLEditorApp)
+        self.save_as_html = file_operations.save_as_html.__get__(self, HTMLEditorApp)
+        self.save_as_text = file_operations.save_as_text.__get__(self, HTMLEditorApp)
+        self.save_as_markdown = file_operations.save_as_markdown.__get__(self, HTMLEditorApp)
+        
+        # Callback handlers
+        self.save_html_callback = file_operations.save_html_callback.__get__(self, HTMLEditorApp)
+        self.save_text_callback = file_operations.save_text_callback.__get__(self, HTMLEditorApp)
+        self.save_markdown_callback = file_operations.save_markdown_callback.__get__(self, HTMLEditorApp)
+        self.save_completion_callback = file_operations.save_completion_callback.__get__(self, HTMLEditorApp)
+        
+        # Legacy methods for backward compatibility
         self._on_save_response = file_operations._on_save_response.__get__(self, HTMLEditorApp)
-        self.save_html_content = file_operations.save_html_content.__get__(self, HTMLEditorApp)
+        self._on_save_as_response = file_operations._on_save_as_response.__get__(self, HTMLEditorApp)
         self._on_get_html_content = file_operations._on_get_html_content.__get__(self, HTMLEditorApp)
         self._on_file_saved = file_operations._on_file_saved.__get__(self, HTMLEditorApp)
         
-        self.on_save_as_clicked = file_operations.on_save_as_clicked.__get__(self, HTMLEditorApp)
-        self._on_save_as_response = file_operations._on_save_as_response.__get__(self, HTMLEditorApp)
+        # Simple markdown helper if needed
+        if hasattr(file_operations, '_simple_markdown_to_html'):
+            self._simple_markdown_to_html = file_operations._simple_markdown_to_html
         
     def do_startup(self):
         Adw.Application.do_startup(self)
