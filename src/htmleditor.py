@@ -331,6 +331,15 @@ class HTMLEditorApp(Adw.Application):
         nav_box.append(next_button)
         
         find_bar.append(nav_box)
+
+        # Add case-sensitive toggle button with uppercase icon
+        win.case_sensitive_button = Gtk.ToggleButton()
+        case_icon = Gtk.Image.new_from_icon_name("uppercase-symbolic")
+        win.case_sensitive_button.set_child(case_icon)
+        win.case_sensitive_button.set_tooltip_text("Match case")
+        win.case_sensitive_button.add_css_class("flat")
+        win.case_sensitive_button.connect("toggled", lambda btn: self.on_case_sensitive_toggled(win, btn))
+        find_bar.append(win.case_sensitive_button)
         
         # Create a separator
         separator = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
@@ -557,12 +566,35 @@ class HTMLEditorApp(Adw.Application):
             win.webview.grab_focus()
             win.statusbar.set_text("Find and replace closed")
             
+    def on_case_sensitive_toggled(self, win, button):
+        """Handle case-sensitive toggle button state changes"""
+        # Get the current state
+        is_case_sensitive = button.get_active()
+        
+        # Update the search with current settings
+        search_text = win.find_entry.get_text()
+        if search_text:
+            # Re-run the search with the updated case sensitivity setting
+            self.on_find_text_changed(win, win.find_entry)
+            
+        status_text = "Case-sensitive search enabled" if is_case_sensitive else "Case-sensitive search disabled"
+        win.statusbar.set_text(status_text)
+
+    # 3. Update the on_find_text_changed method to pass the case sensitivity setting:
+
     def on_find_text_changed(self, win, entry):
-        """Handle find text changes"""
+        """Handle find text changes with support for multi-line text"""
         search_text = entry.get_text()
         if search_text:
+            # Get the case sensitivity setting
+            is_case_sensitive = win.case_sensitive_button.get_active() if hasattr(win, 'case_sensitive_button') else False
+            
+            # Properly escape for JavaScript including newlines
+            import json
+            search_text_json = json.dumps(search_text)  # This properly escapes all special chars including newlines
+            
             js_code = f"""
-            searchAndHighlight("{search_text.replace('"', '\\"')}");
+            searchAndHighlight({search_text_json}, {str(is_case_sensitive).lower()});
             """
             win.webview.evaluate_javascript(js_code, -1, None, None, None, 
                                             lambda webview, result: self.on_search_result(win, webview, result))
@@ -601,8 +633,13 @@ class HTMLEditorApp(Adw.Application):
     def on_replace_clicked(self, win, button):
         """Replace current selection with replace text"""
         replace_text = win.replace_entry.get_text()
+        
+        # Properly escape for JavaScript including newlines
+        import json
+        replace_text_json = json.dumps(replace_text)
+        
         js_code = f"""
-        replaceSelection("{replace_text.replace('"', '\\"')}");
+        replaceSelection({replace_text_json});
         """
         win.webview.evaluate_javascript(js_code, -1, None, None, None, None)
 
@@ -614,12 +651,16 @@ class HTMLEditorApp(Adw.Application):
         if not search_text:
             return
         
+        # Properly escape for JavaScript including newlines
+        import json
+        search_text_json = json.dumps(search_text)
+        replace_text_json = json.dumps(replace_text)
+        
         js_code = f"""
-        replaceAll("{search_text.replace('"', '\\"')}", "{replace_text.replace('"', '\\"')}");
+        replaceAll({search_text_json}, {replace_text_json});
         """
         win.webview.evaluate_javascript(js_code, -1, None, None, None, 
                                     lambda webview, result: self.on_replace_all_result(win, webview, result))
-
     def on_replace_all_result(self, win, webview, result):
         """Handle replace all result"""
         try:
@@ -1398,206 +1439,260 @@ class HTMLEditorApp(Adw.Application):
         """
 
     def search_functions_js(self):
-        """JavaScript for search and replace functionality."""
-        return """
-        // Search functions
-        function clearSearch() {
-            searchResults = [];
-            searchIndex = -1;
-            currentSearchText = "";
-            
-            // Remove all highlighting
-            let editor = document.getElementById('editor');
-            let highlights = editor.querySelectorAll('.search-highlight');
-            
-            if (highlights.length) {
-                for (let i = 0; i < highlights.length; i++) {
-                    let highlight = highlights[i];
-                    let textNode = document.createTextNode(highlight.textContent);
-                    highlight.parentNode.replaceChild(textNode, highlight);
+        """JavaScript for search and replace functionality with notification for multi-line search."""
+        # Use Python raw string to avoid escape sequence issues
+        return r"""
+            // Search functions
+            function clearSearch() {
+                searchResults = [];
+                searchIndex = -1;
+                currentSearchText = "";
+                
+                // Remove all highlighting
+                let editor = document.getElementById('editor');
+                let highlights = editor.querySelectorAll('.search-highlight');
+                
+                if (highlights.length) {
+                    for (let i = 0; i < highlights.length; i++) {
+                        let highlight = highlights[i];
+                        let textNode = document.createTextNode(highlight.textContent);
+                        highlight.parentNode.replaceChild(textNode, highlight);
+                    }
+                    editor.normalize();
+                    return true;
                 }
-                editor.normalize();
+                return false;
+            }
+            
+            function searchAndHighlight(searchText, isCaseSensitive) {
+                // First clear any existing search
+                clearSearch();
+                
+                if (!searchText) return 0;
+                currentSearchText = searchText;
+                
+                // Store current case sensitivity setting
+                window.isCaseSensitive = isCaseSensitive;
+                
+                // Check if this is a multi-line search
+                if (searchText.includes('\n')) {
+                    // Return a special value to indicate multi-line search
+                    return -1;
+                }
+                
+                let editor = document.getElementById('editor');
+                searchResults = [];
+                searchIndex = -1;
+                
+                // Create a TreeWalker to traverse all text nodes in the editor
+                let walker = document.createTreeWalker(
+                    editor,
+                    NodeFilter.SHOW_TEXT,
+                    null,
+                    false
+                );
+                
+                let matches = [];
+                let node;
+                let count = 0;
+                
+                // Find all matching text nodes
+                while ((node = walker.nextNode()) !== null) {
+                    let content = node.textContent;
+                    let searchContent = content;
+                    let searchPattern = searchText;
+                    
+                    // If case-insensitive, convert both to lowercase for comparison
+                    if (!isCaseSensitive) {
+                        searchContent = content.toLowerCase();
+                        searchPattern = searchText.toLowerCase();
+                    }
+                    
+                    let index = searchContent.indexOf(searchPattern);
+                    
+                    while (index !== -1) {
+                        matches.push({
+                            node: node,
+                            index: index
+                        });
+                        index = searchContent.indexOf(searchPattern, index + 1);
+                        count++;
+                    }
+                }
+                
+                // Highlight matches from last to first to maintain indices
+                for (let i = matches.length - 1; i >= 0; i--) {
+                    let match = matches[i];
+                    let node = match.node;
+                    let index = match.index;
+                    
+                    try {
+                        // Split text node at match boundaries
+                        let beforeNode = node.splitText(index);
+                        let matchNode = beforeNode.splitText(searchText.length);
+                        
+                        // Create highlight span
+                        let highlightSpan = document.createElement('span');
+                        highlightSpan.className = 'search-highlight';
+                        highlightSpan.style.backgroundColor = '#FFFF00';
+                        highlightSpan.style.color = '#000000';
+                        
+                        // Replace text node with highlight span
+                        let parent = beforeNode.parentNode;
+                        parent.replaceChild(highlightSpan, beforeNode);
+                        highlightSpan.appendChild(beforeNode);
+                        
+                        // Store reference to the span
+                        searchResults.push(highlightSpan);
+                    } catch (e) {
+                        console.error("Error highlighting node:", e);
+                    }
+                }
+                
+                // Select first result if any found
+                if (searchResults.length > 0) {
+                    searchIndex = 0;
+                    selectSearchResult(0);
+                }
+                
+                return count;
+            }
+            
+            function selectSearchResult(index) {
+                if (searchResults.length === 0) return false;
+                
+                // Make sure index is within bounds
+                index = Math.max(0, Math.min(index, searchResults.length - 1));
+                searchIndex = index;
+                
+                // Get the highlight span
+                let span = searchResults[index];
+                
+                // Create a range for the selection
+                let range = document.createRange();
+                range.selectNodeContents(span);
+                
+                // Apply the selection
+                let selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+                
+                // Scroll to the selection
+                span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
                 return true;
             }
-            return false;
-        }
-        
-        function searchAndHighlight(searchText) {
-            // First clear any existing search
-            clearSearch();
             
-            if (!searchText) return 0;
-            currentSearchText = searchText;
-            
-            let editor = document.getElementById('editor');
-            searchResults = [];
-            searchIndex = -1;
-            
-            // Create a TreeWalker to traverse all text nodes in the editor
-            let walker = document.createTreeWalker(
-                editor,
-                NodeFilter.SHOW_TEXT,
-                null,
-                false
-            );
-            
-            let matches = [];
-            let node;
-            let count = 0;
-            
-            // Find all matching text nodes
-            while ((node = walker.nextNode()) !== null) {
-                let content = node.textContent;
-                let index = content.indexOf(searchText);
+            function findNext() {
+                if (searchResults.length === 0) return false;
                 
-                while (index !== -1) {
-                    matches.push({
-                        node: node,
-                        index: index
-                    });
-                    index = content.indexOf(searchText, index + 1);
-                    count++;
+                searchIndex++;
+                if (searchIndex >= searchResults.length) {
+                    searchIndex = 0;
                 }
-            }
-            
-            // Highlight matches from last to first to maintain indices
-            for (let i = matches.length - 1; i >= 0; i--) {
-                let match = matches[i];
-                let node = match.node;
-                let index = match.index;
                 
-                // Split text node at match boundaries
-                let beforeNode = node.splitText(index);
-                let matchNode = beforeNode.splitText(searchText.length);
+                return selectSearchResult(searchIndex);
+            }
+            
+            function findPrevious() {
+                if (searchResults.length === 0) return false;
                 
-                // Create highlight span
-                let highlightSpan = document.createElement('span');
-                highlightSpan.className = 'search-highlight';
-                highlightSpan.style.backgroundColor = '#FFFF00';
+                searchIndex--;
+                if (searchIndex < 0) {
+                    searchIndex = searchResults.length - 1;
+                }
                 
-                // Replace text node with highlight span
-                let parent = beforeNode.parentNode;
-                parent.replaceChild(highlightSpan, beforeNode);
-                highlightSpan.appendChild(beforeNode);
+                return selectSearchResult(searchIndex);
+            }
+            
+            function replaceSelection(replaceText) {
+                if (searchResults.length === 0 || searchIndex < 0) return false;
                 
-                // Store reference to the span
-                searchResults.push(highlightSpan);
+                // Create history entry before change
+                saveState();
+                
+                // Now perform the replacement
+                let span = searchResults[searchIndex];
+                let range = document.createRange();
+                range.selectNodeContents(span);
+                
+                let selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+                
+                // Replace the text
+                document.execCommand('insertText', false, replaceText);
+                
+                // Need to rebuild the search results
+                let searchText = currentSearchText;
+                setTimeout(() => {
+                    searchAndHighlight(searchText, window.isCaseSensitive || false);
+                }, 10);
+                
+                return true;
             }
             
-            // Select first result if any found
-            if (searchResults.length > 0) {
-                searchIndex = 0;
-                selectSearchResult(0);
+            function replaceAll(searchText, replaceText) {
+                if (!searchText) return 0;
+                
+                // Check if this is a multi-line search
+                if (searchText.includes('\n')) {
+                    // Return a special value to indicate multi-line search
+                    return -1;
+                }
+                
+                // Create history entry before change
+                saveState();
+                
+                // First clear any existing search
+                clearSearch();
+                
+                let editor = document.getElementById('editor');
+                
+                // We'll count replacements manually
+                let count = 0;
+                
+                // Get current case sensitivity setting
+                const isCaseSensitive = window.isCaseSensitive || false;
+                
+                // Simple case - single-line search
+                const walker = document.createTreeWalker(
+                    editor,
+                    NodeFilter.SHOW_TEXT,
+                    null,
+                    false
+                );
+                
+                let nodesToUpdate = [];
+                let node;
+                
+                while ((node = walker.nextNode()) !== null) {
+                    // If case-insensitive, do a lowercase check
+                    if (!isCaseSensitive && node.textContent.toLowerCase().includes(searchText.toLowerCase())) {
+                        nodesToUpdate.push(node);
+                    } 
+                    // Otherwise, do a case-sensitive check
+                    else if (isCaseSensitive && node.textContent.includes(searchText)) {
+                        nodesToUpdate.push(node);
+                    }
+                }
+                
+                // Replace text in each node
+                for (const node of nodesToUpdate) {
+                    // Create a regular expression with the right case sensitivity
+                    const flags = isCaseSensitive ? 'g' : 'gi';
+                    const regex = new RegExp(searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
+                    const matches = node.textContent.match(regex);
+                    
+                    if (matches) {
+                        count += matches.length;
+                        node.textContent = node.textContent.replace(regex, replaceText);
+                    }
+                }
+                
+                return count;
             }
-            
-            return count;
-        }
-        
-        function selectSearchResult(index) {
-            if (searchResults.length === 0) return false;
-            
-            // Make sure index is within bounds
-            index = Math.max(0, Math.min(index, searchResults.length - 1));
-            searchIndex = index;
-            
-            // Get the highlight span
-            let span = searchResults[index];
-            
-            // Create a range for the selection
-            let range = document.createRange();
-            range.selectNodeContents(span);
-            
-            // Apply the selection
-            let selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(range);
-            
-            // Scroll to the selection
-            span.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            
-            return true;
-        }
-        
-        function findNext() {
-            if (searchResults.length === 0) return false;
-            
-            searchIndex++;
-            if (searchIndex >= searchResults.length) {
-                searchIndex = 0;
-            }
-            
-            return selectSearchResult(searchIndex);
-        }
-        
-        function findPrevious() {
-            if (searchResults.length === 0) return false;
-            
-            searchIndex--;
-            if (searchIndex < 0) {
-                searchIndex = searchResults.length - 1;
-            }
-            
-            return selectSearchResult(searchIndex);
-        }
-        
-        function replaceSelection(replaceText) {
-            if (searchResults.length === 0 || searchIndex < 0) return false;
-            
-            // Create history entry before change
-            saveState();
-            
-            // Now perform the replacement
-            let span = searchResults[searchIndex];
-            let range = document.createRange();
-            range.selectNodeContents(span);
-            
-            let selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(range);
-            
-            // Replace the text
-            document.execCommand('insertText', false, replaceText);
-            
-            // Need to rebuild the search results
-            let searchText = currentSearchText;
-            setTimeout(() => {
-                searchAndHighlight(searchText);
-            }, 10);
-            
-            return true;
-        }
-        
-        function replaceAll(searchText, replaceText) {
-            if (!searchText) return 0;
-            
-            // Create history entry before change
-            saveState();
-            
-            // First clear any existing search
-            clearSearch();
-            
-            let editor = document.getElementById('editor');
-            let content = editor.innerHTML;
-            
-            // Escape special characters for regex
-            let escapedSearch = searchText.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
-            let regexSearch = new RegExp(escapedSearch, 'g');
-            
-            // Replace all occurrences
-            let newContent = content.replace(regexSearch, replaceText);
-            
-            // Count how many replacements were made
-            let count = 0;
-            let tempCount = (content.match(regexSearch) || []).length;
-            count = tempCount;
-            
-            // Update editor content
-            editor.innerHTML = newContent;
-            
-            return count;
-        }
-        """
-
+            """            
     def save_state_js(self):
         """JavaScript to save the editor state to the undo stack."""
         return """
