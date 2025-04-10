@@ -1460,7 +1460,7 @@ class HTMLEditorApp(Adw.Application):
         """
 
     def search_functions_js(self):
-        """JavaScript for search and replace functionality with improved handling of special characters and formatting."""
+        """JavaScript for search and replace functionality with improved handling of replacements and formatting."""
         # Use Python raw string to avoid escape sequence issues
         return r"""
         // Search variables
@@ -1468,6 +1468,7 @@ class HTMLEditorApp(Adw.Application):
         var searchIndex = -1;
         var currentSearchText = "";
         var originalFormattingInfo = []; // Store information about original formatting
+        var replacedSegments = new Set(); // Track which segments have been replaced
 
         // Search functions
         function clearSearch() {
@@ -1487,7 +1488,16 @@ class HTMLEditorApp(Adw.Application):
                     // Get the text content of the highlight
                     let textContent = highlight.textContent;
                     
-                    // Check if we have stored formatting information for this highlight
+                    // Check if this segment has been replaced
+                    let highlightId = highlight.getAttribute('data-highlight-id');
+                    if (highlightId && replacedSegments.has(highlightId)) {
+                        // This was replaced - just remove the highlight styling but keep the text
+                        let plainText = document.createTextNode(textContent);
+                        parent.replaceChild(plainText, highlight);
+                        continue;
+                    }
+                    
+                    // Not replaced - check if we have stored formatting information for this highlight
                     let formattingInfo = originalFormattingInfo[i];
                     
                     if (formattingInfo) {
@@ -1534,7 +1544,7 @@ class HTMLEditorApp(Adw.Application):
                     }
                 }
                 
-                // Clear the formatting info
+                // Clear the formatting info but keep replaced segments
                 originalFormattingInfo = [];
                 
                 editor.normalize();
@@ -1736,6 +1746,10 @@ class HTMLEditorApp(Adw.Application):
                         highlightSpan.style.backgroundColor = '#FFFF00';
                         highlightSpan.style.color = '#000000';
                         
+                        // Add a unique ID to track this highlight
+                        let highlightId = 'highlight-' + Math.random().toString(36).substr(2, 9);
+                        highlightSpan.setAttribute('data-highlight-id', highlightId);
+                        
                         // Apply highlight
                         try {
                             range.surroundContents(highlightSpan);
@@ -1752,6 +1766,10 @@ class HTMLEditorApp(Adw.Application):
                             span.className = 'search-highlight';
                             span.style.backgroundColor = '#FFFF00';
                             span.style.color = '#000000';
+                            
+                            // Add unique ID to track this highlight
+                            span.setAttribute('data-highlight-id', highlightId);
+                            
                             fragment.appendChild(span);
                             
                             // Extract contents to the span
@@ -1900,6 +1918,13 @@ class HTMLEditorApp(Adw.Application):
             
             // Now perform the replacement
             let span = searchResults[searchIndex];
+            
+            // Mark this span as replaced
+            let highlightId = span.getAttribute('data-highlight-id');
+            if (highlightId) {
+                replacedSegments.add(highlightId);
+            }
+            
             let range = document.createRange();
             range.selectNodeContents(span);
             
@@ -2021,6 +2046,10 @@ class HTMLEditorApp(Adw.Application):
                         let range = document.createRange();
                         range.setStart(startNode, startOffset);
                         range.setEnd(endNode, endOffset + 1);
+                        
+                        // Generate a temporary highlight ID to mark this as replaced
+                        let tempHighlightId = 'replaced-' + Math.random().toString(36).substr(2, 9);
+                        replacedSegments.add(tempHighlightId);
                         
                         // Apply the replacement
                         let selection = window.getSelection();
