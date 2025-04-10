@@ -2175,8 +2175,17 @@ class HTMLEditorApp(Adw.Application):
         try:
             # Apply formatting
             self.execute_js(win, "document.execCommand('bold', false, null);")
-            # Force focus back to the webview after a small delay
-            GLib.timeout_add(50, lambda: win.webview.grab_focus())
+            
+            # Check if find bar has focus before setting focus to webview
+            find_bar_active = win.find_bar_revealer.get_reveal_child()
+            find_entry_has_focus = False
+            
+            if find_bar_active:
+                find_entry_has_focus = win.find_entry.has_focus() or win.replace_entry.has_focus()
+            
+            # Only grab focus to webview if find entries don't have focus
+            if not find_entry_has_focus:
+                win.webview.grab_focus()
         finally:
             # Unblock the handler
             if win.bold_handler_id is not None:
@@ -2191,8 +2200,17 @@ class HTMLEditorApp(Adw.Application):
         try:
             # Apply formatting
             self.execute_js(win, "document.execCommand('italic', false, null);")
-            # Force focus back to the webview after a small delay
-            GLib.timeout_add(50, lambda: win.webview.grab_focus())
+            
+            # Check if find bar has focus before setting focus to webview
+            find_bar_active = win.find_bar_revealer.get_reveal_child()
+            find_entry_has_focus = False
+            
+            if find_bar_active:
+                find_entry_has_focus = win.find_entry.has_focus() or win.replace_entry.has_focus()
+            
+            # Only grab focus to webview if find entries don't have focus
+            if not find_entry_has_focus:
+                win.webview.grab_focus()
         finally:
             # Unblock the handler
             if win.italic_handler_id is not None:
@@ -2207,8 +2225,17 @@ class HTMLEditorApp(Adw.Application):
         try:
             # Apply formatting
             self.execute_js(win, "document.execCommand('underline', false, null);")
-            # Force focus back to the webview after a small delay
-            GLib.timeout_add(50, lambda: win.webview.grab_focus())
+            
+            # Check if find bar has focus before setting focus to webview
+            find_bar_active = win.find_bar_revealer.get_reveal_child()
+            find_entry_has_focus = False
+            
+            if find_bar_active:
+                find_entry_has_focus = win.find_entry.has_focus() or win.replace_entry.has_focus()
+            
+            # Only grab focus to webview if find entries don't have focus
+            if not find_entry_has_focus:
+                win.webview.grab_focus()
         finally:
             # Unblock the handler
             if win.underline_handler_id is not None:
@@ -2223,8 +2250,17 @@ class HTMLEditorApp(Adw.Application):
         try:
             # Apply formatting
             self.execute_js(win, "document.execCommand('strikeThrough', false, null);")
-            # Force focus back to the webview after a small delay
-            GLib.timeout_add(50, lambda: win.webview.grab_focus())
+            
+            # Check if find bar has focus before setting focus to webview
+            find_bar_active = win.find_bar_revealer.get_reveal_child()
+            find_entry_has_focus = False
+            
+            if find_bar_active:
+                find_entry_has_focus = win.find_entry.has_focus() or win.replace_entry.has_focus()
+            
+            # Only grab focus to webview if find entries don't have focus
+            if not find_entry_has_focus:
+                win.webview.grab_focus()
         finally:
             # Unblock the handler
             if win.strikeout_handler_id is not None:
