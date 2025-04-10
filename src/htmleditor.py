@@ -160,13 +160,18 @@ class HTMLEditorApp(Adw.Application):
         win.set_title("Untitled - HTML Editor")
         
         # Create main box to contain all UI elements
-        win.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        win.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         win.main_box.set_vexpand(True)
         win.main_box.set_hexpand(True)
         
         # Create headerbar with revealer
         win.headerbar_revealer = Gtk.Revealer()
+        
         win.headerbar_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_DOWN)
+        win.headerbar_revealer.set_margin_start(0)
+        win.headerbar_revealer.set_margin_end(0)
+        win.headerbar_revealer.set_margin_top(0)
+        win.headerbar_revealer.set_margin_bottom(0)
         win.headerbar_revealer.set_transition_duration(250)
         win.headerbar_revealer.set_reveal_child(True)  # Visible by default
         
@@ -199,6 +204,10 @@ class HTMLEditorApp(Adw.Application):
         
         # Create formatting toolbar with revealer
         win.formatting_toolbar_revealer = Gtk.Revealer()
+        win.formatting_toolbar_revealer.set_margin_start(0)
+        win.formatting_toolbar_revealer.set_margin_end(0)
+        win.formatting_toolbar_revealer.set_margin_top(0)
+        win.formatting_toolbar_revealer.set_margin_bottom(0)
         win.formatting_toolbar_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_UP)
         win.formatting_toolbar_revealer.set_transition_duration(250)
         win.formatting_toolbar_revealer.set_reveal_child(True)  # Visible by default
@@ -239,6 +248,9 @@ class HTMLEditorApp(Adw.Application):
         win.webview.load_html(self.get_initial_html(), None)
         content_box.append(win.webview)
         
+        # Find bar with revealer
+        win.find_bar = self.create_find_bar(win)
+        content_box.append(win.find_bar)
         
         # Create statusbar with revealer
         win.statusbar_revealer = Gtk.Revealer()
@@ -267,6 +279,238 @@ class HTMLEditorApp(Adw.Application):
         self.windows.append(win)
         
         return win
+
+    def create_find_bar(self, win):
+        """Create find/replace bar with revealer for smooth animations"""
+        # Create a revealer to animate the find bar
+        win.find_bar_revealer = Gtk.Revealer()
+        win.find_bar_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_DOWN)
+        win.find_bar_revealer.set_transition_duration(250)
+        win.find_bar_revealer.set_reveal_child(False)  # Initially hidden
+        win.find_bar_revealer.set_margin_top(0)
+        win.find_bar_revealer.add_css_class("flat-header")
+        
+        # Main container
+        find_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        find_bar.set_margin_start(0)
+        find_bar.set_margin_end(0)
+        find_bar.set_margin_top(6)
+        find_bar.set_margin_bottom(0)
+        find_bar.add_css_class("search-bar")
+        #find_bar.add_css_class("toolbar-container")
+        
+        # Use Gtk.SearchEntry for find functionality
+        win.find_entry = Gtk.SearchEntry()
+        win.find_entry.set_margin_start(6)
+        win.find_entry.set_placeholder_text("Search")
+        win.find_entry.set_tooltip_text("Find text in document")
+        win.find_entry.set_hexpand(True)
+        win.find_entry.connect("search-changed", lambda entry: self.on_find_text_changed(win, entry))
+        win.find_entry.connect("activate", lambda entry: self.on_find_next_clicked(win, None))
+        
+        # Add key controller specifically for the search entry
+        find_key_controller = Gtk.EventControllerKey.new()
+        find_key_controller.connect("key-pressed", lambda c, k, kc, s: self.on_find_key_pressed(win, c, k, kc, s))
+        win.find_entry.add_controller(find_key_controller)
+        
+        find_bar.append(win.find_entry)
+        
+        # Previous/Next buttons
+        nav_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        nav_box.add_css_class("linked")
+        nav_box.set_margin_start(4)
+        
+        prev_button = Gtk.Button(icon_name="go-up-symbolic")
+        prev_button.set_tooltip_text("Previous match")
+        prev_button.connect("clicked", lambda btn: self.on_find_previous_clicked(win, btn))
+        nav_box.append(prev_button)
+        
+        next_button = Gtk.Button(icon_name="go-down-symbolic")
+        next_button.set_tooltip_text("Next match")
+        next_button.connect("clicked", lambda btn: self.on_find_next_clicked(win, btn))
+        nav_box.append(next_button)
+        
+        find_bar.append(nav_box)
+        
+        # Create a separator
+        separator = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        separator.set_margin_start(8)
+        separator.set_margin_end(8)
+        find_bar.append(separator)
+        
+        # Replace entry with icon
+        replace_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        replace_box.add_css_class("linked")
+        
+        # Create a styled entry for replace
+        win.replace_entry = Gtk.Entry()
+        win.replace_entry.set_placeholder_text("Replace")
+        win.replace_entry.set_hexpand(True)
+        
+        # Add a replace icon to the entry
+        win.replace_entry.set_icon_from_icon_name(Gtk.EntryIconPosition.PRIMARY, "edit-find-replace-symbolic")
+        
+        # Add key controller specifically for the replace entry
+        replace_key_controller = Gtk.EventControllerKey.new()
+        replace_key_controller.connect("key-pressed", lambda c, k, kc, s: self.on_find_key_pressed(win, c, k, kc, s))
+        win.replace_entry.add_controller(replace_key_controller)
+        
+        replace_box.append(win.replace_entry)
+        find_bar.append(replace_box)
+        
+        # Replace and Replace All buttons
+        action_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        action_box.set_margin_start(4)
+        
+        replace_button = Gtk.Button(label="Replace")
+        replace_button.connect("clicked", lambda btn: self.on_replace_clicked(win, btn))
+        action_box.append(replace_button)
+        
+        replace_all_button = Gtk.Button(label="Replace All")
+        replace_all_button.connect("clicked", lambda btn: self.on_replace_all_clicked(win, btn))
+        action_box.append(replace_all_button)
+        
+        find_bar.append(action_box)
+        
+        # Use a spacer to push the close button to the right
+        spacer = Gtk.Box()
+        spacer.set_hexpand(True)
+        find_bar.append(spacer)
+        
+        # Status label to show match counts or errors (placed before close button)
+        win.status_label = Gtk.Label()
+        win.status_label.set_margin_start(8)
+        win.status_label.set_margin_end(8)
+        win.status_label.set_width_chars(15)
+        win.status_label.set_xalign(0)  # Align text to the left
+        find_bar.append(win.status_label)
+        
+        # Close button
+        close_button = Gtk.Button(icon_name="window-close-symbolic")
+        close_button.set_tooltip_text("Close search bar")
+        close_button.connect("clicked", lambda btn: self.on_close_find_clicked(win, btn))
+        close_button.add_css_class("flat")
+        find_bar.append(close_button)
+        
+        # Set the find bar as the child of the revealer
+        win.find_bar_revealer.set_child(find_bar)
+        
+        return win.find_bar_revealer
+
+
+    def on_find_clicked(self, action, param):
+        """Handle Find command - toggle the find bar visibility"""
+        # Get the active window
+        active_win = None
+        for win in self.windows:
+            if win.is_active():
+                active_win = win
+                break
+        
+        # If no active window, use the first one
+        if not active_win and self.windows:
+            active_win = self.windows[0]
+                
+        if active_win:
+            # Toggle find bar visibility
+            is_visible = active_win.find_bar_revealer.get_reveal_child()
+            active_win.find_bar_revealer.set_reveal_child(not is_visible)
+            
+            if not is_visible:
+                # Only grab focus if we're showing the bar
+                active_win.find_entry.grab_focus()
+                active_win.statusbar.set_text("Find and replace activated")
+            else:
+                # Clear highlights when hiding
+                js_code = "clearSearch();"
+                active_win.webview.evaluate_javascript(js_code, -1, None, None, None, None)
+                active_win.webview.grab_focus()
+                active_win.statusbar.set_text("Find and replace closed")
+
+    def on_close_find_clicked(self, win, button, param=None):
+        """Handle close find bar button"""
+        if win:
+            win.find_bar_revealer.set_reveal_child(False)
+            # Clear any highlighting
+            js_code = "clearSearch();"
+            win.webview.evaluate_javascript(js_code, -1, None, None, None, None)
+            win.webview.grab_focus()
+            win.statusbar.set_text("Find and replace closed")
+            
+    def on_find_text_changed(self, win, entry):
+        """Handle find text changes"""
+        search_text = entry.get_text()
+        if search_text:
+            js_code = f"""
+            searchAndHighlight("{search_text.replace('"', '\\"')}");
+            """
+            win.webview.evaluate_javascript(js_code, -1, None, None, None, 
+                                            lambda webview, result: self.on_search_result(win, webview, result))
+
+    def on_search_result(self, win, webview, result):
+        """Handle search result"""
+        try:
+            js_result = webview.evaluate_javascript_finish(result)
+            if js_result and not js_result.is_null():
+                count = js_result.to_int32()
+                if count > 0:
+                    win.status_label.set_text(f"Found {count} matches")
+                else:
+                    win.status_label.set_text("No matches found")
+        except Exception as e:
+            print(f"Error in search: {e}")
+            win.status_label.set_text("Search error")
+
+    def on_find_next_clicked(self, win, button):
+        """Move to next search result"""
+        js_code = "findNext();"
+        win.webview.evaluate_javascript(js_code, -1, None, None, None, None)
+
+    def on_find_previous_clicked(self, win, button):
+        """Move to previous search result"""
+        js_code = "findPrevious();"
+        win.webview.evaluate_javascript(js_code, -1, None, None, None, None)
+
+    def on_replace_clicked(self, win, button):
+        """Replace current selection with replace text"""
+        replace_text = win.replace_entry.get_text()
+        js_code = f"""
+        replaceSelection("{replace_text.replace('"', '\\"')}");
+        """
+        win.webview.evaluate_javascript(js_code, -1, None, None, None, None)
+
+    def on_replace_all_clicked(self, win, button):
+        """Replace all instances of search text with replace text"""
+        search_text = win.find_entry.get_text()
+        replace_text = win.replace_entry.get_text()
+        
+        if not search_text:
+            return
+        
+        js_code = f"""
+        replaceAll("{search_text.replace('"', '\\"')}", "{replace_text.replace('"', '\\"')}");
+        """
+        win.webview.evaluate_javascript(js_code, -1, None, None, None, 
+                                    lambda webview, result: self.on_replace_all_result(win, webview, result))
+
+    def on_replace_all_result(self, win, webview, result):
+       """Handle replace all result"""
+       try:
+           js_result = webview.evaluate_javascript_finish(result)
+           if js_result and not js_result.is_null():
+               count = js_result.to_int32()
+               win.status_label.set_text(f"Replaced {count} occurrences")
+       except Exception as e:
+           print(f"Error in replace all: {e}")
+           win.status_label.set_text("Replace error")
+
+    def on_find_key_pressed(self, win, controller, keyval, keycode, state):
+        """Handle key presses in the find bar"""
+        # Check if Escape key was pressed
+        if keyval == Gdk.KEY_Escape:
+            self.on_close_find_clicked(win, None)
+            return True
+        return False
         
     def setup_headerbar_content(self, win):
         """Create simplified headerbar content (menu and window buttons)"""
@@ -427,10 +671,10 @@ class HTMLEditorApp(Adw.Application):
         win.redo_button.set_sensitive(False)  # Initially disabled
         win.redo_button.add_css_class("flat")
         
-        # Find-Replace button (placeholder)
+        # Find-Replace button - Updated to use our new find/replace functionality
         find_button = Gtk.Button(icon_name="edit-find-replace-symbolic")
-        find_button.set_tooltip_text("Find and Replace")
-        find_button.connect("clicked", lambda btn: self.on_find_replace_clicked(win, btn) if hasattr(self, "on_find_replace_clicked") else None)
+        find_button.set_tooltip_text("Find and Replace (Ctrl+F)")
+        find_button.connect("clicked", lambda btn: self.on_find_clicked(None, None))
         find_button.add_css_class("flat")
         
         # Add buttons to history group
@@ -721,6 +965,12 @@ class HTMLEditorApp(Adw.Application):
         shortcut_print = Gtk.Shortcut.new(trigger_print, action_print)
         controller.add_shortcut(shortcut_print)
         
+        # Create Ctrl+F shortcut for find
+        trigger_find = Gtk.ShortcutTrigger.parse_string("<Control>f")
+        action_find = Gtk.CallbackAction.new(lambda *args: self.on_find_clicked(None, None))
+        shortcut_find = Gtk.Shortcut.new(trigger_find, action_find)
+        controller.add_shortcut(shortcut_find)
+        
         # Create Ctrl+Shift+S shortcut for toggling the statusbar
         trigger_statusbar = Gtk.ShortcutTrigger.parse_string("<Control><Shift>s")
         action_statusbar = Gtk.CallbackAction.new(lambda *args: self.toggle_statusbar(win, *args))
@@ -973,6 +1223,11 @@ class HTMLEditorApp(Adw.Application):
         window.redoStack = [];
         window.isUndoRedo = false;
         window.lastContent = "";
+        
+        // Search variables
+        var searchResults = [];
+        var searchIndex = -1;
+        var currentSearchText = "";
 
         {self.save_state_js()}
         {self.perform_undo_js()}
@@ -981,7 +1236,209 @@ class HTMLEditorApp(Adw.Application):
         {self.get_stack_sizes_js()}
         {self.set_content_js()}
         {self.selection_change_js()}
+        {self.search_functions_js()}
         {self.init_editor_js()}
+        """
+
+    def search_functions_js(self):
+        """JavaScript for search and replace functionality."""
+        return """
+        // Search functions
+        function clearSearch() {
+            searchResults = [];
+            searchIndex = -1;
+            currentSearchText = "";
+            
+            // Remove all highlighting
+            let editor = document.getElementById('editor');
+            let highlights = editor.querySelectorAll('.search-highlight');
+            
+            if (highlights.length) {
+                for (let i = 0; i < highlights.length; i++) {
+                    let highlight = highlights[i];
+                    let textNode = document.createTextNode(highlight.textContent);
+                    highlight.parentNode.replaceChild(textNode, highlight);
+                }
+                editor.normalize();
+                return true;
+            }
+            return false;
+        }
+        
+        function searchAndHighlight(searchText) {
+            // First clear any existing search
+            clearSearch();
+            
+            if (!searchText) return 0;
+            currentSearchText = searchText;
+            
+            let editor = document.getElementById('editor');
+            searchResults = [];
+            searchIndex = -1;
+            
+            // Create a TreeWalker to traverse all text nodes in the editor
+            let walker = document.createTreeWalker(
+                editor,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
+            
+            let matches = [];
+            let node;
+            let count = 0;
+            
+            // Find all matching text nodes
+            while ((node = walker.nextNode()) !== null) {
+                let content = node.textContent;
+                let index = content.indexOf(searchText);
+                
+                while (index !== -1) {
+                    matches.push({
+                        node: node,
+                        index: index
+                    });
+                    index = content.indexOf(searchText, index + 1);
+                    count++;
+                }
+            }
+            
+            // Highlight matches from last to first to maintain indices
+            for (let i = matches.length - 1; i >= 0; i--) {
+                let match = matches[i];
+                let node = match.node;
+                let index = match.index;
+                
+                // Split text node at match boundaries
+                let beforeNode = node.splitText(index);
+                let matchNode = beforeNode.splitText(searchText.length);
+                
+                // Create highlight span
+                let highlightSpan = document.createElement('span');
+                highlightSpan.className = 'search-highlight';
+                highlightSpan.style.backgroundColor = '#FFFF00';
+                
+                // Replace text node with highlight span
+                let parent = beforeNode.parentNode;
+                parent.replaceChild(highlightSpan, beforeNode);
+                highlightSpan.appendChild(beforeNode);
+                
+                // Store reference to the span
+                searchResults.push(highlightSpan);
+            }
+            
+            // Select first result if any found
+            if (searchResults.length > 0) {
+                searchIndex = 0;
+                selectSearchResult(0);
+            }
+            
+            return count;
+        }
+        
+        function selectSearchResult(index) {
+            if (searchResults.length === 0) return false;
+            
+            // Make sure index is within bounds
+            index = Math.max(0, Math.min(index, searchResults.length - 1));
+            searchIndex = index;
+            
+            // Get the highlight span
+            let span = searchResults[index];
+            
+            // Create a range for the selection
+            let range = document.createRange();
+            range.selectNodeContents(span);
+            
+            // Apply the selection
+            let selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            
+            // Scroll to the selection
+            span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            return true;
+        }
+        
+        function findNext() {
+            if (searchResults.length === 0) return false;
+            
+            searchIndex++;
+            if (searchIndex >= searchResults.length) {
+                searchIndex = 0;
+            }
+            
+            return selectSearchResult(searchIndex);
+        }
+        
+        function findPrevious() {
+            if (searchResults.length === 0) return false;
+            
+            searchIndex--;
+            if (searchIndex < 0) {
+                searchIndex = searchResults.length - 1;
+            }
+            
+            return selectSearchResult(searchIndex);
+        }
+        
+        function replaceSelection(replaceText) {
+            if (searchResults.length === 0 || searchIndex < 0) return false;
+            
+            // Create history entry before change
+            saveState();
+            
+            // Now perform the replacement
+            let span = searchResults[searchIndex];
+            let range = document.createRange();
+            range.selectNodeContents(span);
+            
+            let selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            
+            // Replace the text
+            document.execCommand('insertText', false, replaceText);
+            
+            // Need to rebuild the search results
+            let searchText = currentSearchText;
+            setTimeout(() => {
+                searchAndHighlight(searchText);
+            }, 10);
+            
+            return true;
+        }
+        
+        function replaceAll(searchText, replaceText) {
+            if (!searchText) return 0;
+            
+            // Create history entry before change
+            saveState();
+            
+            // First clear any existing search
+            clearSearch();
+            
+            let editor = document.getElementById('editor');
+            let content = editor.innerHTML;
+            
+            // Escape special characters for regex
+            let escapedSearch = searchText.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+            let regexSearch = new RegExp(escapedSearch, 'g');
+            
+            // Replace all occurrences
+            let newContent = content.replace(regexSearch, replaceText);
+            
+            // Count how many replacements were made
+            let count = 0;
+            let tempCount = (content.match(regexSearch) || []).length;
+            count = tempCount;
+            
+            // Update editor content
+            editor.innerHTML = newContent;
+            
+            return count;
+        }
         """
 
     def save_state_js(self):

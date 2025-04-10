@@ -45,6 +45,7 @@ modules:
     buildsystem: simple
     build-commands:
       - install -Dm755 htmleditor.py /app/bin/htmleditor
+      - install -Dm755 file_operations.py /app/bin/
       - mkdir -p /app/share/icons/hicolor/scalable/apps
       - mkdir -p /app/share/applications
       - install -Dm755 io.github.fastrizwaan.htmleditor.desktop /app/share/applications
@@ -53,6 +54,8 @@ modules:
     sources:
       - type: file
         path: htmleditor.py
+      - type: file
+        path: file_operations.py
       - type: file
         path: io.github.fastrizwaan.htmleditor.desktop
       - type: file
