@@ -383,7 +383,7 @@ class HTMLEditorApp(Adw.Application):
         win.status_label.set_margin_end(8)
         win.status_label.set_width_chars(15)
         win.status_label.set_xalign(0)  # Align text to the left
-        find_bar.append(win.status_label)
+        #find_bar.append(win.status_label)
         
         # Close button
         close_button = Gtk.Button(icon_name="window-close-symbolic")
@@ -398,7 +398,50 @@ class HTMLEditorApp(Adw.Application):
         return win.find_bar_revealer
 
 
-    def on_find_clicked(self, action, param):
+    def on_find_shortcut(self, win, *args):
+        """Handle Ctrl+F shortcut specifically"""
+        # Get current visibility state
+        is_visible = win.find_bar_revealer.get_reveal_child()
+        
+        # Toggle to the opposite state
+        new_state = not is_visible
+        
+        # Block signal handler before updating the toggle button
+        if hasattr(win, 'find_button_handler_id') and win.find_button_handler_id:
+            win.find_button.handler_block(win.find_button_handler_id)
+        
+        # Update button state first
+        win.find_button.set_active(new_state)
+        
+        # Update find bar visibility
+        win.find_bar_revealer.set_reveal_child(new_state)
+        
+        # Unblock signal handler
+        if hasattr(win, 'find_button_handler_id') and win.find_button_handler_id:
+            win.find_button.handler_unblock(win.find_button_handler_id)
+        
+        # Use a small delay to properly handle the focus
+        def handle_focus():
+            if new_state:
+                # If showing the bar, grab focus and try to use selection
+                win.find_entry.grab_focus()
+                win.statusbar.set_text("Find and replace activated")
+                
+                # Check if there's selected text to populate the find field
+                self.populate_find_field_from_selection(win)
+            else:
+                # Clear highlights when hiding
+                js_code = "clearSearch();"
+                win.webview.evaluate_javascript(js_code, -1, None, None, None, None)
+                win.webview.grab_focus()
+                win.statusbar.set_text("Find and replace closed")
+            return False  # Don't call again
+        
+        GLib.timeout_add(100, handle_focus)
+        
+        return True  # Event was handled
+
+    def on_find_clicked(self, action=None, param=None):
         """Handle Find command - toggle the find bar visibility"""
         # Get the active window
         active_win = None
@@ -412,25 +455,102 @@ class HTMLEditorApp(Adw.Application):
             active_win = self.windows[0]
                 
         if active_win:
-            # Toggle find bar visibility
+            # Get current visibility state
             is_visible = active_win.find_bar_revealer.get_reveal_child()
-            active_win.find_bar_revealer.set_reveal_child(not is_visible)
             
-            if not is_visible:
-                # Only grab focus if we're showing the bar
-                active_win.find_entry.grab_focus()
-                active_win.statusbar.set_text("Find and replace activated")
-            else:
-                # Clear highlights when hiding
-                js_code = "clearSearch();"
-                active_win.webview.evaluate_javascript(js_code, -1, None, None, None, None)
-                active_win.webview.grab_focus()
-                active_win.statusbar.set_text("Find and replace closed")
+            # Toggle to the opposite state
+            new_state = not is_visible
+            
+            # Use a small delay to ensure focus handling occurs after the visibility change
+            def toggle_find_bar():
+                # First update the find bar visibility
+                active_win.find_bar_revealer.set_reveal_child(new_state)
+                
+                # Block signal handler before updating the toggle button
+                if hasattr(active_win, 'find_button'):
+                    if hasattr(active_win, 'find_button_handler_id') and active_win.find_button_handler_id:
+                        active_win.find_button.handler_block(active_win.find_button_handler_id)
+                    
+                    # Update button state to match the find bar visibility
+                    active_win.find_button.set_active(new_state)
+                    
+                    # Unblock signal handler
+                    if hasattr(active_win, 'find_button_handler_id') and active_win.find_button_handler_id:
+                        active_win.find_button.handler_unblock(active_win.find_button_handler_id)
+                
+                if new_state:
+                    # If showing the bar, grab focus and try to use selection
+                    active_win.find_entry.grab_focus()
+                    active_win.statusbar.set_text("Find and replace activated")
+                    
+                    # Check if there's selected text to populate the find field
+                    self.populate_find_field_from_selection(active_win)
+                else:
+                    # Clear highlights when hiding
+                    js_code = "clearSearch();"
+                    active_win.webview.evaluate_javascript(js_code, -1, None, None, None, None)
+                    active_win.webview.grab_focus()
+                    active_win.statusbar.set_text("Find and replace closed")
+                
+                return False  # Don't call again
+            
+            # Schedule the toggle with a short delay to allow the key event to complete
+            GLib.timeout_add(50, toggle_find_bar)
+            
+            return True  # Event was handled
 
+    # Make sure we properly integrate with keyboard shortcuts and find/replace functionality
+    def populate_find_field_from_selection(self, win):
+        """Populate find entry with selected text if any"""
+        js_code = """
+        (function() {
+            const selection = window.getSelection();
+            if (selection && selection.toString().trim().length > 0) {
+                return selection.toString();
+            }
+            return "";
+        })();
+        """
+        win.webview.evaluate_javascript(
+            js_code, -1, None, None, None,
+            # The lambda needs to accept the third argument (user_data)
+            lambda webview, result, user_data=None: self._on_get_selection_for_find(win, webview, result),
+            None
+        )
+
+    def _on_get_selection_for_find(self, win, webview, result):
+        """Handle getting selection text for find field"""
+        try:
+            js_result = webview.evaluate_javascript_finish(result)
+            if js_result and not js_result.is_null():
+                selection_text = ""
+                
+                # Try different methods to extract the string value
+                if hasattr(js_result, 'get_js_value'):
+                    selection_text = js_result.get_js_value().to_string()
+                elif hasattr(js_result, 'to_string'):
+                    selection_text = js_result.to_string()
+                elif hasattr(js_result, 'get_string'):
+                    selection_text = js_result.get_string()
+                
+                if selection_text and selection_text.strip():
+                    # Set the find entry text to the selection
+                    win.find_entry.set_text(selection_text.strip())
+                    
+                    # Trigger the search automatically
+                    self.on_find_text_changed(win, win.find_entry)
+        except Exception as e:
+            print(f"Error getting selection for find: {e}")
+            
     def on_close_find_clicked(self, win, button, param=None):
         """Handle close find bar button"""
         if win:
             win.find_bar_revealer.set_reveal_child(False)
+            
+            # Also update the toggle button state
+            if hasattr(win, 'find_button'):
+                win.find_button.set_active(False)
+                
             # Clear any highlighting
             js_code = "clearSearch();"
             win.webview.evaluate_javascript(js_code, -1, None, None, None, None)
@@ -454,12 +574,19 @@ class HTMLEditorApp(Adw.Application):
             if js_result and not js_result.is_null():
                 count = js_result.to_int32()
                 if count > 0:
-                    win.status_label.set_text(f"Found {count} matches")
+                    status_message = f"Found {count} matches"
+                    win.status_label.set_text(status_message)
+                    win.statusbar.set_text(status_message)  # Also update the statusbar
                 else:
-                    win.status_label.set_text("No matches found")
+                    status_message = "No matches found"
+                    win.status_label.set_text(status_message)
+                    win.statusbar.set_text(status_message)  # Also update the statusbar
         except Exception as e:
             print(f"Error in search: {e}")
-            win.status_label.set_text("Search error")
+            status_message = "Search error"
+            win.status_label.set_text(status_message)
+            win.statusbar.set_text(status_message)  # Also update the statusbar
+
 
     def on_find_next_clicked(self, win, button):
         """Move to next search result"""
@@ -494,15 +621,17 @@ class HTMLEditorApp(Adw.Application):
                                     lambda webview, result: self.on_replace_all_result(win, webview, result))
 
     def on_replace_all_result(self, win, webview, result):
-       """Handle replace all result"""
-       try:
-           js_result = webview.evaluate_javascript_finish(result)
-           if js_result and not js_result.is_null():
-               count = js_result.to_int32()
-               win.status_label.set_text(f"Replaced {count} occurrences")
-       except Exception as e:
-           print(f"Error in replace all: {e}")
-           win.status_label.set_text("Replace error")
+        """Handle replace all result"""
+        try:
+            js_result = webview.evaluate_javascript_finish(result)
+            if js_result and not js_result.is_null():
+                count = js_result.to_int32()
+                status_message = f"Replaced {count} occurrences"
+                win.statusbar.set_text(status_message)  # Also update the statusbar
+        except Exception as e:
+            print(f"Error in replace all: {e}")
+            status_message = "Replace error"
+            win.statusbar.set_text(status_message)  
 
     def on_find_key_pressed(self, win, controller, keyval, keycode, state):
         """Handle key presses in the find bar"""
@@ -511,7 +640,30 @@ class HTMLEditorApp(Adw.Application):
             self.on_close_find_clicked(win, None)
             return True
         return False
+
+    def on_find_button_toggled(self, win, button):
+        """Handle find button toggle state changes"""
+        is_active = button.get_active()
+        is_visible = win.find_bar_revealer.get_reveal_child()
         
+        # Only take action if the button state doesn't match the find bar visibility
+        if is_active != is_visible:
+            win.find_bar_revealer.set_reveal_child(is_active)
+            
+            if is_active:
+                # Show find bar
+                win.find_entry.grab_focus()
+                win.statusbar.set_text("Find and replace activated")
+                
+                # Check if there's selected text to populate the find field
+                self.populate_find_field_from_selection(win)
+            else:
+                # Hide find bar
+                js_code = "clearSearch();"
+                win.webview.evaluate_javascript(js_code, -1, None, None, None, None)
+                win.webview.grab_focus()
+                win.statusbar.set_text("Find and replace closed")
+                    
     def setup_headerbar_content(self, win):
         """Create simplified headerbar content (menu and window buttons)"""
         # Create menu
@@ -671,16 +823,20 @@ class HTMLEditorApp(Adw.Application):
         win.redo_button.set_sensitive(False)  # Initially disabled
         win.redo_button.add_css_class("flat")
         
-        # Find-Replace button - Updated to use our new find/replace functionality
-        find_button = Gtk.Button(icon_name="edit-find-replace-symbolic")
-        find_button.set_tooltip_text("Find and Replace (Ctrl+F)")
-        find_button.connect("clicked", lambda btn: self.on_find_clicked(None, None))
-        find_button.add_css_class("flat")
-        
+        # Find-Replace toggle button - Updated to use ToggleButton
+        win.find_button = Gtk.ToggleButton()
+        find_icon = Gtk.Image.new_from_icon_name("edit-find-replace-symbolic")
+        win.find_button.set_child(find_icon)
+        win.find_button.set_tooltip_text("Find and Replace (Ctrl+F)")
+        win.find_button.add_css_class("flat")
+        win.find_button.connect("toggled", lambda btn: self.on_find_button_toggled(win, btn))
+        win.find_button_handler_id = win.find_button.connect("toggled", lambda btn: self.on_find_button_toggled(win, btn))
+
+
         # Add buttons to history group
         history_group.append(win.undo_button)
         history_group.append(win.redo_button)
-        history_group.append(find_button)
+        history_group.append(win.find_button)
         
         # Add history group to toolbar
         file_toolbar.append(history_group)
@@ -773,6 +929,7 @@ class HTMLEditorApp(Adw.Application):
         file_toolbar.append(spacer)
         
         return file_toolbar
+
 
     def on_cut_clicked(self, win, btn):
         """Handle cut button click"""
@@ -967,7 +1124,7 @@ class HTMLEditorApp(Adw.Application):
         
         # Create Ctrl+F shortcut for find
         trigger_find = Gtk.ShortcutTrigger.parse_string("<Control>f")
-        action_find = Gtk.CallbackAction.new(lambda *args: self.on_find_clicked(None, None))
+        action_find = Gtk.CallbackAction.new(lambda *args: self.on_find_shortcut(win, *args))
         shortcut_find = Gtk.Shortcut.new(trigger_find, action_find)
         controller.add_shortcut(shortcut_find)
         
@@ -2279,7 +2436,7 @@ class HTMLEditorApp(Adw.Application):
         child = win.headerbar.get_first_child()
         while child:
             if (isinstance(child, Gtk.MenuButton) and 
-                child.get_icon_name() == "window-new-symbolic"):
+                child.get_icon_name() == "multi-window-symbolic"):
                 window_button = child
                 break
             child = child.get_next_sibling()
@@ -2298,7 +2455,7 @@ class HTMLEditorApp(Adw.Application):
         elif show_button:
             # Only create a new button if we need to show it
             window_button = Gtk.MenuButton()
-            window_button.set_icon_name("window-new-symbolic")
+            window_button.set_icon_name("multi-window-symbolic")
             window_button.set_tooltip_text("Window List")
             window_button.set_menu_model(menu_model)
             window_button.set_visible(show_button)
