@@ -455,7 +455,6 @@ def _on_get_selection_for_find(self, win, webview, result):
     except Exception as e:
         print(f"Error getting selection for find: {e}")
         
-        
 def search_functions_js(self):
     """JavaScript for search and replace functionality with improved handling of replacements and formatting."""
     # Use Python raw string to avoid escape sequence issues
@@ -480,65 +479,7 @@ def search_functions_js(self):
         if (highlights.length) {
             for (let i = 0; i < highlights.length; i++) {
                 let highlight = highlights[i];
-                let parent = highlight.parentNode;
-                
-                // Get the text content of the highlight
-                let textContent = highlight.textContent;
-                
-                // Check if this segment has been replaced
-                let highlightId = highlight.getAttribute('data-highlight-id');
-                if (highlightId && replacedSegments.has(highlightId)) {
-                    // This was replaced - just remove the highlight styling but keep the text
-                    let plainText = document.createTextNode(textContent);
-                    parent.replaceChild(plainText, highlight);
-                    continue;
-                }
-                
-                // Not replaced - check if we have stored formatting information for this highlight
-                let formattingInfo = originalFormattingInfo[i];
-                
-                if (formattingInfo) {
-                    // Recreate the original formatting structure
-                    let fragment = document.createDocumentFragment();
-                    
-                    // Process each formatted segment
-                    formattingInfo.forEach(segment => {
-                        if (segment.format) {
-                            // Create the appropriate formatting element
-                            let formattedEl;
-                            
-                            switch (segment.format) {
-                                case 'b':
-                                    formattedEl = document.createElement('b');
-                                    break;
-                                case 'i':
-                                    formattedEl = document.createElement('i');
-                                    break;
-                                case 'u':
-                                    formattedEl = document.createElement('u');
-                                    break;
-                                case 'strike':
-                                    formattedEl = document.createElement('strike');
-                                    break;
-                                default:
-                                    formattedEl = document.createElement(segment.format);
-                            }
-                            
-                            formattedEl.textContent = segment.text;
-                            fragment.appendChild(formattedEl);
-                        } else {
-                            // Plain text segment
-                            fragment.appendChild(document.createTextNode(segment.text));
-                        }
-                    });
-                    
-                    // Replace the highlight with the formatted fragment
-                    parent.replaceChild(fragment, highlight);
-                } else {
-                    // Fallback to simple text replacement if no formatting info
-                    let textNode = document.createTextNode(textContent);
-                    parent.replaceChild(textNode, highlight);
-                }
+                unwrapHighlight(highlight);
             }
             
             // Clear the formatting info but keep replaced segments
@@ -548,6 +489,22 @@ def search_functions_js(self):
             return true;
         }
         return false;
+    }
+
+    // Helper function to properly unwrap highlights
+    function unwrapHighlight(highlight) {
+        // Create a document fragment
+        let fragment = document.createDocumentFragment();
+        
+        // Move all children to the fragment
+        while (highlight.firstChild) {
+            fragment.appendChild(highlight.firstChild);
+        }
+        
+        // Replace the highlight with its contents
+        if (highlight.parentNode) {
+            highlight.parentNode.replaceChild(fragment, highlight);
+        }
     }
 
     // When creating highlights, store original formatting information
@@ -913,30 +870,34 @@ def search_functions_js(self):
         // Create history entry before change
         saveState();
         
-        // Now perform the replacement
-        let span = searchResults[searchIndex];
+        // Get the current highlighted span
+        let highlightSpan = searchResults[searchIndex];
         
-        // Mark this span as replaced
-        let highlightId = span.getAttribute('data-highlight-id');
-        if (highlightId) {
-            replacedSegments.add(highlightId);
+        // Check if the parent exists
+        if (!highlightSpan.parentNode) return false;
+        
+        // Step 1: Create a text node with the replacement text
+        let replacement = document.createTextNode(replaceText);
+        
+        // Step 2: Replace the highlighted span with the replacement text node
+        // This removes the highlight and inserts the new text
+        highlightSpan.parentNode.replaceChild(replacement, highlightSpan);
+        
+        // Step 3: Update our search results array
+        searchResults.splice(searchIndex, 1);
+        
+        // Step 4: Adjust the current search index if needed
+        if (searchIndex >= searchResults.length && searchResults.length > 0) {
+            searchIndex = searchResults.length - 1;
         }
         
-        let range = document.createRange();
-        range.selectNodeContents(span);
+        // Step 5: Normalize the DOM to merge adjacent text nodes
+        document.getElementById('editor').normalize();
         
-        let selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
-        
-        // Replace the text
-        document.execCommand('insertText', false, replaceText);
-        
-        // Need to rebuild the search results
-        let searchText = currentSearchText;
-        setTimeout(() => {
-            searchAndHighlight(searchText, window.isCaseSensitive || false);
-        }, 10);
+        // Step 6: Select the next result if there are any left
+        if (searchResults.length > 0) {
+            selectSearchResult(searchIndex);
+        }
         
         return true;
     }
@@ -959,143 +920,34 @@ def search_functions_js(self):
         let editor = document.getElementById('editor');
         let replacementCount = 0;
         
-        // Similar approach to searchAndHighlight but with replacements
-        let fullText = '';
-        let textNodes = [];
+        // First perform the search to find all matches
+        let matches = searchAndHighlight(searchText, window.isCaseSensitive || false);
         
-        // Use TreeWalker to find all text nodes in order
-        let walker = document.createTreeWalker(
-            editor,
-            NodeFilter.SHOW_TEXT,
-            null,
-            false
-        );
+        // Now replace all highlights with the replacement text
+        let highlights = editor.querySelectorAll('.search-highlight');
         
-        // Build text mapping
-        let node;
-        while (node = walker.nextNode()) {
-            let nodeText = normalizeSpaces(node.textContent);
-            textNodes.push({
-                node: node,
-                startIndex: fullText.length,
-                text: nodeText,
-                originalText: node.textContent
-            });
-            fullText += nodeText;
-        }
-        
-        // Get case sensitivity setting
-        const isCaseSensitive = window.isCaseSensitive || false;
-        
-        // Now search the full text
-        let searchPattern = searchText;
-        let textToSearch = fullText;
-        
-        // If case-insensitive, convert both to lowercase for comparison
-        if (!isCaseSensitive) {
-            searchPattern = searchText.toLowerCase();
-            textToSearch = fullText.toLowerCase();
-        }
-        
-        // Find and replace all matches
-        let index = textToSearch.indexOf(searchPattern);
-        while (index !== -1) {
-            let startPos = index;
-            let endPos = index + searchText.length - 1;
+        // Process each highlight
+        for (let i = 0; i < highlights.length; i++) {
+            let highlight = highlights[i];
             
-            // Find which text nodes contain our match
-            let startNode = null;
-            let startOffset = 0;
-            let endNode = null;
-            let endOffset = 0;
+            // Create a text node with the replacement
+            let textNode = document.createTextNode(replaceText);
             
-            // Find start node and offset
-            for (let i = 0; i < textNodes.length; i++) {
-                let nodeInfo = textNodes[i];
-                let nodeEndIndex = nodeInfo.startIndex + nodeInfo.text.length - 1;
-                
-                if (startPos >= nodeInfo.startIndex && startPos <= nodeEndIndex) {
-                    startNode = nodeInfo.node;
-                    // Map the offset back to the original text
-                    let normalizedOffset = startPos - nodeInfo.startIndex;
-                    startOffset = mapNormalizedToOriginalOffset(nodeInfo.originalText, nodeInfo.text, normalizedOffset);
-                    break;
-                }
-            }
-            
-            // Find end node and offset
-            for (let i = 0; i < textNodes.length; i++) {
-                let nodeInfo = textNodes[i];
-                let nodeEndIndex = nodeInfo.startIndex + nodeInfo.text.length - 1;
-                
-                if (endPos >= nodeInfo.startIndex && endPos <= nodeEndIndex) {
-                    endNode = nodeInfo.node;
-                    // Map the offset back to the original text
-                    let normalizedOffset = endPos - nodeInfo.startIndex;
-                    endOffset = mapNormalizedToOriginalOffset(nodeInfo.originalText, nodeInfo.text, normalizedOffset);
-                    break;
-                }
-            }
-            
-            // Create range and replace if we found both nodes
-            if (startNode && endNode) {
-                try {
-                    let range = document.createRange();
-                    range.setStart(startNode, startOffset);
-                    range.setEnd(endNode, endOffset + 1);
-                    
-                    // Generate a temporary highlight ID to mark this as replaced
-                    let tempHighlightId = 'replaced-' + Math.random().toString(36).substr(2, 9);
-                    replacedSegments.add(tempHighlightId);
-                    
-                    // Apply the replacement
-                    let selection = window.getSelection();
-                    selection.removeAllRanges();
-                    selection.addRange(range);
-                    document.execCommand('insertText', false, replaceText);
-                    
-                    replacementCount++;
-                    
-                    // Rebuild text mapping after DOM changes
-                    textNodes = [];
-                    fullText = '';
-                    
-                    walker = document.createTreeWalker(
-                        editor,
-                        NodeFilter.SHOW_TEXT,
-                        null,
-                        false
-                    );
-                    
-                    while (node = walker.nextNode()) {
-                        let nodeText = normalizeSpaces(node.textContent);
-                        textNodes.push({
-                            node: node,
-                            startIndex: fullText.length,
-                            text: nodeText,
-                            originalText: node.textContent
-                        });
-                        fullText += nodeText;
-                    }
-                    
-                    // Update search text
-                    if (!isCaseSensitive) {
-                        textToSearch = fullText.toLowerCase();
-                    } else {
-                        textToSearch = fullText;
-                    }
-                    
-                    // Continue from the beginning
-                    index = textToSearch.indexOf(searchPattern);
-                } catch (e) {
-                    console.error("Error replacing:", e);
-                    index = textToSearch.indexOf(searchPattern, index + 1);
-                }
-            } else {
-                index = textToSearch.indexOf(searchPattern, index + 1);
+            // Replace the highlight with the text node
+            if (highlight.parentNode) {
+                highlight.parentNode.replaceChild(textNode, highlight);
+                replacementCount++;
             }
         }
+        
+        // Clear search results since we've replaced all highlights
+        searchResults = [];
+        searchIndex = -1;
+        
+        // Normalize the DOM
+        editor.normalize();
         
         return replacementCount;
     }
-    """
+    """        
+
