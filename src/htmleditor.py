@@ -295,7 +295,7 @@ class HTMLEditorApp(Adw.Application):
         find_bar.set_margin_start(0)
         find_bar.set_margin_end(0)
         find_bar.set_margin_top(6)
-        find_bar.set_margin_bottom(0)
+        find_bar.set_margin_bottom(6)
         find_bar.add_css_class("search-bar")
         #find_bar.add_css_class("toolbar-container")
         
@@ -726,6 +726,8 @@ class HTMLEditorApp(Adw.Application):
                     
     def setup_headerbar_content(self, win):
         """Create simplified headerbar content (menu and window buttons)"""
+        win.headerbar.set_margin_top(0)
+        win.headerbar.set_margin_bottom(0)
         # Create menu
         menu_button = Gtk.MenuButton()
         menu_button.set_icon_name("open-menu-symbolic")
@@ -777,8 +779,8 @@ class HTMLEditorApp(Adw.Application):
         file_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         file_toolbar.set_margin_start(0)
         file_toolbar.set_margin_end(0)
-        file_toolbar.set_margin_top(5)
-        file_toolbar.set_margin_bottom(5)
+        file_toolbar.set_margin_top(0)
+        file_toolbar.set_margin_bottom(2)
         file_toolbar.add_css_class("toolbar-group")
         
         # --- File operations group ---
@@ -1091,8 +1093,8 @@ class HTMLEditorApp(Adw.Application):
         formatting_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         formatting_toolbar.set_margin_start(0)
         formatting_toolbar.set_margin_end(0)
-        formatting_toolbar.set_margin_top(5)
-        formatting_toolbar.set_margin_bottom(5)
+        formatting_toolbar.set_margin_top(0)
+        formatting_toolbar.set_margin_bottom(2)
         formatting_toolbar.add_css_class("toolbar-group")  # Add toolbar-group class
         
         # Store the handlers for blocking
@@ -3097,7 +3099,7 @@ class HTMLEditorApp(Adw.Application):
         """Show preferences dialog"""
         if not self.windows:
             return
-            
+                
         # Find the active window instead of just using the first window
         active_win = None
         for win in self.windows:
@@ -3108,7 +3110,7 @@ class HTMLEditorApp(Adw.Application):
         # If no active window found, use the first one as fallback
         if not active_win:
             active_win = self.windows[0]
-            
+                
         # Create dialog
         dialog = Adw.Dialog.new()
         dialog.set_title("Preferences")
@@ -3254,9 +3256,44 @@ class HTMLEditorApp(Adw.Application):
         
         content_box.append(button_box)
         
+        # Important: Store a reference to the dialog in the window
+        active_win.preferences_dialog = dialog
+        
+        # Connect to the closed signal to clean up the reference
+        dialog.connect("closed", lambda d: self.on_preferences_dialog_closed(active_win))
+        
         # Set dialog content and show
         dialog.set_child(content_box)
         dialog.present(active_win)
+
+    def on_preferences_dialog_closed(self, win):
+        """Handle preferences dialog closed event"""
+        # Remove the reference to allow proper cleanup
+        if hasattr(win, 'preferences_dialog'):
+            win.preferences_dialog = None
+
+    def save_preferences(self, dialog, win, auto_save_enabled, auto_save_interval):
+        """Save preferences settings"""
+        previous_auto_save = win.auto_save_enabled
+        
+        win.auto_save_enabled = auto_save_enabled
+        win.auto_save_interval = auto_save_interval
+        
+        # Update auto-save timer if needed
+        if auto_save_enabled != previous_auto_save:
+            if auto_save_enabled:
+                self.start_auto_save_timer(win)
+                win.statusbar.set_text("Auto-save enabled")
+            else:
+                self.stop_auto_save_timer(win)
+                win.statusbar.set_text("Auto-save disabled")
+        elif auto_save_enabled:
+            # Restart timer with new interval
+            self.stop_auto_save_timer(win)
+            self.start_auto_save_timer(win)
+            win.statusbar.set_text(f"Auto-save interval set to {auto_save_interval} seconds")
+        
+        dialog.close()
 
     def save_preferences(self, dialog, win, auto_save_enabled, auto_save_interval):
         """Save preferences settings"""
