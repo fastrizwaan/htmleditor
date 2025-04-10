@@ -451,7 +451,7 @@ class HTMLEditorApp(Adw.Application):
         # Use a small delay to properly handle the focus
         def handle_focus():
             if new_state:
-                # If showing the bar, grab focus and try to use selection
+                # If showing the bar, grab focus
                 win.find_entry.grab_focus()
                 win.statusbar.set_text("Find and replace activated")
                 
@@ -461,6 +461,11 @@ class HTMLEditorApp(Adw.Application):
                 # Clear highlights when hiding
                 js_code = "clearSearch();"
                 win.webview.evaluate_javascript(js_code, -1, None, None, None, None)
+                
+                # Clear find and replace entry text
+                win.find_entry.set_text("")
+                win.replace_entry.set_text("")
+                
                 win.webview.grab_focus()
                 win.statusbar.set_text("Find and replace closed")
             return False  # Don't call again
@@ -507,7 +512,7 @@ class HTMLEditorApp(Adw.Application):
                         active_win.find_button.handler_unblock(active_win.find_button_handler_id)
                 
                 if new_state:
-                    # If showing the bar, grab focus and try to use selection
+                    # If showing the bar, grab focus
                     active_win.find_entry.grab_focus()
                     active_win.statusbar.set_text("Find and replace activated")
                     
@@ -517,6 +522,11 @@ class HTMLEditorApp(Adw.Application):
                     # Clear highlights when hiding
                     js_code = "clearSearch();"
                     active_win.webview.evaluate_javascript(js_code, -1, None, None, None, None)
+                    
+                    # Clear find and replace entry text
+                    active_win.find_entry.set_text("")
+                    active_win.replace_entry.set_text("")
+                    
                     active_win.webview.grab_focus()
                     active_win.statusbar.set_text("Find and replace closed")
                 
@@ -573,6 +583,10 @@ class HTMLEditorApp(Adw.Application):
     def on_close_find_clicked(self, win, button, param=None):
         """Handle close find bar button"""
         if win:
+            # Clear search and replace text
+            win.find_entry.set_text("")
+            win.replace_entry.set_text("")
+            
             win.find_bar_revealer.set_reveal_child(False)
             
             # Also update the toggle button state
@@ -697,6 +711,11 @@ class HTMLEditorApp(Adw.Application):
         """Handle key presses in the find bar"""
         # Check if Escape key was pressed
         if keyval == Gdk.KEY_Escape:
+            # Clear search and replace text
+            win.find_entry.set_text("")
+            win.replace_entry.set_text("")
+            
+            # Close the find bar
             self.on_close_find_clicked(win, None)
             return True
         return False
@@ -721,6 +740,11 @@ class HTMLEditorApp(Adw.Application):
                 # Hide find bar
                 js_code = "clearSearch();"
                 win.webview.evaluate_javascript(js_code, -1, None, None, None, None)
+                
+                # Clear find and replace entry text
+                win.find_entry.set_text("")
+                win.replace_entry.set_text("")
+                
                 win.webview.grab_focus()
                 win.statusbar.set_text("Find and replace closed")
                     
