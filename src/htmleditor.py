@@ -1460,7 +1460,7 @@ class HTMLEditorApp(Adw.Application):
         """
 
     def search_functions_js(self):
-        """JavaScript for search and replace functionality with improved support for text spanning formatting elements."""
+        """JavaScript for search and replace functionality with support for special characters like &nbsp;"""
         # Use Python raw string to avoid escape sequence issues
         return r"""
         // Search variables
@@ -1490,6 +1490,11 @@ class HTMLEditorApp(Adw.Application):
             return false;
         }
 
+        function normalizeSpaces(text) {
+            // Replace non-breaking spaces with regular spaces for search purposes
+            return text.replace(/\u00A0/g, ' ');
+        }
+
         function searchAndHighlight(searchText, isCaseSensitive) {
             // First clear any existing search
             clearSearch();
@@ -1505,6 +1510,9 @@ class HTMLEditorApp(Adw.Application):
                 // Return a special value to indicate multi-line search
                 return -1;
             }
+            
+            // Normalize the search text - replace &nbsp; with space for searching
+            searchText = normalizeSpaces(searchText);
             
             let editor = document.getElementById('editor');
             searchResults = [];
@@ -1526,12 +1534,16 @@ class HTMLEditorApp(Adw.Application):
             // Collect all text nodes and build the full text
             let node;
             while (node = walker.nextNode()) {
+                // Normalize the node text content to handle &nbsp;
+                let nodeText = normalizeSpaces(node.textContent);
+                
                 textNodes.push({
                     node: node,
                     startIndex: fullText.length,
-                    text: node.textContent
+                    text: nodeText,
+                    originalText: node.textContent
                 });
-                fullText += node.textContent;
+                fullText += nodeText;
             }
             
             // Now search the full text
@@ -1563,7 +1575,9 @@ class HTMLEditorApp(Adw.Application):
                     
                     if (startPos >= nodeInfo.startIndex && startPos <= nodeEndIndex) {
                         startNode = nodeInfo.node;
-                        startOffset = startPos - nodeInfo.startIndex;
+                        // We need to account for any differences between original and normalized text
+                        let normalizedOffset = startPos - nodeInfo.startIndex;
+                        startOffset = mapNormalizedToOriginalOffset(nodeInfo.originalText, nodeInfo.text, normalizedOffset);
                         break;
                     }
                 }
@@ -1575,7 +1589,9 @@ class HTMLEditorApp(Adw.Application):
                     
                     if (endPos >= nodeInfo.startIndex && endPos <= nodeEndIndex) {
                         endNode = nodeInfo.node;
-                        endOffset = endPos - nodeInfo.startIndex;
+                        // We need to account for any differences between original and normalized text
+                        let normalizedOffset = endPos - nodeInfo.startIndex;
+                        endOffset = mapNormalizedToOriginalOffset(nodeInfo.originalText, nodeInfo.text, normalizedOffset);
                         break;
                     }
                 }
@@ -1634,12 +1650,14 @@ class HTMLEditorApp(Adw.Application):
                         
                         // Rebuild the text mapping
                         while (node = walker.nextNode()) {
+                            let nodeText = normalizeSpaces(node.textContent);
                             textNodes.push({
                                 node: node,
                                 startIndex: fullText.length,
-                                text: node.textContent
+                                text: nodeText,
+                                originalText: node.textContent
                             });
-                            fullText += node.textContent;
+                            fullText += nodeText;
                         }
                         
                         // Update search text if case insensitive
@@ -1667,6 +1685,37 @@ class HTMLEditorApp(Adw.Application):
             }
             
             return count;
+        }
+        
+        // Helper function to map an offset in normalized text back to the original text
+        function mapNormalizedToOriginalOffset(originalText, normalizedText, normalizedOffset) {
+            // If no normalization happened, return the same offset
+            if (originalText === normalizedText) {
+                return normalizedOffset;
+            }
+            
+            // Count how many characters we've processed in both texts
+            let originalIndex = 0;
+            let normalizedIndex = 0;
+            
+            // Walk through the strings simultaneously
+            while (normalizedIndex < normalizedOffset && originalIndex < originalText.length) {
+                // Skip any characters that were normalized out
+                if (originalText.charCodeAt(originalIndex) === 0xA0 && normalizedText.charAt(normalizedIndex) === ' ') {
+                    // We found a non-breaking space that was converted to space
+                    originalIndex++;
+                    normalizedIndex++;
+                } else if (originalText.charAt(originalIndex) === normalizedText.charAt(normalizedIndex)) {
+                    // Character is the same in both
+                    originalIndex++;
+                    normalizedIndex++;
+                } else {
+                    // Character was removed in normalization, skip in original only
+                    originalIndex++;
+                }
+            }
+            
+            return originalIndex;
         }
 
         function selectSearchResult(index) {
@@ -1746,6 +1795,9 @@ class HTMLEditorApp(Adw.Application):
         function replaceAll(searchText, replaceText) {
             if (!searchText) return 0;
             
+            // Normalize the search text
+            searchText = normalizeSpaces(searchText);
+            
             // Check if this is a multi-line search
             if (searchText.includes('\n')) {
                 // Return a special value to indicate multi-line search
@@ -1773,12 +1825,14 @@ class HTMLEditorApp(Adw.Application):
             // Build text mapping
             let node;
             while (node = walker.nextNode()) {
+                let nodeText = normalizeSpaces(node.textContent);
                 textNodes.push({
                     node: node,
                     startIndex: fullText.length,
-                    text: node.textContent
+                    text: nodeText,
+                    originalText: node.textContent
                 });
-                fullText += node.textContent;
+                fullText += nodeText;
             }
             
             // Get case sensitivity setting
@@ -1813,7 +1867,9 @@ class HTMLEditorApp(Adw.Application):
                     
                     if (startPos >= nodeInfo.startIndex && startPos <= nodeEndIndex) {
                         startNode = nodeInfo.node;
-                        startOffset = startPos - nodeInfo.startIndex;
+                        // Map the offset back to the original text
+                        let normalizedOffset = startPos - nodeInfo.startIndex;
+                        startOffset = mapNormalizedToOriginalOffset(nodeInfo.originalText, nodeInfo.text, normalizedOffset);
                         break;
                     }
                 }
@@ -1825,7 +1881,9 @@ class HTMLEditorApp(Adw.Application):
                     
                     if (endPos >= nodeInfo.startIndex && endPos <= nodeEndIndex) {
                         endNode = nodeInfo.node;
-                        endOffset = endPos - nodeInfo.startIndex;
+                        // Map the offset back to the original text
+                        let normalizedOffset = endPos - nodeInfo.startIndex;
+                        endOffset = mapNormalizedToOriginalOffset(nodeInfo.originalText, nodeInfo.text, normalizedOffset);
                         break;
                     }
                 }
@@ -1857,12 +1915,14 @@ class HTMLEditorApp(Adw.Application):
                         );
                         
                         while (node = walker.nextNode()) {
+                            let nodeText = normalizeSpaces(node.textContent);
                             textNodes.push({
                                 node: node,
                                 startIndex: fullText.length,
-                                text: node.textContent
+                                text: nodeText,
+                                originalText: node.textContent
                             });
-                            fullText += node.textContent;
+                            fullText += nodeText;
                         }
                         
                         // Update search text
