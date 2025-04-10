@@ -370,12 +370,31 @@ class HTMLEditorApp(Adw.Application):
         # Replace and Replace All buttons
         action_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         action_box.set_margin_start(4)
-        
+
         replace_button = Gtk.Button(label="Replace")
         replace_button.connect("clicked", lambda btn: self.on_replace_clicked(win, btn))
         action_box.append(replace_button)
-        
+
         replace_all_button = Gtk.Button(label="Replace All")
+        replace_all_button.connect("clicked", lambda btn: self.on_replace_all_clicked(win, btn))
+        action_box.append(replace_all_button)
+
+        # Replace it with this code:
+        # Replace and Replace All buttons with icons
+        action_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        action_box.set_margin_start(4)
+
+        # Replace button with icon
+        replace_button = Gtk.Button(icon_name="replace-symbolic")
+        replace_button.set_tooltip_text("Replace")
+        replace_button.add_css_class("flat")
+        replace_button.connect("clicked", lambda btn: self.on_replace_clicked(win, btn))
+        action_box.append(replace_button)
+
+        # Replace All button with icon
+        replace_all_button = Gtk.Button(icon_name="replace-all-symbolic")
+        replace_all_button.set_tooltip_text("Replace All")
+        replace_all_button.add_css_class("flat")
         replace_all_button.connect("clicked", lambda btn: self.on_replace_all_clicked(win, btn))
         action_box.append(replace_all_button)
         
