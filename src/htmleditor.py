@@ -1460,13 +1460,14 @@ class HTMLEditorApp(Adw.Application):
         """
 
     def search_functions_js(self):
-        """JavaScript for search and replace functionality with support for special characters like &nbsp;"""
+        """JavaScript for search and replace functionality with improved handling of special characters and formatting."""
         # Use Python raw string to avoid escape sequence issues
         return r"""
         // Search variables
         var searchResults = [];
         var searchIndex = -1;
         var currentSearchText = "";
+        var originalFormattingInfo = []; // Store information about original formatting
 
         // Search functions
         function clearSearch() {
@@ -1474,20 +1475,139 @@ class HTMLEditorApp(Adw.Application):
             searchIndex = -1;
             currentSearchText = "";
             
-            // Remove all highlighting
+            // Remove all highlighting while preserving formatting
             let editor = document.getElementById('editor');
             let highlights = editor.querySelectorAll('.search-highlight');
             
             if (highlights.length) {
                 for (let i = 0; i < highlights.length; i++) {
                     let highlight = highlights[i];
-                    let textNode = document.createTextNode(highlight.textContent);
-                    highlight.parentNode.replaceChild(textNode, highlight);
+                    let parent = highlight.parentNode;
+                    
+                    // Get the text content of the highlight
+                    let textContent = highlight.textContent;
+                    
+                    // Check if we have stored formatting information for this highlight
+                    let formattingInfo = originalFormattingInfo[i];
+                    
+                    if (formattingInfo) {
+                        // Recreate the original formatting structure
+                        let fragment = document.createDocumentFragment();
+                        
+                        // Process each formatted segment
+                        formattingInfo.forEach(segment => {
+                            if (segment.format) {
+                                // Create the appropriate formatting element
+                                let formattedEl;
+                                
+                                switch (segment.format) {
+                                    case 'b':
+                                        formattedEl = document.createElement('b');
+                                        break;
+                                    case 'i':
+                                        formattedEl = document.createElement('i');
+                                        break;
+                                    case 'u':
+                                        formattedEl = document.createElement('u');
+                                        break;
+                                    case 'strike':
+                                        formattedEl = document.createElement('strike');
+                                        break;
+                                    default:
+                                        formattedEl = document.createElement(segment.format);
+                                }
+                                
+                                formattedEl.textContent = segment.text;
+                                fragment.appendChild(formattedEl);
+                            } else {
+                                // Plain text segment
+                                fragment.appendChild(document.createTextNode(segment.text));
+                            }
+                        });
+                        
+                        // Replace the highlight with the formatted fragment
+                        parent.replaceChild(fragment, highlight);
+                    } else {
+                        // Fallback to simple text replacement if no formatting info
+                        let textNode = document.createTextNode(textContent);
+                        parent.replaceChild(textNode, highlight);
+                    }
                 }
+                
+                // Clear the formatting info
+                originalFormattingInfo = [];
+                
                 editor.normalize();
                 return true;
             }
             return false;
+        }
+
+        // When creating highlights, store original formatting information
+        function storeFormattingInfo(range) {
+            let formattingInfo = [];
+            let fragment = range.cloneContents();
+            
+            // Process all nodes in the fragment
+            function processNode(node) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    // Text node - add as plain text
+                    formattingInfo.push({
+                        text: node.textContent,
+                        format: null
+                    });
+                } else if (node.nodeType === Node.ELEMENT_NODE) {
+                    // Element node - check for formatting elements
+                    let format = null;
+                    
+                    // Identify formatting elements
+                    if (node.nodeName === 'B' || node.nodeName === 'STRONG') {
+                        format = 'b';
+                    } else if (node.nodeName === 'I' || node.nodeName === 'EM') {
+                        format = 'i';
+                    } else if (node.nodeName === 'U') {
+                        format = 'u';
+                    } else if (node.nodeName === 'STRIKE' || node.nodeName === 'S' || node.nodeName === 'DEL') {
+                        format = 'strike';
+                    } else if (node.nodeName === 'SPAN') {
+                        format = 'span';
+                    }
+                    
+                    if (node.childNodes.length === 0) {
+                        // Empty element
+                        return;
+                    } else if (node.childNodes.length === 1 && node.firstChild.nodeType === Node.TEXT_NODE) {
+                        // Simple case: single text node child
+                        formattingInfo.push({
+                            text: node.textContent,
+                            format: format
+                        });
+                    } else {
+                        // Complex case: multiple children or nested elements
+                        // For simplicity, we'll treat this as plain text with the outer format
+                        // A more complex implementation would recursively process children
+                        formattingInfo.push({
+                            text: node.textContent,
+                            format: format
+                        });
+                    }
+                }
+            }
+            
+            // Process all top-level nodes in the fragment
+            for (let i = 0; i < fragment.childNodes.length; i++) {
+                processNode(fragment.childNodes[i]);
+            }
+            
+            // If the fragment is empty, try to create a text segment from the range
+            if (formattingInfo.length === 0 && range.toString()) {
+                formattingInfo.push({
+                    text: range.toString(),
+                    format: null
+                });
+            }
+            
+            return formattingInfo;
         }
 
         function normalizeSpaces(text) {
@@ -1498,6 +1618,9 @@ class HTMLEditorApp(Adw.Application):
         function searchAndHighlight(searchText, isCaseSensitive) {
             // First clear any existing search
             clearSearch();
+            
+            // Reset formatting info array
+            originalFormattingInfo = [];
             
             if (!searchText) return 0;
             currentSearchText = searchText;
@@ -1602,6 +1725,10 @@ class HTMLEditorApp(Adw.Application):
                         let range = document.createRange();
                         range.setStart(startNode, startOffset);
                         range.setEnd(endNode, endOffset + 1);  // +1 because setEnd is exclusive
+                        
+                        // Store original formatting before highlighting
+                        let formattingInfo = storeFormattingInfo(range);
+                        originalFormattingInfo.push(formattingInfo);
                         
                         // Create highlight span
                         let highlightSpan = document.createElement('span');
