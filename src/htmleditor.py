@@ -11,7 +11,7 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 gi.require_version('WebKit', '6.0')
 
-from gi.repository import Gtk, Adw, Gdk, WebKit, GLib, Gio
+from gi.repository import Gtk, Adw, Gdk, WebKit, GLib, Gio, Pango, PangoCairo, Gdk
 
 # Import file operation functions directly
 import file_operations # open, save, save as
@@ -661,7 +661,7 @@ class HTMLEditorApp(Adw.Application):
         win.statusbar.set_text(f"Zoom level: {zoom_level}%")    
         
     def create_formatting_toolbar(self, win):
-        """Create the toolbar for formatting options with toggle buttons"""
+        """Create the toolbar for formatting options with toggle buttons and dropdowns"""
         formatting_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         formatting_toolbar.set_margin_start(0)
         formatting_toolbar.set_margin_end(0)
@@ -673,10 +673,139 @@ class HTMLEditorApp(Adw.Application):
         win.bold_handler_id = None
         win.italic_handler_id = None
         win.underline_handler_id = None
+        win.strikeout_handler_id = None
+        win.paragraph_style_handler_id = None
+        win.font_handler_id = None
+        win.font_size_handler_id = None
         
-        # Create a toolbar group for formatting buttons
-        formatting_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
-        formatting_group.add_css_class("toolbar-group")
+        # ---- PARAGRAPH STYLES DROPDOWN ----
+        # Create paragraph styles dropdown
+        paragraph_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+        paragraph_group.add_css_class("toolbar-group")
+        
+        # Create paragraph styles dropdown
+        win.paragraph_style_dropdown = Gtk.DropDown()
+        win.paragraph_style_dropdown.set_tooltip_text("Paragraph Style")
+        win.paragraph_style_dropdown.set_focus_on_click(False)
+        win.paragraph_style_dropdown.add_css_class("flat")
+        
+        # Create string list for paragraph styles
+        paragraph_styles = Gtk.StringList()
+        paragraph_styles.append("Normal")
+        paragraph_styles.append("Heading 1")
+        paragraph_styles.append("Heading 2")
+        paragraph_styles.append("Heading 3")
+        paragraph_styles.append("Heading 4")
+        paragraph_styles.append("Heading 5")
+        paragraph_styles.append("Heading 6")
+        
+        win.paragraph_style_dropdown.set_model(paragraph_styles)
+        win.paragraph_style_dropdown.set_selected(0)  # Default to Normal
+        
+        # Set a reasonable width for the dropdown
+        win.paragraph_style_dropdown.set_size_request(120, -1)
+        
+        # Connect signal handler
+        win.paragraph_style_handler_id = win.paragraph_style_dropdown.connect(
+            "notify::selected", lambda dd, param: self.on_paragraph_style_changed(win, dd))
+        
+        paragraph_group.append(win.paragraph_style_dropdown)
+        formatting_toolbar.append(paragraph_group)
+        
+        # Add a separator
+        separator_p = Gtk.Box()
+        separator_p.add_css_class("toolbar-separator")
+        formatting_toolbar.append(separator_p)
+        
+        # ---- FONT FAMILY DROPDOWN ----
+        # Create font family dropdown group
+        font_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+        font_group.add_css_class("toolbar-group")
+        
+        # Get available fonts from Pango
+        font_map = PangoCairo.FontMap.get_default()
+        font_families = font_map.list_families()
+        
+        # Create string list and sort alphabetically
+        font_names = Gtk.StringList()
+        sorted_families = sorted([family.get_name() for family in font_families])
+
+
+
+
+
+
+
+        
+        # Add all fonts in alphabetical order
+        for family in sorted_families:
+            font_names.append(family)
+        
+        # Create dropdown
+        win.font_dropdown = Gtk.DropDown()
+        win.font_dropdown.set_tooltip_text("Font Family")
+        win.font_dropdown.set_focus_on_click(False)
+        win.font_dropdown.add_css_class("flat")
+        win.font_dropdown.set_model(font_names)
+        
+        # Set a reasonable width
+        win.font_dropdown.set_size_request(150, -1)
+        
+        # Set initial font (first in list)
+        win.font_dropdown.set_selected(0)
+        
+        # Connect signal handler
+        win.font_handler_id = win.font_dropdown.connect(
+            "notify::selected", lambda dd, param: self.on_font_changed(win, dd))
+        
+        font_group.append(win.font_dropdown)
+        formatting_toolbar.append(font_group)
+        
+        # Add a separator
+        separator_f = Gtk.Box()
+        separator_f.add_css_class("toolbar-separator")
+        formatting_toolbar.append(separator_f)
+        
+        # ---- FONT SIZE DROPDOWN ----
+        # Create font size dropdown group
+        size_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+        size_group.add_css_class("toolbar-group")
+        
+        # Create string list for font sizes
+        font_sizes = Gtk.StringList()
+        for size in [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 21, 22, 24, 26, 28, 32, 36, 40, 42, 44, 48, 54, 60, 66, 72, 80, 88, 96]:
+            font_sizes.append(str(size))
+        
+        # Create dropdown
+        win.font_size_dropdown = Gtk.DropDown()
+        win.font_size_dropdown.set_tooltip_text("Font Size")
+        win.font_size_dropdown.set_focus_on_click(False)
+        win.font_size_dropdown.add_css_class("flat")
+        win.font_size_dropdown.set_model(font_sizes)
+        
+        # Set a reasonable width
+        win.font_size_dropdown.set_size_request(60, -1)
+        
+        # Set initial size (12pt)
+        initial_size = 6  # Index of size 12 in our list
+        win.font_size_dropdown.set_selected(initial_size)
+        
+        # Connect signal handler
+        win.font_size_handler_id = win.font_size_dropdown.connect(
+            "notify::selected", lambda dd, param: self.on_font_size_changed(win, dd))
+        
+        size_group.append(win.font_size_dropdown)
+        formatting_toolbar.append(size_group)
+        
+        # Add a separator
+        separator_s = Gtk.Box()
+        separator_s.add_css_class("toolbar-separator")
+        formatting_toolbar.append(separator_s)
+        
+        # ---- BASIC FORMATTING BUTTONS ----
+        # Create a toolbar group for basic formatting buttons
+        basic_formatting_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+        basic_formatting_group.add_css_class("toolbar-group")
         
         # Add HTML editing toggle buttons
         win.bold_button = Gtk.ToggleButton()
@@ -712,26 +841,171 @@ class HTMLEditorApp(Adw.Application):
         win.strikeout_button.add_css_class("flat")  # Add flat style
         win.strikeout_handler_id = win.strikeout_button.connect("toggled", lambda btn: self.on_strikeout_toggled(win, btn))
         
-        # Add buttons to the formatting group
-        formatting_group.append(win.bold_button)
-        formatting_group.append(win.italic_button)
-        formatting_group.append(win.underline_button)
-        formatting_group.append(win.strikeout_button)  # Add strikeout button
+        # Add buttons to the basic formatting group
+        basic_formatting_group.append(win.bold_button)
+        basic_formatting_group.append(win.italic_button)
+        basic_formatting_group.append(win.underline_button)
+        basic_formatting_group.append(win.strikeout_button)
         
-        # Add a separator
-        separator = Gtk.Box()
-        separator.add_css_class("toolbar-separator")
+        # Add the basic formatting group to the toolbar
+        formatting_toolbar.append(basic_formatting_group)
         
-        # Add a spacer (expanding box)
+        # Add a spacer (expanding box) at the end
         spacer = Gtk.Box()
         spacer.set_hexpand(True)
-        
-        # Add all widgets to the formatting toolbar
-        formatting_toolbar.append(formatting_group)
-        formatting_toolbar.append(separator)
         formatting_toolbar.append(spacer)
         
         return formatting_toolbar
+
+# ---- PARAGRAPH STYLE HANDLER ----
+    def on_paragraph_style_changed(self, win, dropdown):
+        """Handle paragraph style dropdown change"""
+        # Get selected style index
+        selected = dropdown.get_selected()
+        
+        # Map selected index to HTML tag
+        style_tags = {
+            0: "p",       # Normal
+            1: "h1",      # Heading 1
+            2: "h2",      # Heading 2
+            3: "h3",      # Heading 3
+            4: "h4",      # Heading 4
+            5: "h5",      # Heading 5
+            6: "h6"       # Heading 6
+        }
+        
+        # Get the tag to apply
+        tag = style_tags.get(selected, "p")
+        
+        # Apply the selected style using formatBlock command
+        js_code = f"""
+        (function() {{
+            document.execCommand('formatBlock', false, '<{tag}>');
+            return true;
+        }})();
+        """
+        
+        self.execute_js(win, js_code)
+        win.statusbar.set_text(f"Applied {dropdown.get_selected_item().get_string()} style")
+        win.webview.grab_focus()
+
+    # ---- FONT FAMILY HANDLER ----
+    def on_font_changed(self, win, dropdown):
+        """Handle font family dropdown change"""
+        # Get the selected font
+        selected_item = dropdown.get_selected_item()
+        
+        # Skip if it's a separator
+        if selected_item.get_string() == "──────────":
+            # Revert to previous selection
+            if hasattr(win, 'previous_font_selection'):
+                dropdown.set_selected(win.previous_font_selection)
+            return
+        
+        # Store current selection for future reference
+        win.previous_font_selection = dropdown.get_selected()
+        
+        # Get the font name
+        font_name = selected_item.get_string()
+        
+        # Apply the font family
+        js_code = f"""
+        (function() {{
+            document.execCommand('fontName', false, '{font_name}');
+            return true;
+        }})();
+        """
+        
+        self.execute_js(win, js_code)
+        win.statusbar.set_text(f"Applied font: {font_name}")
+        win.webview.grab_focus()
+
+    # ---- FONT SIZE HANDLER ----
+    def on_font_size_changed(self, win, dropdown):
+        """Handle font size dropdown change with advanced cross-boundary selection support"""
+        # Get the selected size
+        selected_item = dropdown.get_selected_item()
+        size_pt = selected_item.get_string()
+        
+        # Apply font size to selection that can span across different elements
+        js_code = fr"""
+        (function() {{
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return false;
+            
+            const range = selection.getRangeAt(0);
+            if (range.collapsed) return false;
+            
+            // Create a temporary fragment with the selected content
+            const fragment = range.extractContents();
+            
+            // Helper function to process nodes in the fragment
+            function processFragment(node) {{
+                // If this is a text node, wrap it with span
+                if (node.nodeType === 3 && node.nodeValue.trim().length > 0) {{
+                    const span = document.createElement('span');
+                    span.style.fontSize = '{size_pt}pt';
+                    span.appendChild(node.cloneNode(false));
+                    return span;
+                }}
+                
+                // If it's not an element node, just return it
+                if (node.nodeType !== 1) return node.cloneNode(true);
+                
+                // For element nodes, create a new node of the same type
+                const newNode = document.createElement(node.nodeName);
+                
+                // Copy attributes
+                for (let i = 0; i < node.attributes.length; i++) {{
+                    const attr = node.attributes[i];
+                    newNode.setAttribute(attr.name, attr.value);
+                }}
+                
+                // If it's already a font-size span, override its size
+                if (node.nodeName.toLowerCase() === 'span' && node.style.fontSize) {{
+                    newNode.style.fontSize = '{size_pt}pt';
+                }}
+                
+                // Process child nodes recursively
+                for (let i = 0; i < node.childNodes.length; i++) {{
+                    const processed = processFragment(node.childNodes[i]);
+                    if (processed) newNode.appendChild(processed);
+                }}
+                
+                return newNode;
+            }}
+            
+            // Create a new document fragment with the processed content
+            const newFragment = document.createDocumentFragment();
+            
+            // Process each node in the original fragment
+            for (let i = 0; i < fragment.childNodes.length; i++) {{
+                const processed = processFragment(fragment.childNodes[i]);
+                if (processed) newFragment.appendChild(processed);
+            }}
+            
+            // Insert the new fragment
+            range.insertNode(newFragment);
+            
+            // Collapse the selection to the end
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            
+            // Trigger content changed event
+            const event = new Event('input', {{
+                bubbles: true,
+                cancelable: true
+            }});
+            document.getElementById('editor').dispatchEvent(event);
+            
+            return true;
+        }})();
+        """
+        
+        self.execute_js(win, js_code)
+        win.statusbar.set_text(f"Applied font size: {size_pt}pt")
+        win.webview.grab_focus()
         
     def setup_keyboard_shortcuts(self, win):
         """Setup keyboard shortcuts for the window"""
@@ -1165,10 +1439,88 @@ class HTMLEditorApp(Adw.Application):
         return """
         function updateFormattingState() {
             try {
+                // Get basic formatting states
                 const isBold = document.queryCommandState('bold');
                 const isItalic = document.queryCommandState('italic');
                 const isUnderline = document.queryCommandState('underline');
                 const isStrikeThrough = document.queryCommandState('strikeThrough');
+                
+                // Get the current paragraph formatting
+                let paragraphStyle = 'Normal'; // Default
+                const selection = window.getSelection();
+                if (selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+                    const node = range.commonAncestorContainer;
+                    
+                    // Find the closest block element
+                    const getNodeName = (node) => {
+                        return node.nodeType === 1 ? node.nodeName.toLowerCase() : null;
+                    };
+                    
+                    const getParentBlockElement = (node) => {
+                        if (node.nodeType === 3) { // Text node
+                            return getParentBlockElement(node.parentNode);
+                        }
+                        const tagName = getNodeName(node);
+                        if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div'].includes(tagName)) {
+                            return node;
+                        }
+                        if (node.parentNode && node.parentNode.id !== 'editor') {
+                            return getParentBlockElement(node.parentNode);
+                        }
+                        return null;
+                    };
+                    
+                    const blockElement = getParentBlockElement(node);
+                    if (blockElement) {
+                        const tagName = getNodeName(blockElement);
+                        switch (tagName) {
+                            case 'h1': paragraphStyle = 'Heading 1'; break;
+                            case 'h2': paragraphStyle = 'Heading 2'; break;
+                            case 'h3': paragraphStyle = 'Heading 3'; break;
+                            case 'h4': paragraphStyle = 'Heading 4'; break;
+                            case 'h5': paragraphStyle = 'Heading 5'; break;
+                            case 'h6': paragraphStyle = 'Heading 6'; break;
+                            default: paragraphStyle = 'Normal'; break;
+                        }
+                    }
+                }
+                
+                // Get current font family and size
+                let fontFamily = document.queryCommandValue('fontName') || '';
+                if (!fontFamily) {
+                    // Try to get it from computed style
+                    const selection = window.getSelection();
+                    if (selection.rangeCount > 0) {
+                        const range = selection.getRangeAt(0);
+                        const node = range.commonAncestorContainer;
+                        const element = node.nodeType === 3 ? node.parentNode : node;
+                        fontFamily = getComputedStyle(element).fontFamily;
+                        // Clean up quotes and fallbacks
+                        fontFamily = fontFamily.split(',')[0].replace(/["']/g, '');
+                    }
+                }
+                
+                // Get font size
+                let fontSize = document.queryCommandValue('fontSize') || '';
+                if (!fontSize || fontSize === '0') {
+                    // Try to get it from computed style
+                    const selection = window.getSelection();
+                    if (selection.rangeCount > 0) {
+                        const range = selection.getRangeAt(0);
+                        const node = range.commonAncestorContainer;
+                        const element = node.nodeType === 3 ? node.parentNode : node;
+                        let computedSize = getComputedStyle(element).fontSize;
+                        // Convert px to pt if needed
+                        if (computedSize.endsWith('px')) {
+                            const pxSize = parseFloat(computedSize);
+                            // Approximate conversion from px to pt
+                            fontSize = Math.round(pxSize * 0.75).toString();
+                        } else {
+                            fontSize = computedSize.replace(/[^0-9.]/g, '');
+                        }
+                    }
+                }
                 
                 // Send the state to Python
                 window.webkit.messageHandlers.formattingChanged.postMessage(
@@ -1176,7 +1528,10 @@ class HTMLEditorApp(Adw.Application):
                         bold: isBold, 
                         italic: isItalic, 
                         underline: isUnderline,
-                        strikeThrough: isStrikeThrough
+                        strikeThrough: isStrikeThrough,
+                        paragraphStyle: paragraphStyle,
+                        fontFamily: fontFamily,
+                        fontSize: fontSize
                     })
                 );
             } catch(e) {
@@ -1630,10 +1985,69 @@ class HTMLEditorApp(Adw.Application):
                 win.strikeout_button.handler_block(win.strikeout_handler_id)
                 win.strikeout_button.set_active(format_state.get('strikeThrough', False))
                 win.strikeout_button.handler_unblock(win.strikeout_handler_id)
+            
+            # Update paragraph style dropdown
+            paragraph_style = format_state.get('paragraphStyle', 'Normal')
+            if win.paragraph_style_handler_id is not None and hasattr(win, 'paragraph_style_dropdown'):
+                # Map paragraph style to dropdown index
+                style_indices = {
+                    'Normal': 0,
+                    'Heading 1': 1,
+                    'Heading 2': 2,
+                    'Heading 3': 3,
+                    'Heading 4': 4,
+                    'Heading 5': 5,
+                    'Heading 6': 6
+                }
+                index = style_indices.get(paragraph_style, 0)
+                
+                # Update the dropdown without triggering the handler
+                win.paragraph_style_dropdown.handler_block(win.paragraph_style_handler_id)
+                win.paragraph_style_dropdown.set_selected(index)
+                win.paragraph_style_dropdown.handler_unblock(win.paragraph_style_handler_id)
+            
+            # Update font family dropdown
+            font_family = format_state.get('fontFamily', '')
+            if win.font_handler_id is not None and hasattr(win, 'font_dropdown') and font_family:
+                # Find the index of the font in the dropdown
+                font_model = win.font_dropdown.get_model()
+                found_index = -1
+                
+                # Iterate through the model to find the matching font
+                for i in range(font_model.get_n_items()):
+                    item = font_model.get_item(i)
+                    if item and item.get_string().lower() == font_family.lower():
+                        found_index = i
+                        break
+                
+                if found_index >= 0:
+                    # Update the dropdown without triggering the handler
+                    win.font_dropdown.handler_block(win.font_handler_id)
+                    win.font_dropdown.set_selected(found_index)
+                    win.font_dropdown.handler_unblock(win.font_handler_id)
+            
+            # Update font size dropdown
+            font_size = format_state.get('fontSize', '')
+            if win.font_size_handler_id is not None and hasattr(win, 'font_size_dropdown') and font_size:
+                # Find the index of the size in the dropdown
+                size_model = win.font_size_dropdown.get_model()
+                found_index = -1
+                
+                # Iterate through the model to find the matching size
+                for i in range(size_model.get_n_items()):
+                    item = size_model.get_item(i)
+                    if item and item.get_string() == font_size:
+                        found_index = i
+                        break
+                
+                if found_index >= 0:
+                    # Update the dropdown without triggering the handler
+                    win.font_size_dropdown.handler_block(win.font_size_handler_id)
+                    win.font_size_dropdown.set_selected(found_index)
+                    win.font_size_dropdown.handler_unblock(win.font_size_handler_id)
                 
         except Exception as e:
             print(f"Error updating formatting buttons: {e}")
-
 
     # Window Close Request
     def on_window_close_request(self, win, *args):
