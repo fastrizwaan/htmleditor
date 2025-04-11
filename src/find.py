@@ -37,8 +37,6 @@ def create_find_bar(self, win):
     find_key_controller.connect("key-pressed", lambda c, k, kc, s: self.on_find_key_pressed(win, c, k, kc, s))
     win.find_entry.add_controller(find_key_controller)
     
-    #find_bar.append(win.find_entry)
-    
     # Previous/Next buttons
     nav_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
     nav_box.add_css_class("linked")
@@ -94,37 +92,30 @@ def create_find_bar(self, win):
     #replace_box.append(win.replace_entry)
     find_bar.append(replace_box)
 
-    # Replace 
+
+    # Replace and Replace All buttons with icons
     rep_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
     rep_box.add_css_class("linked")
     rep_box.set_margin_start(2)
     rep_box.set_margin_end(6)
     rep_box.append(win.replace_entry)
     
-    # Replace and Replace All buttons with icons
-    action_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-    action_box.set_margin_start(4)
-
     # Replace button with icon
     replace_button = Gtk.Button(icon_name="replace-symbolic")
     replace_button.set_tooltip_text("Replace")
     replace_button.add_css_class("linked")
-    #replace_button.add_css_class("flat")
     replace_button.connect("clicked", lambda btn: self.on_replace_clicked(win, btn))
-    #action_box.append(replace_button)
+
 
     # Replace All button with icon
     replace_all_button = Gtk.Button(icon_name="replace-all-symbolic")
     replace_all_button.set_tooltip_text("Replace All")
     replace_all_button.add_css_class("linked")
     replace_all_button.connect("clicked", lambda btn: self.on_replace_all_clicked(win, btn))
-    #action_box.append(replace_all_button)
-    
-    #find_bar.append(action_box)
 
     rep_box.append(replace_button)
     rep_box.append(replace_all_button)
-    
+
     find_bar.append(rep_box)
         
     # Use a spacer to push the close button to the right
