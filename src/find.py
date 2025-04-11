@@ -20,7 +20,7 @@ def create_find_bar(self, win):
     find_bar.set_margin_start(0)
     find_bar.set_margin_end(0)
     find_bar.set_margin_top(6)
-    find_bar.set_margin_bottom(0)
+    find_bar.set_margin_bottom(6)
     find_bar.add_css_class("search-bar")
     
     # Use Gtk.SearchEntry for find functionality
@@ -37,12 +37,14 @@ def create_find_bar(self, win):
     find_key_controller.connect("key-pressed", lambda c, k, kc, s: self.on_find_key_pressed(win, c, k, kc, s))
     win.find_entry.add_controller(find_key_controller)
     
-    find_bar.append(win.find_entry)
+    #find_bar.append(win.find_entry)
     
     # Previous/Next buttons
     nav_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
     nav_box.add_css_class("linked")
-    nav_box.set_margin_start(4)
+    nav_box.set_margin_start(2)
+    
+    nav_box.append(win.find_entry)
     
     prev_button = Gtk.Button(icon_name="go-up-symbolic")
     prev_button.set_tooltip_text("Previous match")
@@ -53,6 +55,7 @@ def create_find_bar(self, win):
     next_button.set_tooltip_text("Next match")
     next_button.connect("clicked", lambda btn: self.on_find_next_clicked(win, btn))
     nav_box.append(next_button)
+    
     
     find_bar.append(nav_box)
 
@@ -67,8 +70,8 @@ def create_find_bar(self, win):
     
     # Create a separator
     separator = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
-    separator.set_margin_start(8)
-    separator.set_margin_end(8)
+    separator.set_margin_start(0)
+    separator.set_margin_end(0)
     find_bar.append(separator)
     
     # Replace entry with icon
@@ -88,8 +91,15 @@ def create_find_bar(self, win):
     replace_key_controller.connect("key-pressed", lambda c, k, kc, s: self.on_find_key_pressed(win, c, k, kc, s))
     win.replace_entry.add_controller(replace_key_controller)
     
-    replace_box.append(win.replace_entry)
+    #replace_box.append(win.replace_entry)
     find_bar.append(replace_box)
+
+    # Replace 
+    rep_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+    rep_box.add_css_class("linked")
+    rep_box.set_margin_start(2)
+    
+    rep_box.append(win.replace_entry)
     
     # Replace and Replace All buttons with icons
     action_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
@@ -98,19 +108,25 @@ def create_find_bar(self, win):
     # Replace button with icon
     replace_button = Gtk.Button(icon_name="replace-symbolic")
     replace_button.set_tooltip_text("Replace")
-    replace_button.add_css_class("flat")
+    replace_button.add_css_class("linked")
+    #replace_button.add_css_class("flat")
     replace_button.connect("clicked", lambda btn: self.on_replace_clicked(win, btn))
-    action_box.append(replace_button)
+    #action_box.append(replace_button)
 
     # Replace All button with icon
     replace_all_button = Gtk.Button(icon_name="replace-all-symbolic")
     replace_all_button.set_tooltip_text("Replace All")
-    replace_all_button.add_css_class("flat")
+    replace_all_button.add_css_class("linked")
     replace_all_button.connect("clicked", lambda btn: self.on_replace_all_clicked(win, btn))
-    action_box.append(replace_all_button)
+    #action_box.append(replace_all_button)
     
-    find_bar.append(action_box)
+    #find_bar.append(action_box)
+
+    rep_box.append(replace_button)
+    rep_box.append(replace_all_button)
     
+    find_bar.append(rep_box)
+        
     # Use a spacer to push the close button to the right
     spacer = Gtk.Box()
     spacer.set_hexpand(True)
