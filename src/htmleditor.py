@@ -99,12 +99,12 @@ class HTMLEditorApp(Adw.Application):
         self.css_provider.load_from_data(b"""
             .toolbar-container { padding: 0px 0px; background-color: rgba(127, 127, 127, 0.05); }
             .flat { background: none; }
-            .flat:hover { background: rgba(127, 127, 127, 0.25); }
-            .flat:checked { background: rgba(127, 127, 127, 0.25); }
+            .flat:hover { background: rgba(127, 127, 127, 0.20); }
+            .flat:checked { background: rgba(127, 127, 127, 0.20); }
             colorbutton.flat, colorbutton.flat button { background: none; }
-            colorbutton.flat:hover, colorbutton.flat button:hover { background: rgba(127, 127, 127, 0.25); }
+            colorbutton.flat:hover, colorbutton.flat button:hover { background: rgba(127, 127, 127, 0.15); }
             dropdown.flat, dropdown.flat button { background: none; border-radius: 5px; }
-            dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
+            dropdown.flat:hover { background: rgba(127, 127, 127, 0.20); }
             .flat-header { background: rgba(127, 127, 127, 0.05); border: none; box-shadow: none; padding: 0; }
             .button-box button { min-width: 80px; min-height: 36px; }
             .highlighted { background-color: rgba(127, 127, 127, 0.15); }
@@ -113,7 +113,7 @@ class HTMLEditorApp(Adw.Application):
             .color-indicator { min-height: 3px; min-width: 16px; margin-top: 1px; margin-bottom: 0px; border-radius: 2px; }
             .color-box { padding: 0px; }
             menubutton.flat { border-radius: 6px; }
-            menubutton.flat:hover { background: rgba(127, 127, 127, 0.25); border-radius: 6px; }
+            menubutton.flat:hover { background: rgba(127, 127, 127, 0.15); border-radius: 6px; }
             menubutton.flat > button { border-radius: 6px; }
             menubutton.flat > button:hover { border-radius: 6px; }
         """)
@@ -402,7 +402,7 @@ class HTMLEditorApp(Adw.Application):
         # Add separator
         separator1 = Gtk.Box()
         separator1.add_css_class("toolbar-separator")
-        file_toolbar.append(separator1)
+        #file_toolbar.append(separator1)
         
         # --- Edit operations group ---
         edit_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
@@ -437,7 +437,7 @@ class HTMLEditorApp(Adw.Application):
         # Add separator
         separator2 = Gtk.Box()
         separator2.add_css_class("toolbar-separator")
-        file_toolbar.append(separator2)
+        #file_toolbar.append(separator2)
         
         # --- History operations group ---
         history_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
@@ -478,7 +478,7 @@ class HTMLEditorApp(Adw.Application):
         # Add separator
         separator3 = Gtk.Box()
         separator3.add_css_class("toolbar-separator")
-        file_toolbar.append(separator3)
+        #file_toolbar.append(separator3)
         
         # --- Zoom control ---
         zoom_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
@@ -662,11 +662,11 @@ class HTMLEditorApp(Adw.Application):
         
     def create_formatting_toolbar(self, win):
         """Create the toolbar for formatting options with toggle buttons and dropdowns"""
-        formatting_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        formatting_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         formatting_toolbar.set_margin_start(0)
         formatting_toolbar.set_margin_end(0)
         formatting_toolbar.set_margin_top(0)
-        formatting_toolbar.set_margin_bottom(2)
+        formatting_toolbar.set_margin_bottom(4)
         formatting_toolbar.add_css_class("toolbar-group")  # Add toolbar-group class
         
         # Store the handlers for blocking
@@ -680,7 +680,7 @@ class HTMLEditorApp(Adw.Application):
         
         # ---- PARAGRAPH STYLES DROPDOWN ----
         # Create paragraph styles dropdown
-        paragraph_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+        paragraph_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
         paragraph_group.add_css_class("toolbar-group")
         
         # Create paragraph styles dropdown
@@ -703,7 +703,7 @@ class HTMLEditorApp(Adw.Application):
         win.paragraph_style_dropdown.set_selected(0)  # Default to Normal
         
         # Set a reasonable width for the dropdown
-        win.paragraph_style_dropdown.set_size_request(120, -1)
+        win.paragraph_style_dropdown.set_size_request(100, -1)
         
         # Connect signal handler
         win.paragraph_style_handler_id = win.paragraph_style_dropdown.connect(
@@ -715,11 +715,11 @@ class HTMLEditorApp(Adw.Application):
         # Add a separator
         separator_p = Gtk.Box()
         separator_p.add_css_class("toolbar-separator")
-        formatting_toolbar.append(separator_p)
+        #formatting_toolbar.append(separator_p)
         
         # ---- FONT FAMILY DROPDOWN ----
         # Create font family dropdown group
-        font_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+        font_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
         font_group.add_css_class("toolbar-group")
         
         # Get available fonts from Pango
@@ -749,7 +749,7 @@ class HTMLEditorApp(Adw.Application):
         win.font_dropdown.set_model(font_names)
         
         # Set a reasonable width
-        win.font_dropdown.set_size_request(150, -1)
+        win.font_dropdown.set_size_request(100, -1)
         
         # Set initial font (first in list)
         win.font_dropdown.set_selected(0)
@@ -764,11 +764,11 @@ class HTMLEditorApp(Adw.Application):
         # Add a separator
         separator_f = Gtk.Box()
         separator_f.add_css_class("toolbar-separator")
-        formatting_toolbar.append(separator_f)
+        #formatting_toolbar.append(separator_f)
         
         # ---- FONT SIZE DROPDOWN ----
         # Create font size dropdown group
-        size_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+        size_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         size_group.add_css_class("toolbar-group")
         
         # Create string list for font sizes
@@ -784,7 +784,7 @@ class HTMLEditorApp(Adw.Application):
         win.font_size_dropdown.set_model(font_sizes)
         
         # Set a reasonable width
-        win.font_size_dropdown.set_size_request(60, -1)
+        win.font_size_dropdown.set_size_request(50, -1)
         
         # Set initial size (12pt)
         initial_size = 6  # Index of size 12 in our list
@@ -800,11 +800,11 @@ class HTMLEditorApp(Adw.Application):
         # Add a separator
         separator_s = Gtk.Box()
         separator_s.add_css_class("toolbar-separator")
-        formatting_toolbar.append(separator_s)
+        #formatting_toolbar.append(separator_s)
         
         # ---- BASIC FORMATTING BUTTONS ----
         # Create a toolbar group for basic formatting buttons
-        basic_formatting_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+        basic_formatting_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
         basic_formatting_group.add_css_class("toolbar-group")
         
         # Add HTML editing toggle buttons
@@ -2677,7 +2677,7 @@ class HTMLEditorApp(Adw.Application):
         dialog.set_content_width(450)
         
         # Create content
-        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=20)
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         content_box.set_margin_top(24)
         content_box.set_margin_bottom(24)
         content_box.set_margin_start(24)
