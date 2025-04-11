@@ -97,7 +97,7 @@ class HTMLEditorApp(Adw.Application):
         """Set up CSS provider for custom styling"""
         self.css_provider = Gtk.CssProvider()
         self.css_provider.load_from_data(b"""
-            .toolbar-container { padding: 0px 0px; background-color: rgba(127, 127, 127, 0.15); }
+            .toolbar-container { padding: 0px 0px; background-color: rgba(127, 127, 127, 0.05); }
             .flat { background: none; }
             .flat:hover { background: rgba(127, 127, 127, 0.25); }
             .flat:checked { background: rgba(127, 127, 127, 0.25); }
@@ -105,7 +105,7 @@ class HTMLEditorApp(Adw.Application):
             colorbutton.flat:hover, colorbutton.flat button:hover { background: rgba(127, 127, 127, 0.25); }
             dropdown.flat, dropdown.flat button { background: none; border-radius: 5px; }
             dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
-            .flat-header { background: rgba(127, 127, 127, 0.15); border: none; box-shadow: none; padding: 0; }
+            .flat-header { background: rgba(127, 127, 127, 0.05); border: none; box-shadow: none; padding: 0; }
             .button-box button { min-width: 80px; min-height: 36px; }
             .highlighted { background-color: rgba(127, 127, 127, 0.15); }
             .toolbar-group { margin: 0px 3px; }
