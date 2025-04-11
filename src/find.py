@@ -98,7 +98,7 @@ def create_find_bar(self, win):
     rep_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
     rep_box.add_css_class("linked")
     rep_box.set_margin_start(2)
-    
+    rep_box.set_margin_end(6)
     rep_box.append(win.replace_entry)
     
     # Replace and Replace All buttons with icons
@@ -130,7 +130,7 @@ def create_find_bar(self, win):
     # Use a spacer to push the close button to the right
     spacer = Gtk.Box()
     spacer.set_hexpand(True)
-    find_bar.append(spacer)
+    #find_bar.append(spacer)
     
     # Status label to show match counts or errors (placed before close button)
     win.status_label = Gtk.Label()
@@ -145,7 +145,8 @@ def create_find_bar(self, win):
     close_button.set_tooltip_text("Close search bar")
     close_button.connect("clicked", lambda btn: self.on_close_find_clicked(win, btn))
     close_button.add_css_class("flat")
-    find_bar.append(close_button)
+    close_button.set_margin_end(6)
+    #find_bar.append(close_button)
     
     # Set the find bar as the child of the revealer
     win.find_bar_revealer.set_child(find_bar)
