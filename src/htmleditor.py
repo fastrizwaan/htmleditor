@@ -34,68 +34,54 @@ class HTMLEditorApp(Adw.Application):
         self.current_file = None
         self.auto_save_source_id = None
         
-        # Add modular methods from file_operations to the class
-        # File opening methods
-        self.on_open_clicked = file_operations.on_open_clicked.__get__(self, HTMLEditorApp)
-        self.on_open_new_window_response = file_operations.on_open_new_window_response.__get__(self, HTMLEditorApp)
-        self.on_open_current_window_response = file_operations.on_open_current_window_response.__get__(self, HTMLEditorApp)
-        self.load_file = file_operations.load_file.__get__(self, HTMLEditorApp)
+        # Import methods from file_operations module
+        file_operation_methods = [
+            # File opening methods
+            'on_open_clicked', 'on_open_new_window_response',
+            'on_open_current_window_response', 'load_file',
+            
+            # File saving methods
+            'on_save_clicked', 'on_save_as_clicked', 'show_custom_save_dialog',
+            '_create_custom_save_dialog', '_get_shortened_path',
+            '_on_browse_clicked','_on_dialog_response', '_on_folder_selected',
+            '_get_file_path_from_dialog',
+            
+            # Format-specific save methods
+            'save_as_mhtml', 'save_webkit_callback', 'save_as_html',
+            'save_as_text','save_as_markdown', '_simple_markdown_to_html',
+            
+            # Callback handlers
+            'save_html_callback', 'save_text_callback',
+            'save_markdown_callback', 'save_completion_callback',
+            
+            # Legacy methods for backward compatibility
+            '_on_save_response', '_on_save_as_response', '_on_get_html_content',
+            '_on_file_saved'
+        ]
         
-        # File saving methods from the updated implementation
-        self.on_save_clicked = file_operations.on_save_clicked.__get__(self, HTMLEditorApp)
-        self.on_save_as_clicked = file_operations.on_save_as_clicked.__get__(self, HTMLEditorApp)
-        #self.show_save_dialog = file_operations.show_save_dialog.__get__(self, HTMLEditorApp)
-        #self.save_dialog_callback = file_operations.save_dialog_callback.__get__(self, HTMLEditorApp)
-        self.show_custom_save_dialog = file_operations.show_custom_save_dialog.__get__(self, HTMLEditorApp)
-        self._create_custom_save_dialog = file_operations._create_custom_save_dialog.__get__(self, HTMLEditorApp)
-        self._get_shortened_path = file_operations._get_shortened_path.__get__(self, HTMLEditorApp)
-        self._on_browse_clicked = file_operations._on_browse_clicked.__get__(self, HTMLEditorApp)
-        self._on_dialog_response = file_operations._on_dialog_response.__get__(self, HTMLEditorApp)
-        self._on_folder_selected = file_operations._on_folder_selected.__get__(self, HTMLEditorApp)
-        self._get_file_path_from_dialog = file_operations._get_file_path_from_dialog.__get__(self, HTMLEditorApp)
-        # Format-specific save methods
-        self.save_as_mhtml = file_operations.save_as_mhtml.__get__(self, HTMLEditorApp)
-        self.save_webkit_callback = file_operations.save_webkit_callback.__get__(self, HTMLEditorApp)
-        self.save_as_html = file_operations.save_as_html.__get__(self, HTMLEditorApp)
-        self.save_as_text = file_operations.save_as_text.__get__(self, HTMLEditorApp)
-        self.save_as_markdown = file_operations.save_as_markdown.__get__(self, HTMLEditorApp)
+        # Import methods from file_operations
+        for method_name in file_operation_methods:
+            if hasattr(file_operations, method_name):
+                setattr(self, method_name, getattr(file_operations, method_name).__get__(self, HTMLEditorApp))
+                
+        # Import methods from find module
+        find_methods = [
+            'create_find_bar', 'on_find_shortcut', 'on_find_clicked',
+            'on_close_find_clicked', 'on_case_sensitive_toggled',
+            'on_find_text_changed', 'on_search_result', 'on_find_next_clicked',
+            'on_find_previous_clicked', 'on_replace_clicked', 
+            'on_replace_all_clicked', 'on_replace_all_result', 
+            'on_find_key_pressed', 'on_find_button_toggled',
+            'populate_find_field_from_selection', '_on_get_selection_for_find',
+            'search_functions_js'
+        ]
         
-        # Callback handlers
-        self.save_html_callback = file_operations.save_html_callback.__get__(self, HTMLEditorApp)
-        self.save_text_callback = file_operations.save_text_callback.__get__(self, HTMLEditorApp)
-        self.save_markdown_callback = file_operations.save_markdown_callback.__get__(self, HTMLEditorApp)
-        self.save_completion_callback = file_operations.save_completion_callback.__get__(self, HTMLEditorApp)
-        
-        # Legacy methods for backward compatibility
-        self._on_save_response = file_operations._on_save_response.__get__(self, HTMLEditorApp)
-        self._on_save_as_response = file_operations._on_save_as_response.__get__(self, HTMLEditorApp)
-        self._on_get_html_content = file_operations._on_get_html_content.__get__(self, HTMLEditorApp)
-        self._on_file_saved = file_operations._on_file_saved.__get__(self, HTMLEditorApp)
+        # Import methods from find module
+        for method_name in find_methods:
+            if hasattr(find, method_name):
+                setattr(self, method_name, getattr(find, method_name).__get__(self, HTMLEditorApp))
 
 
-        # Find and related methods
-        self.create_find_bar = find.create_find_bar.__get__(self, HTMLEditorApp)
-        self.on_find_shortcut = find.on_find_shortcut.__get__(self, HTMLEditorApp)
-        self.on_find_clicked = find.on_find_clicked.__get__(self, HTMLEditorApp)
-        self.on_close_find_clicked = find.on_close_find_clicked.__get__(self, HTMLEditorApp)
-        self.on_case_sensitive_toggled = find.on_case_sensitive_toggled.__get__(self, HTMLEditorApp)
-        self.on_find_text_changed = find.on_find_text_changed.__get__(self, HTMLEditorApp)
-        self.on_search_result = find.on_search_result.__get__(self, HTMLEditorApp)
-        self.on_find_next_clicked = find.on_find_next_clicked.__get__(self, HTMLEditorApp)
-        self.on_find_previous_clicked = find.on_find_previous_clicked.__get__(self, HTMLEditorApp)
-        self.on_replace_clicked = find.on_replace_clicked.__get__(self, HTMLEditorApp)
-        self.on_replace_all_clicked = find.on_replace_all_clicked.__get__(self, HTMLEditorApp)
-        self.on_replace_all_result = find.on_replace_all_result.__get__(self, HTMLEditorApp)
-        self.on_find_key_pressed = find.on_find_key_pressed.__get__(self, HTMLEditorApp)
-        self.on_find_button_toggled = find.on_find_button_toggled.__get__(self, HTMLEditorApp)
-        self.populate_find_field_from_selection = find.populate_find_field_from_selection.__get__(self, HTMLEditorApp)
-        self._on_get_selection_for_find = find._on_get_selection_for_find.__get__(self, HTMLEditorApp)
-        self.search_functions_js = find.search_functions_js.__get__(self, HTMLEditorApp)        
-
-
-        # Simple markdown helper if needed
-        if hasattr(file_operations, '_simple_markdown_to_html'):
-            self._simple_markdown_to_html = file_operations._simple_markdown_to_html
         
     def do_startup(self):
         """Initialize application and set up CSS provider"""
