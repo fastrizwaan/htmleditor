@@ -44,9 +44,15 @@ class HTMLEditorApp(Adw.Application):
         # File saving methods from the updated implementation
         self.on_save_clicked = file_operations.on_save_clicked.__get__(self, HTMLEditorApp)
         self.on_save_as_clicked = file_operations.on_save_as_clicked.__get__(self, HTMLEditorApp)
-        self.show_save_dialog = file_operations.show_save_dialog.__get__(self, HTMLEditorApp)
-        self.save_dialog_callback = file_operations.save_dialog_callback.__get__(self, HTMLEditorApp)
-        
+        #self.show_save_dialog = file_operations.show_save_dialog.__get__(self, HTMLEditorApp)
+        #self.save_dialog_callback = file_operations.save_dialog_callback.__get__(self, HTMLEditorApp)
+        self.show_custom_save_dialog = file_operations.show_custom_save_dialog.__get__(self, HTMLEditorApp)
+        self._create_custom_save_dialog = file_operations._create_custom_save_dialog.__get__(self, HTMLEditorApp)
+        self._get_shortened_path = file_operations._get_shortened_path.__get__(self, HTMLEditorApp)
+        self._on_browse_clicked = file_operations._on_browse_clicked.__get__(self, HTMLEditorApp)
+        self._on_dialog_response = file_operations._on_dialog_response.__get__(self, HTMLEditorApp)
+        self._on_folder_selected = file_operations._on_folder_selected.__get__(self, HTMLEditorApp)
+        self._get_file_path_from_dialog = file_operations._get_file_path_from_dialog.__get__(self, HTMLEditorApp)
         # Format-specific save methods
         self.save_as_mhtml = file_operations.save_as_mhtml.__get__(self, HTMLEditorApp)
         self.save_webkit_callback = file_operations.save_webkit_callback.__get__(self, HTMLEditorApp)

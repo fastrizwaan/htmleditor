@@ -4,7 +4,7 @@ import os
 import re
 import importlib.util
 from datetime import datetime
-from gi.repository import Gtk, GLib, Gio, WebKit
+from gi.repository import Gtk, GLib, Gio, WebKit, Pango
 
 # Check if markdown package is available
 MARKDOWN_AVAILABLE = False
@@ -264,78 +264,208 @@ def on_save_clicked(self, win, button):
             # For unknown extensions, save as MHTML by default
             self.save_as_mhtml(win, win.current_file)
     else:
-        # Show save dialog for new file
-        self.show_save_dialog(win)
+        # Show custom save dialog for new file
+        self.show_custom_save_dialog(win)
 
 def on_save_as_clicked(self, win, button):
-    """Show save as dialog to save current document with a new filename"""
-    self.show_save_dialog(win, is_save_as=True)
+    """Show custom save as dialog to save current document with a new filename"""
+    self.show_custom_save_dialog(win)
 
-def show_save_dialog(self, win, is_save_as=False):
-    """Show save dialog with appropriate filters"""
-    dialog = Gtk.FileDialog()
-    dialog.set_title("Save As" if is_save_as else "Save File")
-    
-    # Create file filters for supported save formats
-    filter_mht = Gtk.FileFilter()
-    filter_mht.set_name("MHTML files (*.mht)")
-    filter_mht.add_pattern("*.mht")
-    filter_mht.add_pattern("*.mhtml")
-    
-    filter_html = Gtk.FileFilter()
-    filter_html.set_name("HTML files (*.html)")
-    filter_html.add_pattern("*.html")
-    filter_html.add_pattern("*.htm")
-    
-    filter_txt = Gtk.FileFilter()
-    filter_txt.set_name("Text files (*.txt)")
-    filter_txt.add_pattern("*.txt")
-    
-    filters = Gio.ListStore.new(Gtk.FileFilter)
-    filters.append(filter_mht)  # MHT first as default
-    filters.append(filter_html)
-    filters.append(filter_txt)
-    
-    # Only add markdown filter if html2text is available
-    if HTML2TEXT_AVAILABLE:
-        filter_md = Gtk.FileFilter()
-        filter_md.set_name("Markdown files (*.md)")
-        filter_md.add_pattern("*.md")
-        filter_md.add_pattern("*.markdown")
-        filters.append(filter_md)
-    
-    dialog.set_filters(filters)
-    
-    # If there's a current file and we're in save-as mode, use its parent directory
+def show_custom_save_dialog(self, win):
+    """Show custom save dialog with filename entry and extension dropdown using GTK4 patterns"""
+    # Generate initial filename if needed
+    initial_name = ""
     if win.current_file:
-        if is_save_as:
-            parent_dir = win.current_file.get_parent()
-            if parent_dir:
-                dialog.set_initial_folder(parent_dir)
-        # Use the current file name as the initial filename
-        dialog.set_initial_name(os.path.basename(win.current_file.get_path()))
+        initial_name = os.path.basename(win.current_file.get_path())
     else:
-        # Generate a default filename with current date
         current_date = datetime.now().strftime("%Y-%m-%d")
-        dialog.set_initial_name(f"Untitled-{current_date}.mht")
+        initial_name = f"Untitled-{current_date}"
     
-    dialog.save(win, None, lambda dialog, result: self.save_dialog_callback(win, dialog, result))
+    # Get current format if available
+    current_format = win.original_format if hasattr(win, 'original_format') else None
+    
+    # Create the dialog
+    dialog = self._create_custom_save_dialog(win, initial_name, current_format)
+    dialog_data = dialog.dialog_data
+    
+    # Connect the response signal - GTK4 style
+    dialog.connect("response", self._on_dialog_response, dialog_data, win)
+    
+    # Present the dialog (GTK4 way to show dialog)
+    dialog.present()
 
-def save_dialog_callback(self, win, dialog, result):
-    """Handle save dialog response"""
-    try:
-        file = dialog.save_finish(result)
-        if file:
-            path = file.get_path()
-            file_ext = os.path.splitext(path)[1].lower()
+def _create_custom_save_dialog(self, win, initial_name="", current_format=None):
+    """Create a custom save dialog with filename entry and extension dropdown"""
+    
+    dialog = Gtk.Dialog(
+        title="Save As",
+        transient_for=win,
+        modal=True,
+        destroy_with_parent=True
+    )
+        
+    dialog.set_default_size(500, 250)
+    
+    # Set up the available file formats
+    formats = [
+        {"extension": ".mht", "name": "MHTML Document", "mime": "message/rfc822"},
+        {"extension": ".html", "name": "HTML Document", "mime": "text/html"},
+        {"extension": ".txt", "name": "Plain Text", "mime": "text/plain"}
+    ]
+    
+    # Add markdown if html2text is available
+    if HTML2TEXT_AVAILABLE:
+        formats.append(
+            {"extension": ".md", "name": "Markdown Document", "mime": "text/markdown"}
+        )
+    
+    # Parse initial name
+    basename = initial_name
+    if "." in basename:
+        name_parts = basename.rsplit(".", 1)
+        basename = name_parts[0]
+        ext = "." + name_parts[1].lower()
+    else:
+        ext = current_format if current_format else ".mht"
+    
+    # Create UI
+    content_area = dialog.get_content_area()
+    content_area.set_margin_top(10)
+    content_area.set_margin_bottom(10)
+    content_area.set_margin_start(10)
+    content_area.set_margin_end(10)
+    content_area.set_spacing(10)
+    
+    # Create a grid layout
+    grid = Gtk.Grid()
+    grid.set_row_spacing(10)
+    grid.set_column_spacing(10)
+    
+    # Filename label and entry
+    filename_label = Gtk.Label(label="Filename:")
+    filename_label.set_halign(Gtk.Align.START)
+    grid.attach(filename_label, 0, 0, 1, 1)
+    
+    filename_entry = Gtk.Entry()
+    filename_entry.set_text(basename)
+    filename_entry.set_hexpand(True)
+    grid.attach(filename_entry, 1, 0, 1, 1)
+    
+    # File type label and dropdown
+    filetype_label = Gtk.Label(label="Save as type:")
+    filetype_label.set_halign(Gtk.Align.START)
+    grid.attach(filetype_label, 0, 1, 1, 1)
+    
+    # Create a dropdown for file types
+    format_dropdown = Gtk.DropDown()
+    
+    # Create a string list model for the dropdown
+    string_list = Gtk.StringList()
+    selected_index = 0
+    
+    for i, fmt in enumerate(formats):
+        string_list.append(f"{fmt['name']} ({fmt['extension']})")
+        if fmt['extension'] == ext:
+            selected_index = i
+    
+    format_dropdown.set_model(string_list)
+    format_dropdown.set_selected(selected_index)
+    format_dropdown.set_hexpand(True)
+    grid.attach(format_dropdown, 1, 1, 1, 1)
+    
+    # Location label and button
+    location_label = Gtk.Label(label="Location:")
+    location_label.set_halign(Gtk.Align.START)
+    grid.attach(location_label, 0, 2, 1, 1)
+    
+    # Get user documents directory as default
+    current_folder = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOCUMENTS)
+    if not current_folder:
+        current_folder = GLib.get_home_dir()
+    
+    # If there's a current file, use its directory
+    if win.current_file:
+        parent_dir = win.current_file.get_parent()
+        if parent_dir and parent_dir.get_path():
+            current_folder = parent_dir.get_path()
+    
+    # Store all dialog data in a dictionary for easy access
+    dialog_data = {
+        "formats": formats,
+        "filename_entry": filename_entry,
+        "format_dropdown": format_dropdown,
+        "current_folder": current_folder,
+        "dialog": dialog  # Store reference to the dialog itself
+    }
+    
+    # Store the dialog data in the dialog object for later retrieval
+    dialog.dialog_data = dialog_data
+    
+    location_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+    location_box.set_hexpand(True)
+    
+    location_display = Gtk.Label(label=self._get_shortened_path(current_folder))
+    location_display.set_ellipsize(Pango.EllipsizeMode.START)
+    location_display.set_hexpand(True)
+    location_display.set_halign(Gtk.Align.START)
+    location_box.append(location_display)
+    
+    # Store the location label in dialog data
+    dialog_data["location_label"] = location_display
+    
+    browse_button = Gtk.Button(label="Browse...")
+    browse_button.connect("clicked", self._on_browse_clicked, dialog_data)
+    location_box.append(browse_button)
+    
+    grid.attach(location_box, 1, 2, 1, 1)
+    
+    # Add the grid to the content area
+    content_area.append(grid)
+    
+    # Add action buttons - using the GTK4 approach for dialog buttons
+    cancel_button = dialog.add_button("_Cancel", Gtk.ResponseType.CANCEL)
+    save_button = dialog.add_button("_Save", Gtk.ResponseType.ACCEPT)
+    save_button.add_css_class("suggested-action")
+    
+    # Make the dialog resizable
+    dialog.set_resizable(True)
+    
+    # Return the dialog
+    return dialog
+
+def _get_shortened_path(self, path, max_length=40):
+    """Shortens a path for display"""
+    if len(path) <= max_length:
+        return path
+    
+    # Try to preserve the last part of the path
+    parts = path.split('/')
+    if len(parts) > 2:
+        return f".../{parts[-1]}"
+    return path
+
+def _on_browse_clicked(self, button, dialog_data):
+    """Handle browse button click to select folder"""
+    file_dialog = Gtk.FileDialog.new()
+    file_dialog.set_title("Select Folder")
+    
+    initial_folder = Gio.File.new_for_path(dialog_data["current_folder"])
+    file_dialog.set_initial_folder(initial_folder)
+    
+    # Open the dialog to select a folder
+    file_dialog.select_folder(dialog_data["dialog"], None, 
+                         lambda fd, result: self._on_folder_selected(fd, result, dialog_data))
+
+def _on_dialog_response(self, dialog, response_id, dialog_data, win):
+    """Handle dialog response callback"""
+    if response_id == Gtk.ResponseType.ACCEPT:
+        filepath = self._get_file_path_from_dialog(dialog_data)
+        if filepath:
+            file = Gio.File.new_for_path(filepath)
             
-            # Check if file has an extension, if not, add .mht as default
-            if not file_ext:
-                path = path + ".mht"
-                file = Gio.File.new_for_path(path)
-                file_ext = ".mht"
+            # Determine file type and call appropriate save method
+            file_ext = os.path.splitext(filepath)[1].lower()
             
-            # Save based on file extension
             if file_ext in ['.mht', '.mhtml']:
                 self.save_as_mhtml(win, file)
             elif file_ext in ['.html', '.htm']:
@@ -347,24 +477,39 @@ def save_dialog_callback(self, win, dialog, result):
             else:
                 # For unknown extensions, save as MHTML by default
                 self.save_as_mhtml(win, file)
-        else:
-            # File is None - user canceled the dialog or error occurred
-            win.statusbar.set_text("Save canceled or no file selected")
-            print("Save dialog: No file selected or dialog canceled")
-                
-    except GLib.Error as error:
-        if error.domain != 'gtk-dialog-error-quark' or error.code != 2:  # Ignore cancel
-            print(f"Error saving file: {error.message if hasattr(error, 'message') else str(error)}")
-            # Use the existing show_error_dialog method with the right number of arguments
-            self.show_error_dialog(f"Error saving file: {error.message if hasattr(error, 'message') else str(error)}")
-        else:
-            # User canceled the dialog
-            win.statusbar.set_text("Save canceled")
-    except Exception as e:
-        print(f"Unexpected error in save dialog: {e}")
-        win.statusbar.set_text(f"Error: {str(e)}")
-        # Use existing show_error_dialog with the right number of arguments
-        self.show_error_dialog(f"Error saving file: {str(e)}")
+    
+    # Destroy the dialog when done
+    dialog.destroy()
+    
+def _on_folder_selected(self, file_dialog, result, dialog_data):
+    """Handle folder selection result"""
+    try:
+        folder = file_dialog.select_folder_finish(result)
+        if folder:
+            dialog_data["current_folder"] = folder.get_path()
+            dialog_data["location_label"].set_text(self._get_shortened_path(dialog_data["current_folder"]))
+    except GLib.Error as e:
+        # Ignore cancellation
+        if e.domain != 'gtk-dialog-error-quark' or e.code != 2:
+            print(f"Error selecting folder: {e}")
+
+def _get_file_path_from_dialog(self, dialog_data):
+    """Get the complete file path from dialog inputs"""
+    filename = dialog_data["filename_entry"].get_text().strip()
+    if not filename:
+        return None
+    
+    # Get the selected extension
+    format_idx = dialog_data["format_dropdown"].get_selected()
+    extension = dialog_data["formats"][format_idx]["extension"]
+    
+    # Remove existing extension if present and add the selected one
+    if "." in filename:
+        base = filename.rsplit(".", 1)[0]
+        filename = base
+    
+    # Build full path
+    return os.path.join(dialog_data["current_folder"], filename + extension)
 
 
 def save_as_mhtml(self, win, file):
