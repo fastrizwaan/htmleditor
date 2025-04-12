@@ -93,72 +93,101 @@ class HTMLEditorApp(Adw.Application):
         # Create actions
         self.create_actions()
 
+
     def setup_css_provider(self):
         """Set up CSS provider for custom styling"""
         self.css_provider = Gtk.CssProvider()
         self.css_provider.load_from_data(b"""
+            /* Original CSS with modifications */
             .toolbar-container { padding: 0px 0px; background-color: rgba(127, 127, 127, 0.05); }
             .flat { background: none; }
             .flat:hover { background: rgba(127, 127, 127, 0.20); }
             .flat:checked { background: rgba(127, 127, 127, 0.20); }
             colorbutton.flat, colorbutton.flat button { background: none; }
             colorbutton.flat:hover, colorbutton.flat button:hover { background: rgba(127, 127, 127, 0.15); }
-            
-           /* Linked container styling */
+
+            /* Linked container styling */
             .linked { background: none; border-radius: 5px; }
-            
+
             /* Linked button styling with clear borders */
             .linked button { 
-                background: rgba(127, 127, 127, 0.10); 
+                background-color: @theme_bg_color;
+                color: @theme_fg_color;
                 border-radius: 0; 
                 border: solid 1px rgba(127, 127, 127, 0.20);
-
                 padding: 0px 0px;
                 /* Ensure borders are always visible */
                 min-width: 40px;
                 min-height: 30px;
-
             }
-            
+
             .linked button:first-child { 
                 border-top-left-radius: 5px; 
                 border-bottom-left-radius: 5px; 
                 min-width: 40px;
                 min-height: 30px;
-
             }
-            
+
             .linked button:last-child { 
                 border-top-right-radius: 5px; 
                 border-bottom-right-radius: 5px; 
                 min-width: 40px;
                 min-height: 30px;
-
             }
+
             /* Ensure middle elements have no border radius */
             .linked button:not(:first-child):not(:last-child) {
                 border-radius: 0;
                 min-width: 40px;
                 min-height: 30px;
-
             }
-            .linked button:hover { background: rgba(127, 127, 127, 0.20); }
-            .linked button:checked { 
-                background: rgba(0, 0, 127, 0.3); 
-                border: solid 1px;
-                border-left-width: 0;
-                border-color: rgba(0, 0, 127, 0.3);
+
+            /* Button hover states */
+            .linked button:hover {                 
+                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                color: #000000;
+                border: solid 1px #e59728;
+                min-width: 40px;
+                min-height: 30px; 
+            }
+
+            .linked button:first-child:hover { 
+                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                color: #000000;
+                border: solid 1px #e59728;
+                border-top-left-radius: 5px; 
+                border-bottom-left-radius: 5px; 
                 min-width: 40px;
                 min-height: 30px;
+            }
 
+            .linked button:last-child:hover { 
+                border-top-right-radius: 5px; 
+                border-bottom-right-radius: 5px; 
+                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                color: #000000;
+                border: solid 1px #e59728;
+                min-width: 40px;
+                min-height: 30px; 
             }
+
+            /* Ensure middle elements have no border radius on hover */
+            .linked button:not(:first-child):not(:last-child):hover {
+                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                color: #000000;
+                border: solid 1px #e59728;
+                border-radius: 0;
+                min-width: 40px;
+                min-height: 30px;
+            }
+
+            /* Button checked state */
             .linked button:checked { 
-            background: linear-gradient(to top, #ffe08d, #ffb73d);
-            border: solid 1px #e59728;
-            color: #000000;
-            
+                background: linear-gradient(to top, #ffe08d, #ffb73d);
+                border: solid 1px #e59728;
+                color: #000000;
             }
-            
+
             /* Linked dropdown styling - treat just like buttons */
             .linked dropdown { 
                 min-height: 0;
@@ -169,72 +198,157 @@ class HTMLEditorApp(Adw.Application):
                 min-width: 40px;
                 min-height: 30px;
             }
-            
+
             .linked dropdown > button {
-                background: rgba(127, 127, 127, 0.10);
+                background-color: @theme_bg_color;
+                color: @theme_fg_color;
                 border-radius: 0; 
                 border: solid 1px;
                 border-color: rgba(127, 127, 127, 0.20);
                 border-left-width: 0;
                 min-width: 40px;
                 min-height: 30px;
-
                 padding: 0px 10px 0px 15px;
             }
-
 
             .linked dropdown:first-child > button { 
                 border-top-left-radius: 5px; 
                 border-bottom-left-radius: 5px; 
                 border-top-right-radius: 0;
                 border-bottom-right-radius: 0;
-                border-left-width: 1px;
+                border: solid 1px;
+                border-color: rgba(127, 127, 127, 0.20);
                 min-width: 40px;
                 min-height: 30px;
             }
-            
+
             .linked dropdown:last-child > button { 
                 border-top-right-radius: 5px; 
                 border-bottom-right-radius: 5px; 
                 border-top-left-radius: 0;
                 border-bottom-left-radius: 0;
+                border: solid 1px;
+                border-color: rgba(127, 127, 127, 0.20);
                 min-width: 40px;
                 min-height: 30px;
-
             }
-            
+
             /* Explicit rule to ensure middle dropdowns have NO radius */
             .linked dropdown:not(:first-child):not(:last-child) > button {
                 border-radius: 0;
                 min-width: 40px;
                 min-height: 30px;
-
+                border: solid 1px;
+                border-color: rgba(127, 127, 127, 0.20);
             }
-            
+
             /* Fix for dropdown borders to ensure they connect properly */
             .linked dropdown > button {
                 margin-left: -1px;  /* Negative margin to overlay borders */
+                border: solid 1px;
+                border-color: rgba(127, 127, 127, 0.20);
             }
+
             .linked dropdown:first-child > button {
                 margin-left: 0;  /* Reset margin for first child */
             }
-            
+
+            /* Dropdown hover states */
             .linked dropdown > button:hover { 
-                background: rgba(127, 127, 127, 0.20); 
+                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                color: #000000;
+                border: solid 1px #e59728;
             }
-            
-            /* Style for active/selected dropdown item */
+
+            .linked dropdown:first-child > button:hover {
+                border-top-right-radius: 0px; 
+                border-bottom-right-radius: 0px;
+                border-top-left-radius: 5px; 
+                border-bottom-left-radius: 5px;
+                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                color: #000000;
+                border: solid 1px #e59728;
+            }
+
+            .linked dropdown:last-child > button:hover {
+                border-top-right-radius: 5px; 
+                border-bottom-right-radius: 5px;
+                border-top-left-radius: 0px; 
+                border-bottom-left-radius: 0px;
+                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                color: #000000;
+                border: solid 1px #e59728;
+            }
+
+            .linked dropdown:not(:first-child):not(:last-child) > button:hover { 
+                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                color: #000000;
+                border-radius: 0;
+                border: solid 1px #e59728;
+                min-width: 40px;
+                min-height: 30px;
+            }
+
+            /* Dropdown checked states */
+            .linked dropdown:not(:first-child):not(:last-child) > button:checked { 
+                background: linear-gradient(to bottom, #ffb73d, #ffe08d);
+                color: #000000;
+                border-radius: 0;
+                border: solid 1px #e59728;
+                min-width: 40px;
+                min-height: 30px;
+            }
+
+            /* Style for active/selected dropdown item - FIXED: removed height property */
+            dropdown listview {
+                margin: 0;
+                margin-start: 5px; /* Add 5px left padding/margin */
+            }
+
+            dropdown listview row {
+                background: @theme_bg_color;
+                color: @theme_fg_color;
+                min-height: 30px;
+                margin: 0;
+                padding: 0 6px; /* Keep some horizontal padding for text */
+            }   
+
             dropdown listview row:selected {
                 background: linear-gradient(to bottom, #ffe08d, #ffb73d);
                 color: #000000;
                 border: 1px solid #e59728;
-                min-height: 10px;
+                min-height: 30px;
+                padding: 0 6px;
+                border-radius: 0;
             }   
-            
+
+            /* Dropdown positioning - align with left border of button */
+            dropdown popover {
+                margin: 0;
+                padding: 0;
+                border-radius: 0 0 5px 5px; /* Round only bottom corners */
+            }
+
+            dropdown popover contents {
+                margin: 0;
+                padding: 0;
+                border-radius: 0 0 5px 5px; /* Round only bottom corners */
+            }
+
+            /* Explicitly set top corners to 0px radius and bottom corners to 5px */
+            popover.menu {
+                margin: 0;
+                margin-left: -1px; /* Align with left edge of button */
+                border-top-left-radius: 0;
+                border-top-right-radius: 0;
+                border-bottom-left-radius: 5px;
+                border-bottom-right-radius: 5px;
+            }
+
             /* General dropdown styling */
             dropdown.flat, dropdown.flat button { background: none; border-radius: 5px; }
             dropdown.flat:hover { background: rgba(127, 127, 127, 0.05); }
-            
+
             .flat-header { background: rgba(127, 127, 127, 0.05); border: none; box-shadow: none; padding: 0; }
             .button-box button { min-width: 80px; min-height: 36px; }
             .highlighted { background-color: rgba(127, 127, 127, 0.15); }
@@ -253,7 +367,8 @@ class HTMLEditorApp(Adw.Application):
             Gdk.Display.get_default(),
             self.css_provider,
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )        
+        )
+        
     def on_activate(self, app):
         """Handle application activation (new window)"""
         win = self.create_window()
@@ -841,7 +956,7 @@ class HTMLEditorApp(Adw.Application):
         # Connect signal handler
         win.paragraph_style_handler_id = win.paragraph_style_dropdown.connect(
             "notify::selected", lambda dd, param: self.on_paragraph_style_changed(win, dd))
-        
+        win.paragraph_style_dropdown.set_size_request(130, -1)
         pffs_box.append(win.paragraph_style_dropdown)
         
         # ---- FONT FAMILY DROPDOWN ----
