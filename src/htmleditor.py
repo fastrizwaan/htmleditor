@@ -921,279 +921,143 @@ class HTMLEditorApp(Adw.Application):
         win.webview.grab_focus()
 
     # ---- FONT SIZE HANDLER ----
-    def on_font_size_changed(self, win, dropdown):
-        """Implementation of font size change that preserves selection after applying"""
-        # Get the selected size
-        selected_item = dropdown.get_selected_item()
-        size_pt = selected_item.get_string()
-        
-        # Apply the font size while preserving nested structure and selection
-        js_code = r"""
+    def cleanup_font_tags(self, win):
+        """Clean up redundant font tags in the editor content"""
+        js_code = """
         (function() {
+            // Get the editor content
             const editor = document.getElementById('editor');
-            const selection = window.getSelection();
             
-            // Store the current size as a data attribute
-            editor.dataset.currentFontSize = '""" + size_pt + """pt';
-            
-            if (selection.rangeCount > 0) {
-                const range = selection.getRangeAt(0);
-                
-                // Handle text selection case
-                if (!range.collapsed) {
-                    // Helper function to wrap a node in a span with the new font size
-                    function wrapInSpan(node, fontSize) {
-                        const span = document.createElement('span');
-                        span.style.fontSize = fontSize;
-                        node.parentNode.insertBefore(span, node);
-                        span.appendChild(node);
-                        return span;
-                    }
-                    
-                    // Helper function to process a text node within the selection
-                    function processTextNode(node, startOffset, endOffset) {
-                        const text = node.textContent;
-                        const fragment = document.createDocumentFragment();
-                        
-                        // Text before selection
-                        if (startOffset > 0) {
-                            fragment.appendChild(document.createTextNode(text.substring(0, startOffset)));
-                        }
-                        
-                        // Selected text
-                        const selectedText = text.substring(startOffset, endOffset);
-                        const span = document.createElement('span');
-                        span.style.fontSize = '""" + size_pt + """pt';
-                        span.textContent = selectedText;
-                        fragment.appendChild(span);
-                        
-                        // Text after selection
-                        if (endOffset < text.length) {
-                            fragment.appendChild(document.createTextNode(text.substring(endOffset)));
-                        }
-                        
-                        node.parentNode.insertBefore(fragment, node);
-                        node.parentNode.removeChild(node);
-                        return span;  // Return the new span for reselection
-                    }
-                    
-                    // Get the start and end containers and offsets
-                    const startContainer = range.startContainer;
-                    const endContainer = range.endContainer;
-                    const startOffset = range.startOffset;
-                    const endOffset = range.endOffset;
-                    
-                    let newStartNode, newEndNode, newStartOffset, newEndOffset;
-                    
-                    // If the selection is within a single text node
-                    if (startContainer === endContainer && startContainer.nodeType === 3) {
-                        const newSpan = processTextNode(startContainer, startOffset, endOffset);
-                        newStartNode = newSpan.firstChild;
-                        newEndNode = newSpan.firstChild;
-                        newStartOffset = 0;
-                        newEndOffset = newSpan.textContent.length;
-                    } else {
-                        // Multi-node selection
-                        const commonAncestor = range.commonAncestorContainer;
-                        const treeWalker = document.createTreeWalker(
-                            commonAncestor,
-                            NodeFilter.SHOW_TEXT,
-                            null
-                        );
-                        
-                        let node = treeWalker.firstChild();
-                        const nodesToProcess = [];
-                        let inRange = false;
-                        
-                        // Collect text nodes within the selection range
-                        while (node) {
-                            if (node === startContainer) {
-                                inRange = true;
-                            }
-                            if (inRange) {
-                                nodesToProcess.push(node);
-                            }
-                            if (node === endContainer) {
-                                inRange = false;
-                            }
-                            node = treeWalker.nextNode();
-                        }
-                        
-                        // Process each text node in the selection
-                        nodesToProcess.forEach((node, index) => {
-                            if (node === startContainer) {
-                                const newSpan = processTextNode(node, startOffset, node.textContent.length);
-                                if (!newStartNode) {
-                                    newStartNode = newSpan.firstChild;
-                                    newStartOffset = 0;
-                                }
-                            } else if (node === endContainer) {
-                                const newSpan = processTextNode(node, 0, endOffset);
-                                newEndNode = newSpan.firstChild;
-                                newEndOffset = newSpan.textContent.length;
-                            } else {
-                                // Fully selected node
-                                wrapInSpan(node, '""" + size_pt + """pt');
-                            }
-                        });
-                    }
-                    
-                    // Clean up empty spans or font tags
-                    const spans = editor.querySelectorAll('span');
-                    spans.forEach(span => {
-                        if (!span.textContent.trim() && span.childNodes.length === 0) {
-                            span.parentNode.removeChild(span);
-                        }
-                    });
-                    
-                    const fonts = editor.querySelectorAll('font');
-                    fonts.forEach(font => {
-                        if (!font.textContent.trim() && font.childNodes.length === 0) {
-                            font.parentNode.removeChild(font);
-                        }
-                    });
-                    
-                    // Reselect the modified content
-                    if (newStartNode && newEndNode) {
-                        const newRange = document.createRange();
-                        newRange.setStart(newStartNode, newStartOffset);
-                        newRange.setEnd(newEndNode, newEndOffset);
-                        selection.removeAllRanges();
-                        selection.addRange(newRange);
-                    }
-                    
-                    // Record this change in the undo stack
-                    saveState();
-                    window.lastContent = editor.innerHTML;
-                    window.redoStack = [];
-                    try {
-                        window.webkit.messageHandlers.contentChanged.postMessage("changed");
-                    } catch(e) {
-                        console.log("Could not notify about changes:", e);
-                    }
-                }
-                // Handle cursor position case (no selection)
-                else {
-                    // Set up a one-time input handler
-                    const handleNextInput = function(e) {
-                        if (e.inputType && e.inputType.startsWith('insert')) {
-                            editor.removeEventListener('input', handleNextInput);
-                            
-                            const sel = window.getSelection();
-                            if (sel.rangeCount > 0) {
-                                const range = sel.getRangeAt(0);
-                                const node = range.startContainer;
-                                
-                                if (node.nodeType === 3) {
-                                    const offset = range.startOffset;
-                                    const newChar = node.textContent.substring(offset - 1, offset);
-                                    const newText = document.createTextNode(newChar);
-                                    
-                                    const span = document.createElement('span');
-                                    span.style.fontSize = '""" + size_pt + """pt';
-                                    
-                                    // Preserve font family from parent if explicitly set
-                                    let currentNode = node.parentNode;
-                                    let fontFamily = '';
-                                    while (currentNode && currentNode !== editor) {
-                                        if (currentNode.style && currentNode.style.fontFamily) {
-                                            fontFamily = currentNode.style.fontFamily;
-                                            break;
-                                        }
-                                        if (currentNode.tagName && currentNode.tagName.toLowerCase() === 'font' && 
-                                            currentNode.hasAttribute('face')) {
-                                            fontFamily = currentNode.getAttribute('face');
-                                            break;
-                                        }
-                                        currentNode = currentNode.parentNode;
-                                    }
-                                    
-                                    if (fontFamily) {
-                                        span.style.fontFamily = fontFamily;
-                                    }
-                                    
-                                    span.appendChild(newText);
-                                    
-                                    const afterText = node.splitText(offset - 1);
-                                    afterText.deleteData(0, 1);
-                                    
-                                    const parent = node.parentNode;
-                                    if (afterText.length > 0) {
-                                        parent.insertBefore(span, afterText);
-                                    } else {
-                                        parent.appendChild(span);
-                                    }
-                                    
-                                    range.setStartAfter(span);
-                                    range.collapse(true);
-                                    sel.removeAllRanges();
-                                    sel.addRange(range);
-                                    
-                                    saveState();
-                                    window.lastContent = editor.innerHTML;
-                                    window.redoStack = [];
-                                    try {
-                                        window.webkit.messageHandlers.contentChanged.postMessage("changed");
-                                    } catch(e) {
-                                        console.log("Could not notify about changes:", e);
-                                    }
-                                }
-                            }
-                        }
-                    };
-                    
-                    editor.addEventListener('input', handleNextInput);
-                    
-                    // Handle enter key in empty paragraph
-                    if (range.startContainer.nodeType === 1) {
-                        const node = range.startContainer;
-                        if ((node.nodeName === 'DIV' || node.nodeName === 'P') && 
-                            (node.childNodes.length === 0 || 
-                             (node.childNodes.length === 1 && node.firstChild.nodeName === 'BR'))) {
-                            const span = document.createElement('span');
-                            span.style.fontSize = '""" + size_pt + """pt';
-                            
-                            // Preserve font family from parent if explicitly set
-                            let currentNode = node;
-                            let fontFamily = '';
-                            while (currentNode && currentNode !== editor) {
-                                if (currentNode.style && currentNode.style.fontFamily) {
-                                    fontFamily = currentNode.style.fontFamily;
-                                    break;
-                                }
-                                if (currentNode.tagName && currentNode.tagName.toLowerCase() === 'font' && 
-                                    currentNode.hasAttribute('face')) {
-                                    fontFamily = currentNode.getAttribute('face');
-                                    break;
-                                }
-                                currentNode = currentNode.parentNode;
-                            }
-                            
-                            if (fontFamily) {
-                                span.style.fontFamily = fontFamily;
-                            }
-                            
-                            span.innerHTML = '<br>';
-                            node.innerHTML = '';
-                            node.appendChild(span);
-                            
-                            range.setStart(span, 0);
-                            range.collapse(true);
-                            selection.removeAllRanges();
-                            selection.addRange(range);
-                        }
-                    }
-                }
+            // Function to determine if a font tag is redundant
+            function isRedundantFontTag(fontEl) {
+                return !fontEl.hasAttribute('style') && 
+                       !fontEl.hasAttribute('face') && 
+                       !fontEl.hasAttribute('color') &&
+                       (!fontEl.hasAttribute('size') || fontEl.getAttribute('size') === '');
             }
+            
+            // Find all font tags
+            const fontTags = editor.querySelectorAll('font');
+            
+            // Process each font tag
+            fontTags.forEach(fontTag => {
+                if (isRedundantFontTag(fontTag)) {
+                    // Create a document fragment to hold the contents
+                    const fragment = document.createDocumentFragment();
+                    
+                    // Move all children to the fragment
+                    while (fontTag.firstChild) {
+                        fragment.appendChild(fontTag.firstChild);
+                    }
+                    
+                    // Replace the font tag with its contents
+                    fontTag.parentNode.replaceChild(fragment, fontTag);
+                }
+            });
             
             return true;
         })();
         """
+        self.execute_js(win, js_code)
+
+
+    def on_font_size_changed(self, win, dropdown):
+        """Handle font size dropdown change using direct font-size styling"""
+        # Get the selected size
+        selected_item = dropdown.get_selected_item()
+        size_pt = selected_item.get_string()
+        
+        # First approach: apply font size with execCommand
+        js_code = f"""
+        (function() {{
+            // First save the current selection
+            const selection = window.getSelection();
+            
+            if (selection.rangeCount > 0) {{
+                const range = selection.getRangeAt(0);
+                
+                // If text is selected, apply font size to selection
+                if (!range.collapsed) {{
+                    // Apply fontSize command
+                    document.execCommand('fontSize', false, '7');
+                    
+                    // Find all font elements with size=7 and set the correct size
+                    const fontElements = document.querySelectorAll('font[size="7"]');
+                    for (const font of fontElements) {{
+                        font.removeAttribute('size');
+                        font.style.fontSize = '{size_pt}pt';
+                    }}
+                }} else {{
+                    // For cursor position, we'll set up the environment for next typed character
+                    const editor = document.getElementById('editor');
+                    
+                    // Store the font size in a global variable
+                    window.nextFontSize = '{size_pt}pt';
+                    
+                    // Add listener for next character typed
+                    const handleInput = function(e) {{
+                        if (e.inputType && e.inputType.includes('insert')) {{
+                            // Remove this listener to only handle the next input
+                            editor.removeEventListener('input', handleInput);
+                            
+                            // Get current selection after input
+                            const sel = window.getSelection();
+                            if (sel.rangeCount > 0) {{
+                                // Select the last typed character
+                                const range = sel.getRangeAt(0);
+                                if (range.startOffset > 0) {{
+                                    range.setStart(range.startContainer, range.startOffset - 1);
+                                    
+                                    // Apply the stored font size
+                                    document.execCommand('fontSize', false, '7');
+                                    
+                                    // Style the font tag
+                                    const fontElements = document.querySelectorAll('font[size="7"]');
+                                    for (const font of fontElements) {{
+                                        font.removeAttribute('size');
+                                        font.style.fontSize = window.nextFontSize;
+                                    }}
+                                    
+                                    // Restore cursor position
+                                    range.collapse(false);
+                                    sel.removeAllRanges();
+                                    sel.addRange(range);
+                                }}
+                            }}
+                        }}
+                    }};
+                    
+                    // Add the input handler
+                    editor.addEventListener('input', handleInput);
+                }}
+                
+                // Update undo stack for font changes with selection
+                if (!selection.isCollapsed) {{
+                    saveState();
+                    window.lastContent = document.getElementById('editor').innerHTML;
+                    window.redoStack = [];
+                    try {{
+                        window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                    }} catch(e) {{
+                        console.log("Could not notify about changes:", e);
+                    }}
+                }}
+            }}
+            
+            return true;
+        }})();
+        """
         
         # Execute the JavaScript code
         self.execute_js(win, js_code)
+        
+        # Clean up redundant font tags after the operation
+        # Use a short delay to allow the first operation to complete
+        GLib.timeout_add(100, lambda: self.cleanup_font_tags(win))
+        
         win.statusbar.set_text(f"Applied font size: {size_pt}pt")
         win.webview.grab_focus()
+
         
     def setup_keyboard_shortcuts(self, win):
         """Setup keyboard shortcuts for the window"""
