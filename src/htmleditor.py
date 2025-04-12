@@ -1379,7 +1379,7 @@ class HTMLEditorApp(Adw.Application):
                 height: 100%;
                 /*margin: 40px; */ /*Change this for page border*/
                 padding: 0;
-                font-family: Arial, sans-serif;
+                font-family: Sans;
             }}
             #editor {{
                 /*border: 1px solid #ccc;*/
@@ -1388,6 +1388,8 @@ class HTMLEditorApp(Adw.Application):
                 /*min-height: 200px; */ /* Reduced fallback minimum height */
                 height: 100%; /* Allow it to expand fully */
                 /*box-sizing: border-box; */ /* Include padding/border in height */
+                font-family: Sans;
+                font-size: 11pt;
             }}
             #editor div {{
                 margin: 0;
@@ -1416,7 +1418,7 @@ class HTMLEditorApp(Adw.Application):
             }}
         </style>
         <script>
-            window.initialContent = "{content or '<div><br></div>'}";
+            window.initialContent = "{content or '<div><font face=\"Sans\" style=\"font-size: 11pt;\"><br></font></div>'}";
             {self.get_editor_js()}
         </script>
     </head>
@@ -1814,7 +1816,7 @@ class HTMLEditorApp(Adw.Application):
         """
         
     def get_initial_html(self):
-        return self.get_editor_html()
+        return self.get_editor_html('<div><font face="Sans" style="font-size: 11pt;"><br></font></div>')
     
     def execute_js(self, win, script):
         """Execute JavaScript in the WebView"""
@@ -3231,6 +3233,9 @@ class HTMLEditorApp(Adw.Application):
         
         # Run the print dialog
         print_op.run_dialog(win)
+######################
+
+
 
 
 
