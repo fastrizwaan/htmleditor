@@ -861,127 +861,107 @@ grid.color-grid {
         
         # Create window menu button on the right side
         self.add_window_menu_button(win)
-        
+            
     def create_file_toolbar(self, win):
-        """Create the file toolbar with button groups"""
+        """Create the file toolbar with linked button groups"""
         file_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        file_toolbar.set_margin_start(0)
+        file_toolbar.set_margin_start(4)
         file_toolbar.set_margin_end(0)
-        file_toolbar.set_margin_top(0)
-        file_toolbar.set_margin_bottom(2)
+        file_toolbar.set_margin_top(5)
+        file_toolbar.set_margin_bottom(5)
         file_toolbar.add_css_class("toolbar-group")
         
-        # --- File operations group ---
-        file_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
-        file_group.add_css_class("toolbar-group")
+        # --- File operations group (New, Open, Save, Save As) ---
+        file_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        file_group.add_css_class("linked")  # Apply linked styling
+        file_group.set_margin_start(2)
         
         # New button
         new_button = Gtk.Button(icon_name="document-new-symbolic")
         new_button.set_tooltip_text("New Document in New Window")
         new_button.connect("clicked", lambda btn: self.on_new_clicked(win, btn))
-        new_button.add_css_class("flat")
         
         # Open button
         open_button = Gtk.Button(icon_name="document-open-symbolic")
         open_button.set_tooltip_text("Open File in New Window")
         open_button.connect("clicked", lambda btn: self.on_open_clicked(win, btn))
-        open_button.add_css_class("flat")
         
         # Save button
         save_button = Gtk.Button(icon_name="document-save-symbolic")
         save_button.set_tooltip_text("Save File")
         save_button.connect("clicked", lambda btn: self.on_save_clicked(win, btn))
-        save_button.add_css_class("flat")
         
         # Save As button
         save_as_button = Gtk.Button(icon_name="document-save-as-symbolic")
         save_as_button.set_tooltip_text("Save File As")
         save_as_button.connect("clicked", lambda btn: self.on_save_as_clicked(win, btn))
-        save_as_button.add_css_class("flat")
         
-        # Print button (placeholder)
-        print_button = Gtk.Button(icon_name="document-print-symbolic")
-        print_button.set_tooltip_text("Print Document")
-        print_button.connect("clicked", lambda btn: self.on_print_clicked(win, btn) if hasattr(self, "on_print_clicked") else None)
-        print_button.add_css_class("flat")
-
         # Add buttons to file group
         file_group.append(new_button)
         file_group.append(open_button)
         file_group.append(save_button)
         file_group.append(save_as_button)
-        file_group.append(print_button)
         
         # Add file group to toolbar
         file_toolbar.append(file_group)
         
-        # Add separator
-        separator1 = Gtk.Box()
-        separator1.add_css_class("toolbar-separator")
-        #file_toolbar.append(separator1)
-        
-        # --- Edit operations group ---
-        edit_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
-        edit_group.add_css_class("toolbar-group")
+        # --- Edit operations group (Cut, Copy, Paste, Print) ---
+        edit_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        edit_group.add_css_class("linked")  # Apply linked styling
+        edit_group.set_margin_start(6)
         
         # Cut button
         cut_button = Gtk.Button(icon_name="edit-cut-symbolic")
         cut_button.set_tooltip_text("Cut")
         cut_button.connect("clicked", lambda btn: self.on_cut_clicked(win, btn))
-        cut_button.add_css_class("flat")
 
         # Copy button
         copy_button = Gtk.Button(icon_name="edit-copy-symbolic")
         copy_button.set_tooltip_text("Copy")
         copy_button.connect("clicked", lambda btn: self.on_copy_clicked(win, btn))
-        copy_button.add_css_class("flat")
 
         # Paste button
         paste_button = Gtk.Button(icon_name="edit-paste-symbolic")
         paste_button.set_tooltip_text("Paste")
         paste_button.connect("clicked", lambda btn: self.on_paste_clicked(win, btn))
-        paste_button.add_css_class("flat")
+        
+        # Print button
+        print_button = Gtk.Button(icon_name="document-print-symbolic")
+        print_button.set_tooltip_text("Print Document")
+        print_button.connect("clicked", lambda btn: self.on_print_clicked(win, btn) if hasattr(self, "on_print_clicked") else None)
         
         # Add buttons to edit group
         edit_group.append(cut_button)
         edit_group.append(copy_button)
         edit_group.append(paste_button)
+        edit_group.append(print_button)
         
         # Add edit group to toolbar
         file_toolbar.append(edit_group)
         
-        # Add separator
-        separator2 = Gtk.Box()
-        separator2.add_css_class("toolbar-separator")
-        #file_toolbar.append(separator2)
-        
-        # --- History operations group ---
-        history_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
-        history_group.add_css_class("toolbar-group")
+        # --- History operations group (Undo, Redo, Find) ---
+        history_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        history_group.add_css_class("linked")  # Apply linked styling
+        history_group.set_margin_start(6)
         
         # Undo button
         win.undo_button = Gtk.Button(icon_name="edit-undo-symbolic")
         win.undo_button.set_tooltip_text("Undo")
         win.undo_button.connect("clicked", lambda btn: self.on_undo_clicked(win, btn))
         win.undo_button.set_sensitive(False)  # Initially disabled
-        win.undo_button.add_css_class("flat")
         
         # Redo button
         win.redo_button = Gtk.Button(icon_name="edit-redo-symbolic")
         win.redo_button.set_tooltip_text("Redo")
         win.redo_button.connect("clicked", lambda btn: self.on_redo_clicked(win, btn))
         win.redo_button.set_sensitive(False)  # Initially disabled
-        win.redo_button.add_css_class("flat")
         
-        # Find-Replace toggle button - Updated to use ToggleButton
+        # Find-Replace toggle button
         win.find_button = Gtk.ToggleButton()
         find_icon = Gtk.Image.new_from_icon_name("edit-find-replace-symbolic")
         win.find_button.set_child(find_icon)
         win.find_button.set_tooltip_text("Find and Replace (Ctrl+F)")
-        win.find_button.add_css_class("flat")
-        win.find_button.connect("toggled", lambda btn: self.on_find_button_toggled(win, btn))
         win.find_button_handler_id = win.find_button.connect("toggled", lambda btn: self.on_find_button_toggled(win, btn))
-
 
         # Add buttons to history group
         history_group.append(win.undo_button)
@@ -991,14 +971,10 @@ grid.color-grid {
         # Add history group to toolbar
         file_toolbar.append(history_group)
         
-        # Add separator
-        separator3 = Gtk.Box()
-        separator3.add_css_class("toolbar-separator")
-        #file_toolbar.append(separator3)
-        
-        # --- Zoom control ---
+        # --- Zoom control (unchanged) ---
         zoom_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
         zoom_group.add_css_class("toolbar-group")
+        zoom_group.set_margin_start(6)
         
         # Zoom button with popup menu
         zoom_button = Gtk.MenuButton()
@@ -1079,7 +1055,6 @@ grid.color-grid {
         file_toolbar.append(spacer)
         
         return file_toolbar
-
 
     def on_cut_clicked(self, win, btn):
         """Handle cut button click"""
