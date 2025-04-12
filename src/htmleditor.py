@@ -143,17 +143,17 @@ class HTMLEditorApp(Adw.Application):
 
             /* Button hover states */
             .linked button:hover {                 
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                background: linear-gradient(to bottom, #ffd96c, #fff17e);
                 color: #000000;
-                border: solid 1px #e59728;
+                border: solid 1px #c2943b;
 
                 min-height: 30px; 
             }
 
             .linked button:first-child:hover { 
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                background: linear-gradient(to bottom, #ffd96c, #fff17e);
                 color: #000000;
-                border: solid 1px #e59728;
+                border: solid 1px #c2943b;
                 border-top-left-radius: 5px; 
                 border-bottom-left-radius: 5px; 
 
@@ -163,18 +163,18 @@ class HTMLEditorApp(Adw.Application):
             .linked button:last-child:hover { 
                 border-top-right-radius: 5px; 
                 border-bottom-right-radius: 5px; 
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                background: linear-gradient(to bottom, #ffd96c, #fff17e);
                 color: #000000;
-                border: solid 1px #e59728;
+                border: solid 1px #c2943b;
 
                 min-height: 30px; 
             }
 
             /* Ensure middle elements have no border radius on hover */
             .linked button:not(:first-child):not(:last-child):hover {
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                background: linear-gradient(to bottom, #ffd96c, #fff17e);
                 color: #000000;
-                border: solid 1px #e59728;
+                border: solid 1px #c2943b;
                 border-radius: 0;
 
                 min-height: 30px;
@@ -182,8 +182,8 @@ class HTMLEditorApp(Adw.Application):
 
             /* Button checked state */
             .linked button:checked { 
-                background: linear-gradient(to top, #ffe08d, #ffb73d);
-                border: solid 1px #e59728;
+                background: linear-gradient(to top, #ffd96c, #fff17e);
+                border: solid 1px #c2943b;
                 color: #000000;
             }
 
@@ -253,9 +253,9 @@ class HTMLEditorApp(Adw.Application):
 
             /* Dropdown hover states */
             .linked dropdown > button:hover { 
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                background: linear-gradient(to bottom, #ffd96c, #fff17e);
                 color: #000000;
-                border: solid 1px #e59728;
+                border: solid 1px #c2943b;
             }
 
             .linked dropdown:first-child > button:hover {
@@ -263,9 +263,9 @@ class HTMLEditorApp(Adw.Application):
                 border-bottom-right-radius: 0px;
                 border-top-left-radius: 5px; 
                 border-bottom-left-radius: 5px;
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                background: linear-gradient(to bottom, #ffd96c, #fff17e);
                 color: #000000;
-                border: solid 1px #e59728;
+                border: solid 1px #c2943b;
             }
 
             .linked dropdown:last-child > button:hover {
@@ -273,16 +273,16 @@ class HTMLEditorApp(Adw.Application):
                 border-bottom-right-radius: 5px;
                 border-top-left-radius: 0px; 
                 border-bottom-left-radius: 0px;
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                background: linear-gradient(to bottom, #ffd96c, #fff17e);
                 color: #000000;
-                border: solid 1px #e59728;
+                border: solid 1px #c2943b;
             }
 
             .linked dropdown:not(:first-child):not(:last-child) > button:hover { 
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                background: linear-gradient(to bottom, #ffd96c, #fff17e);
                 color: #000000;
                 border-radius: 0;
-                border: solid 1px #e59728;
+                border: solid 1px #c2943b;
                 min-height: 30px;
             }
 
@@ -291,7 +291,7 @@ class HTMLEditorApp(Adw.Application):
                 background: linear-gradient(to bottom, #ffb73d, #ffe08d);
                 color: #000000;
                 border-radius: 0;
-                border: solid 1px #e59728;
+                border: solid 1px #c2943b;
                 min-height: 30px;
             }
 
@@ -310,9 +310,9 @@ class HTMLEditorApp(Adw.Application):
             }   
 
             dropdown listview row:selected {
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                background: linear-gradient(to bottom, #ffd96c, #fff17e);
                 color: #000000;
-                border: 1px solid #e59728;
+                border: 1px solid #c2943b;
                 min-height: 30px;
                 padding: 0 6px;
                 border-radius: 0;
@@ -389,15 +389,15 @@ class HTMLEditorApp(Adw.Application):
             }
 
             splitbutton.linked button:hover {                 
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                background: linear-gradient(to bottom, #ffd96c, #fff17e);
                 color: #000000;
-                border: solid 1px #e59728;
+                border: solid 1px #c2943b;
             }
 
             splitbutton.linked button:checked, 
             splitbutton.linked button:active { 
-                background: linear-gradient(to top, #ffe08d, #ffb73d);
-                border: solid 1px #e59728;
+                background: linear-gradient(to top, #ffd96c, #fff17e);
+                border: solid 1px #c2943b;
                 color: #000000;
             }
 
@@ -582,17 +582,17 @@ grid.color-grid {
 
             /* Button hover states */
             .linked menubutton:hover {                 
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                background: linear-gradient(to bottom, #ffd96c, #fff17e);
                 color: #000000;
-                border: solid 1px #e59728;
+                border: solid 1px #c2943b;
 
                 min-height: 30px; 
             }
 
             .linked menubutton:first-child:hover { 
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                background: linear-gradient(to bottom, #ffd96c, #fff17e);
                 color: #000000;
-                border: solid 1px #e59728;
+                border: solid 1px #c2943b;
                 border-top-left-radius: 5px; 
                 border-bottom-left-radius: 5px; 
 
@@ -604,18 +604,18 @@ grid.color-grid {
                 border-bottom-right-radius: 5px; 
                 border-top-left-radius: 0px; 
                 border-bottom-left-radius: 0px;
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                background: linear-gradient(to bottom, #ffd96c, #fff17e);
                 color: #000000;
-                border: solid 1px #e59728;
+                border: solid 1px #c2943b;
                 min-width: 40px;
                 min-height: 30px; 
             }
 
             /* Ensure middle elements have no border radius on hover */
             .linked menubutton:not(:first-child):not(:last-child):hover {
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                background: linear-gradient(to bottom, #ffd96c, #fff17e);
                 color: #000000;
-                border: solid 1px #e59728;
+                border: solid 1px #c2943b;
                 border-radius: 0;
 
                 min-height: 30px;
@@ -623,8 +623,8 @@ grid.color-grid {
 
             /* Button checked state */
             .linked menubutton:checked { 
-                background: linear-gradient(to top, #ffe08d, #ffb73d);
-                border: solid 0px #e59728;
+                background: linear-gradient(to top, #ffd96c, #fff17e);
+                border: solid 0px #c2943b;
                 color: #000000;
             }
 
