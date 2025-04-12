@@ -922,87 +922,275 @@ class HTMLEditorApp(Adw.Application):
 
     # ---- FONT SIZE HANDLER ----
     def on_font_size_changed(self, win, dropdown):
-        """Handle font size dropdown change with advanced cross-boundary selection support"""
+        """Implementation of font size change that preserves selection after applying"""
         # Get the selected size
         selected_item = dropdown.get_selected_item()
         size_pt = selected_item.get_string()
         
-        # Apply font size to selection that can span across different elements
-        js_code = fr"""
-        (function() {{
+        # Apply the font size while preserving nested structure and selection
+        js_code = r"""
+        (function() {
+            const editor = document.getElementById('editor');
             const selection = window.getSelection();
-            if (!selection.rangeCount) return false;
             
-            const range = selection.getRangeAt(0);
-            if (range.collapsed) return false;
+            // Store the current size as a data attribute
+            editor.dataset.currentFontSize = '""" + size_pt + """pt';
             
-            // Create a temporary fragment with the selected content
-            const fragment = range.extractContents();
-            
-            // Helper function to process nodes in the fragment
-            function processFragment(node) {{
-                // If this is a text node, wrap it with span
-                if (node.nodeType === 3 && node.nodeValue.trim().length > 0) {{
-                    const span = document.createElement('span');
-                    span.style.fontSize = '{size_pt}pt';
-                    span.appendChild(node.cloneNode(false));
-                    return span;
-                }}
+            if (selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
                 
-                // If it's not an element node, just return it
-                if (node.nodeType !== 1) return node.cloneNode(true);
-                
-                // For element nodes, create a new node of the same type
-                const newNode = document.createElement(node.nodeName);
-                
-                // Copy attributes
-                for (let i = 0; i < node.attributes.length; i++) {{
-                    const attr = node.attributes[i];
-                    newNode.setAttribute(attr.name, attr.value);
-                }}
-                
-                // If it's already a font-size span, override its size
-                if (node.nodeName.toLowerCase() === 'span' && node.style.fontSize) {{
-                    newNode.style.fontSize = '{size_pt}pt';
-                }}
-                
-                // Process child nodes recursively
-                for (let i = 0; i < node.childNodes.length; i++) {{
-                    const processed = processFragment(node.childNodes[i]);
-                    if (processed) newNode.appendChild(processed);
-                }}
-                
-                return newNode;
-            }}
-            
-            // Create a new document fragment with the processed content
-            const newFragment = document.createDocumentFragment();
-            
-            // Process each node in the original fragment
-            for (let i = 0; i < fragment.childNodes.length; i++) {{
-                const processed = processFragment(fragment.childNodes[i]);
-                if (processed) newFragment.appendChild(processed);
-            }}
-            
-            // Insert the new fragment
-            range.insertNode(newFragment);
-            
-            // Collapse the selection to the end
-            range.collapse(false);
-            selection.removeAllRanges();
-            selection.addRange(range);
-            
-            // Trigger content changed event
-            const event = new Event('input', {{
-                bubbles: true,
-                cancelable: true
-            }});
-            document.getElementById('editor').dispatchEvent(event);
+                // Handle text selection case
+                if (!range.collapsed) {
+                    // Helper function to wrap a node in a span with the new font size
+                    function wrapInSpan(node, fontSize) {
+                        const span = document.createElement('span');
+                        span.style.fontSize = fontSize;
+                        node.parentNode.insertBefore(span, node);
+                        span.appendChild(node);
+                        return span;
+                    }
+                    
+                    // Helper function to process a text node within the selection
+                    function processTextNode(node, startOffset, endOffset) {
+                        const text = node.textContent;
+                        const fragment = document.createDocumentFragment();
+                        
+                        // Text before selection
+                        if (startOffset > 0) {
+                            fragment.appendChild(document.createTextNode(text.substring(0, startOffset)));
+                        }
+                        
+                        // Selected text
+                        const selectedText = text.substring(startOffset, endOffset);
+                        const span = document.createElement('span');
+                        span.style.fontSize = '""" + size_pt + """pt';
+                        span.textContent = selectedText;
+                        fragment.appendChild(span);
+                        
+                        // Text after selection
+                        if (endOffset < text.length) {
+                            fragment.appendChild(document.createTextNode(text.substring(endOffset)));
+                        }
+                        
+                        node.parentNode.insertBefore(fragment, node);
+                        node.parentNode.removeChild(node);
+                        return span;  // Return the new span for reselection
+                    }
+                    
+                    // Get the start and end containers and offsets
+                    const startContainer = range.startContainer;
+                    const endContainer = range.endContainer;
+                    const startOffset = range.startOffset;
+                    const endOffset = range.endOffset;
+                    
+                    let newStartNode, newEndNode, newStartOffset, newEndOffset;
+                    
+                    // If the selection is within a single text node
+                    if (startContainer === endContainer && startContainer.nodeType === 3) {
+                        const newSpan = processTextNode(startContainer, startOffset, endOffset);
+                        newStartNode = newSpan.firstChild;
+                        newEndNode = newSpan.firstChild;
+                        newStartOffset = 0;
+                        newEndOffset = newSpan.textContent.length;
+                    } else {
+                        // Multi-node selection
+                        const commonAncestor = range.commonAncestorContainer;
+                        const treeWalker = document.createTreeWalker(
+                            commonAncestor,
+                            NodeFilter.SHOW_TEXT,
+                            null
+                        );
+                        
+                        let node = treeWalker.firstChild();
+                        const nodesToProcess = [];
+                        let inRange = false;
+                        
+                        // Collect text nodes within the selection range
+                        while (node) {
+                            if (node === startContainer) {
+                                inRange = true;
+                            }
+                            if (inRange) {
+                                nodesToProcess.push(node);
+                            }
+                            if (node === endContainer) {
+                                inRange = false;
+                            }
+                            node = treeWalker.nextNode();
+                        }
+                        
+                        // Process each text node in the selection
+                        nodesToProcess.forEach((node, index) => {
+                            if (node === startContainer) {
+                                const newSpan = processTextNode(node, startOffset, node.textContent.length);
+                                if (!newStartNode) {
+                                    newStartNode = newSpan.firstChild;
+                                    newStartOffset = 0;
+                                }
+                            } else if (node === endContainer) {
+                                const newSpan = processTextNode(node, 0, endOffset);
+                                newEndNode = newSpan.firstChild;
+                                newEndOffset = newSpan.textContent.length;
+                            } else {
+                                // Fully selected node
+                                wrapInSpan(node, '""" + size_pt + """pt');
+                            }
+                        });
+                    }
+                    
+                    // Clean up empty spans or font tags
+                    const spans = editor.querySelectorAll('span');
+                    spans.forEach(span => {
+                        if (!span.textContent.trim() && span.childNodes.length === 0) {
+                            span.parentNode.removeChild(span);
+                        }
+                    });
+                    
+                    const fonts = editor.querySelectorAll('font');
+                    fonts.forEach(font => {
+                        if (!font.textContent.trim() && font.childNodes.length === 0) {
+                            font.parentNode.removeChild(font);
+                        }
+                    });
+                    
+                    // Reselect the modified content
+                    if (newStartNode && newEndNode) {
+                        const newRange = document.createRange();
+                        newRange.setStart(newStartNode, newStartOffset);
+                        newRange.setEnd(newEndNode, newEndOffset);
+                        selection.removeAllRanges();
+                        selection.addRange(newRange);
+                    }
+                    
+                    // Record this change in the undo stack
+                    saveState();
+                    window.lastContent = editor.innerHTML;
+                    window.redoStack = [];
+                    try {
+                        window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                    } catch(e) {
+                        console.log("Could not notify about changes:", e);
+                    }
+                }
+                // Handle cursor position case (no selection)
+                else {
+                    // Set up a one-time input handler
+                    const handleNextInput = function(e) {
+                        if (e.inputType && e.inputType.startsWith('insert')) {
+                            editor.removeEventListener('input', handleNextInput);
+                            
+                            const sel = window.getSelection();
+                            if (sel.rangeCount > 0) {
+                                const range = sel.getRangeAt(0);
+                                const node = range.startContainer;
+                                
+                                if (node.nodeType === 3) {
+                                    const offset = range.startOffset;
+                                    const newChar = node.textContent.substring(offset - 1, offset);
+                                    const newText = document.createTextNode(newChar);
+                                    
+                                    const span = document.createElement('span');
+                                    span.style.fontSize = '""" + size_pt + """pt';
+                                    
+                                    // Preserve font family from parent if explicitly set
+                                    let currentNode = node.parentNode;
+                                    let fontFamily = '';
+                                    while (currentNode && currentNode !== editor) {
+                                        if (currentNode.style && currentNode.style.fontFamily) {
+                                            fontFamily = currentNode.style.fontFamily;
+                                            break;
+                                        }
+                                        if (currentNode.tagName && currentNode.tagName.toLowerCase() === 'font' && 
+                                            currentNode.hasAttribute('face')) {
+                                            fontFamily = currentNode.getAttribute('face');
+                                            break;
+                                        }
+                                        currentNode = currentNode.parentNode;
+                                    }
+                                    
+                                    if (fontFamily) {
+                                        span.style.fontFamily = fontFamily;
+                                    }
+                                    
+                                    span.appendChild(newText);
+                                    
+                                    const afterText = node.splitText(offset - 1);
+                                    afterText.deleteData(0, 1);
+                                    
+                                    const parent = node.parentNode;
+                                    if (afterText.length > 0) {
+                                        parent.insertBefore(span, afterText);
+                                    } else {
+                                        parent.appendChild(span);
+                                    }
+                                    
+                                    range.setStartAfter(span);
+                                    range.collapse(true);
+                                    sel.removeAllRanges();
+                                    sel.addRange(range);
+                                    
+                                    saveState();
+                                    window.lastContent = editor.innerHTML;
+                                    window.redoStack = [];
+                                    try {
+                                        window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                                    } catch(e) {
+                                        console.log("Could not notify about changes:", e);
+                                    }
+                                }
+                            }
+                        }
+                    };
+                    
+                    editor.addEventListener('input', handleNextInput);
+                    
+                    // Handle enter key in empty paragraph
+                    if (range.startContainer.nodeType === 1) {
+                        const node = range.startContainer;
+                        if ((node.nodeName === 'DIV' || node.nodeName === 'P') && 
+                            (node.childNodes.length === 0 || 
+                             (node.childNodes.length === 1 && node.firstChild.nodeName === 'BR'))) {
+                            const span = document.createElement('span');
+                            span.style.fontSize = '""" + size_pt + """pt';
+                            
+                            // Preserve font family from parent if explicitly set
+                            let currentNode = node;
+                            let fontFamily = '';
+                            while (currentNode && currentNode !== editor) {
+                                if (currentNode.style && currentNode.style.fontFamily) {
+                                    fontFamily = currentNode.style.fontFamily;
+                                    break;
+                                }
+                                if (currentNode.tagName && currentNode.tagName.toLowerCase() === 'font' && 
+                                    currentNode.hasAttribute('face')) {
+                                    fontFamily = currentNode.getAttribute('face');
+                                    break;
+                                }
+                                currentNode = currentNode.parentNode;
+                            }
+                            
+                            if (fontFamily) {
+                                span.style.fontFamily = fontFamily;
+                            }
+                            
+                            span.innerHTML = '<br>';
+                            node.innerHTML = '';
+                            node.appendChild(span);
+                            
+                            range.setStart(span, 0);
+                            range.collapse(true);
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                        }
+                    }
+                }
+            }
             
             return true;
-        }})();
+        })();
         """
         
+        # Execute the JavaScript code
         self.execute_js(win, js_code)
         win.statusbar.set_text(f"Applied font size: {size_pt}pt")
         win.webview.grab_focus()
@@ -1448,6 +1636,9 @@ class HTMLEditorApp(Adw.Application):
                 // Get the current paragraph formatting
                 let paragraphStyle = 'Normal'; // Default
                 const selection = window.getSelection();
+                let fontFamily = '';
+                let fontSize = '';
+                
                 if (selection.rangeCount > 0) {
                     const range = selection.getRangeAt(0);
                     const node = range.commonAncestorContainer;
@@ -1484,41 +1675,80 @@ class HTMLEditorApp(Adw.Application):
                             default: paragraphStyle = 'Normal'; break;
                         }
                     }
-                }
-                
-                // Get current font family and size
-                let fontFamily = document.queryCommandValue('fontName') || '';
-                if (!fontFamily) {
-                    // Try to get it from computed style
-                    const selection = window.getSelection();
-                    if (selection.rangeCount > 0) {
-                        const range = selection.getRangeAt(0);
-                        const node = range.commonAncestorContainer;
-                        const element = node.nodeType === 3 ? node.parentNode : node;
-                        fontFamily = getComputedStyle(element).fontFamily;
-                        // Clean up quotes and fallbacks
-                        fontFamily = fontFamily.split(',')[0].replace(/["']/g, '');
+                    
+                    // Enhanced font size detection
+                    // Start with the deepest element at cursor/selection
+                    let currentElement = node;
+                    if (currentElement.nodeType === 3) { // Text node
+                        currentElement = currentElement.parentNode;
                     }
-                }
-                
-                // Get font size
-                let fontSize = document.queryCommandValue('fontSize') || '';
-                if (!fontSize || fontSize === '0') {
-                    // Try to get it from computed style
-                    const selection = window.getSelection();
-                    if (selection.rangeCount > 0) {
-                        const range = selection.getRangeAt(0);
-                        const node = range.commonAncestorContainer;
-                        const element = node.nodeType === 3 ? node.parentNode : node;
-                        let computedSize = getComputedStyle(element).fontSize;
-                        // Convert px to pt if needed
-                        if (computedSize.endsWith('px')) {
-                            const pxSize = parseFloat(computedSize);
-                            // Approximate conversion from px to pt
-                            fontSize = Math.round(pxSize * 0.75).toString();
-                        } else {
-                            fontSize = computedSize.replace(/[^0-9.]/g, '');
+                    
+                    // Work our way up the DOM tree to find font-size styles
+                    while (currentElement && currentElement !== editor) {
+                        // Check for inline font size
+                        if (currentElement.style && currentElement.style.fontSize) {
+                            fontSize = currentElement.style.fontSize;
+                            break;
                         }
+                        
+                        // Check for font elements with size attribute
+                        if (currentElement.tagName && currentElement.tagName.toLowerCase() === 'font' && currentElement.hasAttribute('size')) {
+                            // This is a rough conversion from HTML font size (1-7) to points
+                            const htmlSize = parseInt(currentElement.getAttribute('size'));
+                            const sizeMap = {1: '8', 2: '10', 3: '12', 4: '14', 5: '18', 6: '24', 7: '36'};
+                            fontSize = sizeMap[htmlSize] || '12';
+                            break;
+                        }
+                        
+                        // If we haven't found a font size yet, move up to parent
+                        currentElement = currentElement.parentNode;
+                    }
+                    
+                    // If we still don't have a font size, get it from computed style
+                    if (!fontSize) {
+                        // Use computed style as a fallback
+                        const computedStyle = window.getComputedStyle(node.nodeType === 3 ? node.parentNode : node);
+                        fontSize = computedStyle.fontSize;
+                    }
+                    
+                    // Convert pixel sizes to points (approximate)
+                    if (fontSize.endsWith('px')) {
+                        const pxValue = parseFloat(fontSize);
+                        fontSize = Math.round(pxValue * 0.75).toString();
+                    } else if (fontSize.endsWith('pt')) {
+                        fontSize = fontSize.replace('pt', '');
+                    } else {
+                        // For other units or no units, try to extract just the number
+                        fontSize = fontSize.replace(/[^0-9.]/g, '');
+                    }
+                    
+                    // Get font family using a similar approach
+                    currentElement = node;
+                    if (currentElement.nodeType === 3) {
+                        currentElement = currentElement.parentNode;
+                    }
+                    
+                    while (currentElement && currentElement !== editor) {
+                        if (currentElement.style && currentElement.style.fontFamily) {
+                            fontFamily = currentElement.style.fontFamily;
+                            // Clean up quotes and fallbacks
+                            fontFamily = fontFamily.split(',')[0].replace(/["']/g, '');
+                            break;
+                        }
+                        
+                        // Check for font elements with face attribute
+                        if (currentElement.tagName && currentElement.tagName.toLowerCase() === 'font' && currentElement.hasAttribute('face')) {
+                            fontFamily = currentElement.getAttribute('face');
+                            break;
+                        }
+                        
+                        currentElement = currentElement.parentNode;
+                    }
+                    
+                    // If we still don't have a font family, get it from computed style
+                    if (!fontFamily) {
+                        const computedStyle = window.getComputedStyle(node.nodeType === 3 ? node.parentNode : node);
+                        fontFamily = computedStyle.fontFamily.split(',')[0].replace(/["']/g, '');
                     }
                 }
                 
@@ -1553,7 +1783,6 @@ class HTMLEditorApp(Adw.Application):
             }
         });
         """
-
     def init_editor_js(self):
         """JavaScript to initialize the editor and set up event listeners."""
         return """
