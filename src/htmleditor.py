@@ -92,7 +92,7 @@ class HTMLEditorApp(Adw.Application):
         
         # Create actions
         self.create_actions()
-        
+
     def setup_css_provider(self):
         """Set up CSS provider for custom styling"""
         self.css_provider = Gtk.CssProvider()
@@ -103,8 +103,138 @@ class HTMLEditorApp(Adw.Application):
             .flat:checked { background: rgba(127, 127, 127, 0.20); }
             colorbutton.flat, colorbutton.flat button { background: none; }
             colorbutton.flat:hover, colorbutton.flat button:hover { background: rgba(127, 127, 127, 0.15); }
+            
+           /* Linked container styling */
+            .linked { background: none; border-radius: 5px; }
+            
+            /* Linked button styling with clear borders */
+            .linked button { 
+                background: rgba(127, 127, 127, 0.10); 
+                border-radius: 0; 
+                border: solid 1px rgba(127, 127, 127, 0.20);
+
+                padding: 0px 0px;
+                /* Ensure borders are always visible */
+                min-width: 40px;
+                min-height: 30px;
+
+            }
+            
+            .linked button:first-child { 
+                border-top-left-radius: 5px; 
+                border-bottom-left-radius: 5px; 
+                min-width: 40px;
+                min-height: 30px;
+
+            }
+            
+            .linked button:last-child { 
+                border-top-right-radius: 5px; 
+                border-bottom-right-radius: 5px; 
+                min-width: 40px;
+                min-height: 30px;
+
+            }
+            /* Ensure middle elements have no border radius */
+            .linked button:not(:first-child):not(:last-child) {
+                border-radius: 0;
+                min-width: 40px;
+                min-height: 30px;
+
+            }
+            .linked button:hover { background: rgba(127, 127, 127, 0.20); }
+            .linked button:checked { 
+                background: rgba(0, 0, 127, 0.3); 
+                border: solid 1px;
+                border-left-width: 0;
+                border-color: rgba(0, 0, 127, 0.3);
+                min-width: 40px;
+                min-height: 30px;
+
+            }
+            .linked button:checked { 
+            background: linear-gradient(to top, #ffe08d, #ffb73d);
+            border: solid 1px #e59728;
+            color: #000000;
+            
+            }
+            
+            /* Linked dropdown styling - treat just like buttons */
+            .linked dropdown { 
+                min-height: 0;
+                min-width: 0;
+                padding: 0;
+                margin: 0;
+                border-radius: 0;
+                min-width: 40px;
+                min-height: 30px;
+            }
+            
+            .linked dropdown > button {
+                background: rgba(127, 127, 127, 0.10);
+                border-radius: 0; 
+                border: solid 1px;
+                border-color: rgba(127, 127, 127, 0.20);
+                border-left-width: 0;
+                min-width: 40px;
+                min-height: 30px;
+
+                padding: 0px 10px 0px 15px;
+            }
+
+
+            .linked dropdown:first-child > button { 
+                border-top-left-radius: 5px; 
+                border-bottom-left-radius: 5px; 
+                border-top-right-radius: 0;
+                border-bottom-right-radius: 0;
+                border-left-width: 1px;
+                min-width: 40px;
+                min-height: 30px;
+            }
+            
+            .linked dropdown:last-child > button { 
+                border-top-right-radius: 5px; 
+                border-bottom-right-radius: 5px; 
+                border-top-left-radius: 0;
+                border-bottom-left-radius: 0;
+                min-width: 40px;
+                min-height: 30px;
+
+            }
+            
+            /* Explicit rule to ensure middle dropdowns have NO radius */
+            .linked dropdown:not(:first-child):not(:last-child) > button {
+                border-radius: 0;
+                min-width: 40px;
+                min-height: 30px;
+
+            }
+            
+            /* Fix for dropdown borders to ensure they connect properly */
+            .linked dropdown > button {
+                margin-left: -1px;  /* Negative margin to overlay borders */
+            }
+            .linked dropdown:first-child > button {
+                margin-left: 0;  /* Reset margin for first child */
+            }
+            
+            .linked dropdown > button:hover { 
+                background: rgba(127, 127, 127, 0.20); 
+            }
+            
+            /* Style for active/selected dropdown item */
+            dropdown listview row:selected {
+                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                color: #000000;
+                border: 1px solid #e59728;
+                min-height: 10px;
+            }   
+            
+            /* General dropdown styling */
             dropdown.flat, dropdown.flat button { background: none; border-radius: 5px; }
-            dropdown.flat:hover { background: rgba(127, 127, 127, 0.20); }
+            dropdown.flat:hover { background: rgba(127, 127, 127, 0.05); }
+            
             .flat-header { background: rgba(127, 127, 127, 0.05); border: none; box-shadow: none; padding: 0; }
             .button-box button { min-width: 80px; min-height: 36px; }
             .highlighted { background-color: rgba(127, 127, 127, 0.15); }
@@ -123,8 +253,7 @@ class HTMLEditorApp(Adw.Application):
             Gdk.Display.get_default(),
             self.css_provider,
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
-
+        )        
     def on_activate(self, app):
         """Handle application activation (new window)"""
         win = self.create_window()
@@ -662,13 +791,15 @@ class HTMLEditorApp(Adw.Application):
         
     def create_formatting_toolbar(self, win):
         """Create the toolbar for formatting options with toggle buttons and dropdowns"""
-        formatting_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        formatting_toolbar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         formatting_toolbar.set_margin_start(0)
         formatting_toolbar.set_margin_end(0)
         formatting_toolbar.set_margin_top(0)
         formatting_toolbar.set_margin_bottom(4)
-        formatting_toolbar.add_css_class("toolbar-group")  # Add toolbar-group class
         
+        # Create horizontal box for the rows
+        top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        top_row.set_margin_start(5)
         # Store the handlers for blocking
         win.bold_handler_id = None
         win.italic_handler_id = None
@@ -677,7 +808,13 @@ class HTMLEditorApp(Adw.Application):
         win.paragraph_style_handler_id = None
         win.font_handler_id = None
         win.font_size_handler_id = None
-        
+
+        # Paragraph, font family, font size box        
+        pffs_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        pffs_box.add_css_class("linked")
+        pffs_box.set_margin_start(2)
+        pffs_box.set_margin_end(6)
+
         # ---- PARAGRAPH STYLES DROPDOWN ----
         # Create paragraph styles dropdown
         paragraph_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
@@ -687,7 +824,6 @@ class HTMLEditorApp(Adw.Application):
         win.paragraph_style_dropdown = Gtk.DropDown()
         win.paragraph_style_dropdown.set_tooltip_text("Paragraph Style")
         win.paragraph_style_dropdown.set_focus_on_click(False)
-        win.paragraph_style_dropdown.add_css_class("flat")
         
         # Create string list for paragraph styles
         paragraph_styles = Gtk.StringList()
@@ -702,26 +838,13 @@ class HTMLEditorApp(Adw.Application):
         win.paragraph_style_dropdown.set_model(paragraph_styles)
         win.paragraph_style_dropdown.set_selected(0)  # Default to Normal
         
-        # Set a reasonable width for the dropdown
-        win.paragraph_style_dropdown.set_size_request(100, -1)
-        
         # Connect signal handler
         win.paragraph_style_handler_id = win.paragraph_style_dropdown.connect(
             "notify::selected", lambda dd, param: self.on_paragraph_style_changed(win, dd))
         
-        paragraph_group.append(win.paragraph_style_dropdown)
-        formatting_toolbar.append(paragraph_group)
-        
-        # Add a separator
-        separator_p = Gtk.Box()
-        separator_p.add_css_class("toolbar-separator")
-        #formatting_toolbar.append(separator_p)
+        pffs_box.append(win.paragraph_style_dropdown)
         
         # ---- FONT FAMILY DROPDOWN ----
-        # Create font family dropdown group
-        font_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
-        font_group.add_css_class("toolbar-group")
-        
         # Get available fonts from Pango
         font_map = PangoCairo.FontMap.get_default()
         font_families = font_map.list_families()
@@ -729,27 +852,66 @@ class HTMLEditorApp(Adw.Application):
         # Create string list and sort alphabetically
         font_names = Gtk.StringList()
         sorted_families = sorted([family.get_name() for family in font_families])
-
-
-
-
-
-
-
         
         # Add all fonts in alphabetical order
         for family in sorted_families:
             font_names.append(family)
         
-        # Create dropdown
+        # Create dropdown with fixed width
         win.font_dropdown = Gtk.DropDown()
         win.font_dropdown.set_tooltip_text("Font Family")
         win.font_dropdown.set_focus_on_click(False)
-        win.font_dropdown.add_css_class("flat")
         win.font_dropdown.set_model(font_names)
+
+        # Set fixed width and prevent expansion
+        win.font_dropdown.set_size_request(200, -1)
+        win.font_dropdown.set_hexpand(False)
         
-        # Set a reasonable width
-        win.font_dropdown.set_size_request(100, -1)
+        # Create a factory only for the BUTTON part of the dropdown
+        button_factory = Gtk.SignalListItemFactory()
+        
+        def setup_button_label(factory, list_item):
+            label = Gtk.Label()
+            label.set_ellipsize(Pango.EllipsizeMode.END)  # Ellipsize button text
+            label.set_xalign(0)
+            label.set_margin_start(6)
+            label.set_margin_end(6)
+            # Set maximum width for the text
+            label.set_max_width_chars(10)  # Limit to approximately 10 characters
+            label.set_width_chars(10)      # Try to keep consistent width
+            list_item.set_child(label)
+        
+        def bind_button_label(factory, list_item):
+            position = list_item.get_position()
+            label = list_item.get_child()
+            label.set_text(font_names.get_string(position))
+        
+        button_factory.connect("setup", setup_button_label)
+        button_factory.connect("bind", bind_button_label)
+        
+        # Apply the factory only to the dropdown display (not the list)
+        win.font_dropdown.set_factory(button_factory)
+        
+        # For the popup list, create a standard factory without ellipsization
+        list_factory = Gtk.SignalListItemFactory()
+        
+        def setup_list_label(factory, list_item):
+            label = Gtk.Label()
+            label.set_xalign(0)
+            label.set_margin_start(6)
+            label.set_margin_end(6)
+            list_item.set_child(label)
+        
+        def bind_list_label(factory, list_item):
+            position = list_item.get_position()
+            label = list_item.get_child()
+            label.set_text(font_names.get_string(position))
+        
+        list_factory.connect("setup", setup_list_label)
+        list_factory.connect("bind", bind_list_label)
+        
+        # Apply the list factory to the dropdown list only
+        win.font_dropdown.set_list_factory(list_factory)
         
         # Set initial font (first in list)
         win.font_dropdown.set_selected(0)
@@ -758,19 +920,9 @@ class HTMLEditorApp(Adw.Application):
         win.font_handler_id = win.font_dropdown.connect(
             "notify::selected", lambda dd, param: self.on_font_changed(win, dd))
         
-        font_group.append(win.font_dropdown)
-        formatting_toolbar.append(font_group)
-        
-        # Add a separator
-        separator_f = Gtk.Box()
-        separator_f.add_css_class("toolbar-separator")
-        #formatting_toolbar.append(separator_f)
+        pffs_box.append(win.font_dropdown)
         
         # ---- FONT SIZE DROPDOWN ----
-        # Create font size dropdown group
-        size_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        size_group.add_css_class("toolbar-group")
-        
         # Create string list for font sizes
         font_sizes = Gtk.StringList()
         for size in [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 21, 22, 24, 26, 28, 32, 36, 40, 42, 44, 48, 54, 60, 66, 72, 80, 88, 96]:
@@ -780,7 +932,6 @@ class HTMLEditorApp(Adw.Application):
         win.font_size_dropdown = Gtk.DropDown()
         win.font_size_dropdown.set_tooltip_text("Font Size")
         win.font_size_dropdown.set_focus_on_click(False)
-        win.font_size_dropdown.add_css_class("flat")
         win.font_size_dropdown.set_model(font_sizes)
         
         # Set a reasonable width
@@ -794,18 +945,28 @@ class HTMLEditorApp(Adw.Application):
         win.font_size_handler_id = win.font_size_dropdown.connect(
             "notify::selected", lambda dd, param: self.on_font_size_changed(win, dd))
         
-        size_group.append(win.font_size_dropdown)
-        formatting_toolbar.append(size_group)
+        pffs_box.append(win.font_size_dropdown)
+        top_row.append(pffs_box)
         
-        # Add a separator
-        separator_s = Gtk.Box()
-        separator_s.add_css_class("toolbar-separator")
-        #formatting_toolbar.append(separator_s)
+        # Add a spacer (expanding box) at the end of top row
+        top_spacer = Gtk.Box()
+        top_spacer.set_hexpand(True)
+        top_row.append(top_spacer)
         
+        # Add the top row to the toolbar
+        formatting_toolbar.append(top_row)
+        
+        # Create second row for formatting buttons
+        bottom_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        bottom_row.set_margin_start(5)
+        bottom_row.set_margin_top(5)
+        bottom_row.set_margin_bottom(5)
         # ---- BASIC FORMATTING BUTTONS ----
-        # Create a toolbar group for basic formatting buttons
-        basic_formatting_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
-        basic_formatting_group.add_css_class("toolbar-group")
+        # Create a linked box for formatting buttons
+        basic_formatting_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        basic_formatting_box.add_css_class("linked")
+        basic_formatting_box.set_margin_start(2)
+        basic_formatting_box.set_margin_end(6)
         
         # Add HTML editing toggle buttons
         win.bold_button = Gtk.ToggleButton()
@@ -813,7 +974,6 @@ class HTMLEditorApp(Adw.Application):
         win.bold_button.set_child(bold_icon)
         win.bold_button.set_tooltip_text("Bold")
         win.bold_button.set_focus_on_click(False)  # Prevent focus stealing
-        win.bold_button.add_css_class("flat")  # Add flat style
         win.bold_handler_id = win.bold_button.connect("toggled", lambda btn: self.on_bold_toggled(win, btn))
         
         win.italic_button = Gtk.ToggleButton()
@@ -821,7 +981,6 @@ class HTMLEditorApp(Adw.Application):
         win.italic_button.set_child(italic_icon)
         win.italic_button.set_tooltip_text("Italic")
         win.italic_button.set_focus_on_click(False)  # Prevent focus stealing
-        win.italic_button.add_css_class("flat")  # Add flat style
         win.italic_handler_id = win.italic_button.connect("toggled", lambda btn: self.on_italic_toggled(win, btn))
         
         win.underline_button = Gtk.ToggleButton()
@@ -829,7 +988,6 @@ class HTMLEditorApp(Adw.Application):
         win.underline_button.set_child(underline_icon)
         win.underline_button.set_tooltip_text("Underline")
         win.underline_button.set_focus_on_click(False)  # Prevent focus stealing
-        win.underline_button.add_css_class("flat")  # Add flat style
         win.underline_handler_id = win.underline_button.connect("toggled", lambda btn: self.on_underline_toggled(win, btn))
         
         # Add strikeout button
@@ -838,24 +996,27 @@ class HTMLEditorApp(Adw.Application):
         win.strikeout_button.set_child(strikeout_icon)
         win.strikeout_button.set_tooltip_text("Strikeout")
         win.strikeout_button.set_focus_on_click(False)  # Prevent focus stealing
-        win.strikeout_button.add_css_class("flat")  # Add flat style
         win.strikeout_handler_id = win.strikeout_button.connect("toggled", lambda btn: self.on_strikeout_toggled(win, btn))
         
-        # Add buttons to the basic formatting group
-        basic_formatting_group.append(win.bold_button)
-        basic_formatting_group.append(win.italic_button)
-        basic_formatting_group.append(win.underline_button)
-        basic_formatting_group.append(win.strikeout_button)
+        # Add buttons to the basic formatting box
+        basic_formatting_box.append(win.bold_button)
+        basic_formatting_box.append(win.italic_button)
+        basic_formatting_box.append(win.underline_button)
+        basic_formatting_box.append(win.strikeout_button)
         
-        # Add the basic formatting group to the toolbar
-        formatting_toolbar.append(basic_formatting_group)
+        # Add the basic formatting box to the bottom row
+        bottom_row.append(basic_formatting_box)
         
-        # Add a spacer (expanding box) at the end
-        spacer = Gtk.Box()
-        spacer.set_hexpand(True)
-        formatting_toolbar.append(spacer)
+        # Add a spacer (expanding box) at the end of bottom row
+        bottom_spacer = Gtk.Box()
+        bottom_spacer.set_hexpand(True)
+        bottom_row.append(bottom_spacer)
+        
+        # Add the bottom row to the toolbar
+        formatting_toolbar.append(bottom_row)
         
         return formatting_toolbar
+
 
 # ---- PARAGRAPH STYLE HANDLER ----
     def on_paragraph_style_changed(self, win, dropdown):
@@ -3234,9 +3395,6 @@ class HTMLEditorApp(Adw.Application):
         # Run the print dialog
         print_op.run_dialog(win)
 ######################
-
-
-
 
 
         

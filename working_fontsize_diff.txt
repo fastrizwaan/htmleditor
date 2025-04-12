@@ -1,0 +1,441 @@
+rizvan@fedora:~/htmleditor$ git diff src/htmleditor.py ../htmleditor.py.very_good_font_font_size_useme.but_initial_font_not_set.py
+diff --git a/src/htmleditor.py b/../htmleditor.py.very_good_font_font_size_useme.but_initial_font_not_set.py
+index 12955a2..b20b3fd 100755
+--- a/src/htmleditor.py
++++ b/../htmleditor.py.very_good_font_font_size_useme.but_initial_font_not_set.py
+@@ -922,91 +922,220 @@ class HTMLEditorApp(Adw.Application):
+ 
+     # ---- FONT SIZE HANDLER ----
+     def on_font_size_changed(self, win, dropdown):
+-        """Handle font size dropdown change with advanced cross-boundary selection support"""
++        """Implementation of font size change that properly segments text"""
+         # Get the selected size
+         selected_item = dropdown.get_selected_item()
+         size_pt = selected_item.get_string()
+         
+-        # Apply font size to selection that can span across different elements
+-        js_code = fr"""
+-        (function() {{
++        # Apply the font size using a more robust approach
++        js_code = r"""
++        (function() {
++            const editor = document.getElementById('editor');
+:...skipping...
+diff --git a/src/htmleditor.py b/../htmleditor.py.very_good_font_font_size_useme.but_initial_font_not_set.py
+index 12955a2..b20b3fd 100755
+--- a/src/htmleditor.py
++++ b/../htmleditor.py.very_good_font_font_size_useme.but_initial_font_not_set.py
+@@ -922,91 +922,220 @@ class HTMLEditorApp(Adw.Application):
+ 
+     # ---- FONT SIZE HANDLER ----
+     def on_font_size_changed(self, win, dropdown):
+-        """Handle font size dropdown change with advanced cross-boundary selection support"""
++        """Implementation of font size change that properly segments text"""
+         # Get the selected size
+         selected_item = dropdown.get_selected_item()
+         size_pt = selected_item.get_string()
+         
+-        # Apply font size to selection that can span across different elements
+-        js_code = fr"""
+-        (function() {{
++        # Apply the font size using a more robust approach
++        js_code = r"""
++        (function() {
++            const editor = document.getElementById('editor');
+             const selection = window.getSelection();
+-            if (!selection.rangeCount) return false;
+-            
+-            const range = selection.getRangeAt(0);
+-            if (range.collapsed) return false;
+             
+-            // Create a temporary fragment with the selected content
+-            const fragment = range.extractContents();
++            // Store the current size as a data attribute
++            editor.dataset.currentFontSize = '""" + size_pt + """pt';
+             
+-            // Helper function to process nodes in the fragment
+-            function processFragment(node) {{
+-                // If this is a text node, wrap it with span
+-                if (node.nodeType === 3 && node.nodeValue.trim().length > 0) {{
+-                    const span = document.createElement('span');
+-                    span.style.fontSize = '{size_pt}pt';
+-                    span.appendChild(node.cloneNode(false));
+-                    return span;
+-                }}
+-                
+-                // If it's not an element node, just return it
+-                if (node.nodeType !== 1) return node.cloneNode(true);
+-                
+-                // For element nodes, create a new node of the same type
+-                const newNode = document.createElement(node.nodeName);
+-                
+-                // Copy attributes
+-                for (let i = 0; i < node.attributes.length; i++) {{
+-                    const attr = node.attributes[i];
+-                    newNode.setAttribute(attr.name, attr.value);
+-                }}
+-                
+-                // If it's already a font-size span, override its size
+-                if (node.nodeName.toLowerCase() === 'span' && node.style.fontSize) {{
+-                    newNode.style.fontSize = '{size_pt}pt';
+-                }}
+-                
+-                // Process child nodes recursively
+-                for (let i = 0; i < node.childNodes.length; i++) {{
+-                    const processed = processFragment(node.childNodes[i]);
+-                    if (processed) newNode.appendChild(processed);
+-                }}
++            if (selection.rangeCount > 0) {
++                const range = selection.getRangeAt(0);
+                 
+-                return newNode;
+-            }}
+-            
+-            // Create a new document fragment with the processed content
+-            const newFragment = document.createDocumentFragment();
+-            
+-            // Process each node in the original fragment
+-            for (let i = 0; i < fragment.childNodes.length; i++) {{
+-                const processed = processFragment(fragment.childNodes[i]);
+-                if (processed) newFragment.appendChild(processed);
+-            }}
+-            
+-            // Insert the new fragment
+-            range.insertNode(newFragment);
+-            
+-            // Collapse the selection to the end
+-            range.collapse(false);
+-            selection.removeAllRanges();
+-            selection.addRange(range);
+-            
+-            // Trigger content changed event
+-            const event = new Event('input', {{
+-                bubbles: true,
+-                cancelable: true
+-            }});
+-            document.getElementById('editor').dispatchEvent(event);
++                // Handle text selection case
++                if (!range.collapsed) {
++                    // Get the selected text
++                    const selectedText = range.toString();
++                    
++                    // Create a span with our desired font size
++                    const span = document.createElement('span');
++                    span.style.fontSize = '""" + size_pt + """pt';
++                    span.textContent = selectedText;
++                    
++                    // Delete the selected content and insert our styled span
++                    range.deleteContents();
++                    range.insertNode(span);
++                    
++                    // Set the cursor position after our inserted span
++                    range.setStartAfter(span);
++                    range.collapse(true);
++                    selection.removeAllRanges();
++                    selection.addRange(range);
++                    
++                    // Record this change in the undo stack
++                    saveState();
++                    window.lastContent = editor.innerHTML;
++                    window.redoStack = [];
++                    try {
++                        window.webkit.messageHandlers.contentChanged.postMessage("changed");
++                    } catch(e) {
++                        console.log("Could not notify about changes:", e);
++                    }
++                }
++                // Handle cursor position case (no selection)
++                else {
++                    // Set up a one-time input handler
++                    const handleNextInput = function(e) {
++                        // Only handle insertions and only once
++                        if (e.inputType && e.inputType.startsWith('insert')) {
++                            // Remove this handler immediately
++                            editor.removeEventListener('input', handleNextInput);
++                            
++                            // Get current selection
++                            const sel = window.getSelection();
++                            if (sel.rangeCount > 0) {
++                                const range = sel.getRangeAt(0);
++                                const node = range.startContainer;
++                                
++                                // We need to be in a text node
++                                if (node.nodeType === 3) {
++                                    // Get the position we're at
++                                    const offset = range.startOffset;
++                                    
++                                    // Create a new text node with just the inserted character
++                                    const newChar = node.textContent.substring(offset - 1, offset);
++                                    const newText = document.createTextNode(newChar);
++                                    
++                                    // Create a span with our font size
++                                    const span = document.createElement('span');
++                                    span.style.fontSize = '""" + size_pt + """pt';
++                                    span.appendChild(newText);
++                                    
++                                    // Split the original text node
++                                    const afterText = node.splitText(offset - 1);
++                                    afterText.deleteData(0, 1);
++                                    
++                                    // Insert our span between the two parts
++                                    const parent = node.parentNode;
++                                    if (afterText.length > 0) {
++                                        parent.insertBefore(span, afterText);
++                                    } else {
++                                        parent.appendChild(span);
++                                    }
++                                    
++                                    // Position cursor after our styled character
++                                    range.setStartAfter(span);
++                                    range.collapse(true);
++                                    sel.removeAllRanges();
++                                    sel.addRange(range);
++                                    
++                                    // Record for undo stack
++                                    saveState();
++                                    window.lastContent = editor.innerHTML;
++                                    window.redoStack = [];
++                                    try {
++                                        window.webkit.messageHandlers.contentChanged.postMessage("changed");
++                                    } catch(e) {
++                                        console.log("Could not notify about changes:", e);
++                                    }
++                                }
++                            }
++                        }
++                    };
++                    
++                    // Attach the handler for the next input
++                    editor.addEventListener('input', handleNextInput);
++                    
++                    // Also prepare for enter key in empty paragraph
++                    if (range.startContainer.nodeType === 1) {
++                        const node = range.startContainer;
++                        
++                        // Check if we're in an empty paragraph/div
++                        if ((node.nodeName === 'DIV' || node.nodeName === 'P') && 
++                            (node.childNodes.length === 0 || 
++                             (node.childNodes.length === 1 && node.firstChild.nodeName === 'BR'))) {
++                            // Create a styled span with a BR
++                            const span = document.createElement('span');
++                            span.style.fontSize = '""" + size_pt + """pt';
++                            span.innerHTML = '<br>';
++                            
++                            // Clear and add the span
++                            node.innerHTML = '';
++                            node.appendChild(span);
++                            
++                            // Set cursor position
++                            range.setStart(span, 0);
++                            range.collapse(true);
++                            selection.removeAllRanges();
++                            selection.addRange(range);
++                        }
++                    }
++                }
++            }
+             
+             return true;
+-        }})();
++        })();
+         """
+         
++        # Execute the JavaScript code
+         self.execute_js(win, js_code)
+         win.statusbar.set_text(f"Applied font size: {size_pt}pt")
+         win.webview.grab_focus()
+         
++    # This additional initialization code should be added to your get_editor_js method
++    def get_additional_editor_js(self):
++        """Additional JavaScript to handle font size persistence across edits"""
++        return """
++        // Ensure font size is maintained when typing
++        document.addEventListener('DOMContentLoaded', function() {
++            const editor = document.getElementById('editor');
++            if (!editor) return;
++            
++            // Use MutationObserver to watch for changes in the editor
++            const observer = new MutationObserver(function(mutations) {
++                // Check for current font size setting
++                const tracker = document.querySelector('.font-size-tracker');
++                if (!tracker || !tracker.dataset.fontSize) return;
++                
++                const fontSize = tracker.dataset.fontSize;
++                const selection = window.getSelection();
++                
++                // Only apply if selection is in editor
++                if (selection.rangeCount && editor.contains(selection.getRangeAt(0).commonAncestorContainer)) {
++                    // Get current node
++                    const range = selection.getRangeAt(0);
++                    const node = range.startContainer;
++                    
++                    // If node is direct child of editor, wrap it in span with font size
++                    if (node.parentNode === editor && node.nodeType === 3) {
++                        // Text node directly in editor
++                        const span = document.createElement('span');
++                        span.style.fontSize = fontSize + 'pt';
++                        
++                        // Save selection position
++                        const startOffset = range.startOffset;
++                        
++                        // Wrap the text node
++                        node.parentNode.insertBefore(span, node);
++                        span.appendChild(node);
++                        
++                        // Restore selection
++                        range.setStart(node, startOffset);
++                        range.setEnd(node, startOffset);
++                        selection.removeAllRanges();
++                        selection.addRange(range);
++                    }
++                    
++                    // If in a paragraph that doesn't have font size
++                    let currentBlock = node;
++                    while (currentBlock && !['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(currentBlock.nodeName)) {
++                        currentBlock = currentBlock.parentNode;
++                    }
++                    
++                    if (currentBlock && currentBlock !== editor && !currentBlock.style.fontSize) {
++                        currentBlock.style.fontSize = fontSize + 'pt';
++                    }
++                }
++            });
++            
++            // Observe all changes in the editor
++            observer.observe(editor, { 
++                childList: true, 
++                subtree: true, 
++                characterData: true,
++                attributes: true 
++            });
++        });
++        """
++
++        
+     def setup_keyboard_shortcuts(self, win):
+         """Setup keyboard shortcuts for the window"""
+         # Create a shortcut controller
+@@ -1448,6 +1577,9 @@ class HTMLEditorApp(Adw.Application):
+                 // Get the current paragraph formatting
+                 let paragraphStyle = 'Normal'; // Default
+                 const selection = window.getSelection();
++                let fontFamily = '';
++                let fontSize = '';
++                
+                 if (selection.rangeCount > 0) {
+                     const range = selection.getRangeAt(0);
+                     const node = range.commonAncestorContainer;
+@@ -1484,41 +1616,80 @@ class HTMLEditorApp(Adw.Application):
+                             default: paragraphStyle = 'Normal'; break;
+                         }
+                     }
+-                }
+-                
+-                // Get current font family and size
+-                let fontFamily = document.queryCommandValue('fontName') || '';
+-                if (!fontFamily) {
+-                    // Try to get it from computed style
+-                    const selection = window.getSelection();
+-                    if (selection.rangeCount > 0) {
+-                        const range = selection.getRangeAt(0);
+-                        const node = range.commonAncestorContainer;
+-                        const element = node.nodeType === 3 ? node.parentNode : node;
+-                        fontFamily = getComputedStyle(element).fontFamily;
+-                        // Clean up quotes and fallbacks
+-                        fontFamily = fontFamily.split(',')[0].replace(/["']/g, '');
++                    
++                    // Enhanced font size detection
++                    // Start with the deepest element at cursor/selection
++                    let currentElement = node;
++                    if (currentElement.nodeType === 3) { // Text node
++                        currentElement = currentElement.parentNode;
+                     }
+-                }
+-                
+-                // Get font size
+-                let fontSize = document.queryCommandValue('fontSize') || '';
+-                if (!fontSize || fontSize === '0') {
+-                    // Try to get it from computed style
+-                    const selection = window.getSelection();
+-                    if (selection.rangeCount > 0) {
+-                        const range = selection.getRangeAt(0);
+-                        const node = range.commonAncestorContainer;
+-                        const element = node.nodeType === 3 ? node.parentNode : node;
+-                        let computedSize = getComputedStyle(element).fontSize;
+-                        // Convert px to pt if needed
+-                        if (computedSize.endsWith('px')) {
+-                            const pxSize = parseFloat(computedSize);
+-                            // Approximate conversion from px to pt
+-                            fontSize = Math.round(pxSize * 0.75).toString();
+-                        } else {
+-                            fontSize = computedSize.replace(/[^0-9.]/g, '');
++                    
++                    // Work our way up the DOM tree to find font-size styles
++                    while (currentElement && currentElement !== editor) {
++                        // Check for inline font size
++                        if (currentElement.style && currentElement.style.fontSize) {
++                            fontSize = currentElement.style.fontSize;
++                            break;
++                        }
++                        
++                        // Check for font elements with size attribute
++                        if (currentElement.tagName && currentElement.tagName.toLowerCase() === 'font' && currentElement.hasAttribute('size')) {
++                            // This is a rough conversion from HTML font size (1-7) to points
++                            const htmlSize = parseInt(currentElement.getAttribute('size'));
++                            const sizeMap = {1: '8', 2: '10', 3: '12', 4: '14', 5: '18', 6: '24', 7: '36'};
++                            fontSize = sizeMap[htmlSize] || '12';
++                            break;
++                        }
++                        
++                        // If we haven't found a font size yet, move up to parent
++                        currentElement = currentElement.parentNode;
++                    }
++                    
++                    // If we still don't have a font size, get it from computed style
++                    if (!fontSize) {
++                        // Use computed style as a fallback
++                        const computedStyle = window.getComputedStyle(node.nodeType === 3 ? node.parentNode : node);
++                        fontSize = computedStyle.fontSize;
++                    }
++                    
++                    // Convert pixel sizes to points (approximate)
++                    if (fontSize.endsWith('px')) {
++                        const pxValue = parseFloat(fontSize);
++                        fontSize = Math.round(pxValue * 0.75).toString();
++                    } else if (fontSize.endsWith('pt')) {
++                        fontSize = fontSize.replace('pt', '');
++                    } else {
++                        // For other units or no units, try to extract just the number
++                        fontSize = fontSize.replace(/[^0-9.]/g, '');
++                    }
++                    
++                    // Get font family using a similar approach
++                    currentElement = node;
++                    if (currentElement.nodeType === 3) {
++                        currentElement = currentElement.parentNode;
++                    }
++                    
++                    while (currentElement && currentElement !== editor) {
++                        if (currentElement.style && currentElement.style.fontFamily) {
++                            fontFamily = currentElement.style.fontFamily;
++                            // Clean up quotes and fallbacks
++                            fontFamily = fontFamily.split(',')[0].replace(/["']/g, '');
++                            break;
+                         }
++                        
++                        // Check for font elements with face attribute
++                        if (currentElement.tagName && currentElement.tagName.toLowerCase() === 'font' && currentElement.hasAttribute('face')) {
++                            fontFamily = currentElement.getAttribute('face');
++                            break;
++                        }
++                        
++                        currentElement = currentElement.parentNode;
++                    }
++                    
++                    // If we still don't have a font family, get it from computed style
++                    if (!fontFamily) {
++                        const computedStyle = window.getComputedStyle(node.nodeType === 3 ? node.parentNode : node);
++                        fontFamily = computedStyle.fontFamily.split(',')[0].replace(/["']/g, '');
+                     }
+                 }
+
