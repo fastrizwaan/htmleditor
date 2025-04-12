@@ -920,6 +920,8 @@ class HTMLEditorApp(Adw.Application):
         win.italic_handler_id = None
         win.underline_handler_id = None
         win.strikeout_handler_id = None
+        win.subscript_handler_id = None
+        win.superscript_handler_id = None
         win.paragraph_style_handler_id = None
         win.font_handler_id = None
         win.font_size_handler_id = None
@@ -1113,11 +1115,29 @@ class HTMLEditorApp(Adw.Application):
         win.strikeout_button.set_focus_on_click(False)  # Prevent focus stealing
         win.strikeout_handler_id = win.strikeout_button.connect("toggled", lambda btn: self.on_strikeout_toggled(win, btn))
         
+        # Add subscript button
+        win.subscript_button = Gtk.ToggleButton()
+        subscript_icon = Gtk.Image.new_from_icon_name("format-text-subscript-symbolic")
+        win.subscript_button.set_child(subscript_icon)
+        win.subscript_button.set_tooltip_text("Subscript")
+        win.subscript_button.set_focus_on_click(False)  # Prevent focus stealing
+        win.subscript_handler_id = win.subscript_button.connect("toggled", lambda btn: self.on_subscript_toggled(win, btn))
+        
+        # Add superscript button
+        win.superscript_button = Gtk.ToggleButton()
+        superscript_icon = Gtk.Image.new_from_icon_name("format-text-superscript-symbolic")
+        win.superscript_button.set_child(superscript_icon)
+        win.superscript_button.set_tooltip_text("Superscript")
+        win.superscript_button.set_focus_on_click(False)  # Prevent focus stealing
+        win.superscript_handler_id = win.superscript_button.connect("toggled", lambda btn: self.on_superscript_toggled(win, btn))
+        
         # Add buttons to the basic formatting box
         basic_formatting_box.append(win.bold_button)
         basic_formatting_box.append(win.italic_button)
         basic_formatting_box.append(win.underline_button)
         basic_formatting_box.append(win.strikeout_button)
+        basic_formatting_box.append(win.subscript_button)
+        basic_formatting_box.append(win.superscript_button)
         
         # Add the basic formatting box to the bottom row
         bottom_row.append(basic_formatting_box)
@@ -1131,7 +1151,6 @@ class HTMLEditorApp(Adw.Application):
         formatting_toolbar.append(bottom_row)
         
         return formatting_toolbar
-
 
 # ---- PARAGRAPH STYLE HANDLER ----
     def on_paragraph_style_changed(self, win, dropdown):
@@ -1519,7 +1538,29 @@ class HTMLEditorApp(Adw.Application):
         action_strikeout = Gtk.CallbackAction.new(lambda *args: self.on_strikeout_shortcut(win, *args))
         shortcut_strikeout = Gtk.Shortcut.new(trigger_strikeout, action_strikeout)
         controller.add_shortcut(shortcut_strikeout)
+
+        # Create Ctrl+= shortcut for subscript (standard shortcut)
+        trigger_subscript = Gtk.ShortcutTrigger.parse_string("<Control>equal")
+        action_subscript = Gtk.CallbackAction.new(lambda *args: self.on_subscript_shortcut(win, *args))
+        shortcut_subscript = Gtk.Shortcut.new(trigger_subscript, action_subscript)
+        controller.add_shortcut(shortcut_subscript)
         
+        # Create Ctrl++ (or Ctrl+Shift+=) shortcut for superscript (standard shortcut)
+        # We'll add both variants to ensure compatibility across different keyboard layouts
+        
+        # Variant 1: Ctrl++
+        trigger_superscript1 = Gtk.ShortcutTrigger.parse_string("<Control>plus")
+        action_superscript1 = Gtk.CallbackAction.new(lambda *args: self.on_superscript_shortcut(win, *args))
+        shortcut_superscript1 = Gtk.Shortcut.new(trigger_superscript1, action_superscript1)
+        controller.add_shortcut(shortcut_superscript1)
+        
+        # Variant 2: Ctrl+Shift+=
+        trigger_superscript2 = Gtk.ShortcutTrigger.parse_string("<Control><Shift>equal")
+        action_superscript2 = Gtk.CallbackAction.new(lambda *args: self.on_superscript_shortcut(win, *args))
+        shortcut_superscript2 = Gtk.Shortcut.new(trigger_superscript2, action_superscript2)
+        controller.add_shortcut(shortcut_superscript2)
+        
+                
         # Add controller to the window
         win.add_controller(controller)
         
@@ -1601,6 +1642,153 @@ class HTMLEditorApp(Adw.Application):
         win.statusbar.set_text("Strikeout formatting applied")
         return True  
 
+    def on_subscript_shortcut(self, win, *args):
+        """Handle Ctrl+, shortcut for subscript formatting"""
+        # Check if superscript is active and deactivate it if needed
+        if win.superscript_button.get_active():
+            # Block superscript handler to prevent infinite loop
+            if win.superscript_handler_id is not None:
+                win.superscript_button.handler_block(win.superscript_handler_id)
+            
+            # Deactivate superscript button
+            win.superscript_button.set_active(False)
+            
+            # Unblock superscript handler
+            if win.superscript_handler_id is not None:
+                win.superscript_button.handler_unblock(win.superscript_handler_id)
+        
+        # Execute the subscript command directly in JavaScript
+        self.execute_js(win, """
+            document.execCommand('subscript', false, null);
+            // Return the current state so we can update the button
+            document.queryCommandState('subscript');
+        """)
+        
+        # Immediately toggle the button state to provide instant feedback
+        if win.subscript_handler_id is not None:
+            win.subscript_button.handler_block(win.subscript_handler_id)
+            win.subscript_button.set_active(not win.subscript_button.get_active())
+            win.subscript_button.handler_unblock(win.subscript_handler_id)
+        
+        win.statusbar.set_text("Subscript formatting applied")
+        return True
+
+    def on_superscript_shortcut(self, win, *args):
+        """Handle Ctrl+. shortcut for superscript formatting"""
+        # Check if subscript is active and deactivate it if needed
+        if win.subscript_button.get_active():
+            # Block subscript handler to prevent infinite loop
+            if win.subscript_handler_id is not None:
+                win.subscript_button.handler_block(win.subscript_handler_id)
+            
+            # Deactivate subscript button
+            win.subscript_button.set_active(False)
+            
+            # Unblock subscript handler
+            if win.subscript_handler_id is not None:
+                win.subscript_button.handler_unblock(win.subscript_handler_id)
+        
+        # Execute the superscript command directly in JavaScript
+        self.execute_js(win, """
+            document.execCommand('superscript', false, null);
+            // Return the current state so we can update the button
+            document.queryCommandState('superscript');
+        """)
+        
+        # Immediately toggle the button state to provide instant feedback
+        if win.superscript_handler_id is not None:
+            win.superscript_button.handler_block(win.superscript_handler_id)
+            win.superscript_button.set_active(not win.superscript_button.get_active())
+            win.superscript_button.handler_unblock(win.superscript_handler_id)
+        
+        win.statusbar.set_text("Superscript formatting applied")
+        return True
+
+
+    def on_subscript_toggled(self, win, button):
+        """Handle subscript toggle button state changes"""
+        # Block the handler temporarily
+        if win.subscript_handler_id is not None:
+            button.handler_block(win.subscript_handler_id)
+        
+        try:
+            # Get current button state (after toggle)
+            is_active = button.get_active()
+            
+            # If activating subscript, ensure superscript is deactivated
+            if is_active and win.superscript_button.get_active():
+                # Block superscript handler to prevent infinite loop
+                if win.superscript_handler_id is not None:
+                    win.superscript_button.handler_block(win.superscript_handler_id)
+                
+                # Deactivate superscript button
+                win.superscript_button.set_active(False)
+                
+                # Unblock superscript handler
+                if win.superscript_handler_id is not None:
+                    win.superscript_button.handler_unblock(win.superscript_handler_id)
+            
+            # Apply formatting
+            self.execute_js(win, "document.execCommand('subscript', false, null);")
+            
+            # Check if find bar has focus before setting focus to webview
+            find_bar_active = win.find_bar_revealer.get_reveal_child()
+            find_entry_has_focus = False
+            
+            if find_bar_active:
+                find_entry_has_focus = win.find_entry.has_focus() or win.replace_entry.has_focus()
+            
+            # Only grab focus to webview if find entries don't have focus
+            if not find_entry_has_focus:
+                win.webview.grab_focus()
+        finally:
+            # Unblock the handler
+            if win.subscript_handler_id is not None:
+                button.handler_unblock(win.subscript_handler_id)
+
+    # Update the superscript toggle handler to deactivate subscript if needed
+    def on_superscript_toggled(self, win, button):
+        """Handle superscript toggle button state changes"""
+        # Block the handler temporarily
+        if win.superscript_handler_id is not None:
+            button.handler_block(win.superscript_handler_id)
+        
+        try:
+            # Get current button state (after toggle)
+            is_active = button.get_active()
+            
+            # If activating superscript, ensure subscript is deactivated
+            if is_active and win.subscript_button.get_active():
+                # Block subscript handler to prevent infinite loop
+                if win.subscript_handler_id is not None:
+                    win.subscript_button.handler_block(win.subscript_handler_id)
+                
+                # Deactivate subscript button
+                win.subscript_button.set_active(False)
+                
+                # Unblock subscript handler
+                if win.subscript_handler_id is not None:
+                    win.subscript_button.handler_unblock(win.subscript_handler_id)
+            
+            # Apply formatting
+            self.execute_js(win, "document.execCommand('superscript', false, null);")
+            
+            # Check if find bar has focus before setting focus to webview
+            find_bar_active = win.find_bar_revealer.get_reveal_child()
+            find_entry_has_focus = False
+            
+            if find_bar_active:
+                find_entry_has_focus = win.find_entry.has_focus() or win.replace_entry.has_focus()
+            
+            # Only grab focus to webview if find entries don't have focus
+            if not find_entry_has_focus:
+                win.webview.grab_focus()
+        finally:
+            # Unblock the handler
+            if win.superscript_handler_id is not None:
+                button.handler_unblock(win.superscript_handler_id)
+
+                        
     def toggle_file_toolbar(self, win, *args):
         """Toggle the visibility of the file toolbar with animation"""
         is_revealed = win.file_toolbar_revealer.get_reveal_child()
@@ -1868,6 +2056,8 @@ class HTMLEditorApp(Adw.Application):
                 const isItalic = document.queryCommandState('italic');
                 const isUnderline = document.queryCommandState('underline');
                 const isStrikeThrough = document.queryCommandState('strikeThrough');
+                const isSubscript = document.queryCommandState('subscript');
+                const isSuperscript = document.queryCommandState('superscript');
                 
                 // Get the current paragraph formatting
                 let paragraphStyle = 'Normal'; // Default
@@ -1988,13 +2178,15 @@ class HTMLEditorApp(Adw.Application):
                     }
                 }
                 
-                // Send the state to Python
+                // Send the state to Python - MAKE SURE subscript and superscript are included here
                 window.webkit.messageHandlers.formattingChanged.postMessage(
                     JSON.stringify({
                         bold: isBold, 
                         italic: isItalic, 
                         underline: isUnderline,
                         strikeThrough: isStrikeThrough,
+                        subscript: isSubscript,
+                        superscript: isSuperscript,
                         paragraphStyle: paragraphStyle,
                         fontFamily: fontFamily,
                         fontSize: fontSize
@@ -2430,6 +2622,9 @@ class HTMLEditorApp(Adw.Application):
             import json
             format_state = json.loads(message)
             
+            # Debug: Log the format state to see what's being received
+            # print("Format state:", format_state)
+            
             # Update button states without triggering their handlers
             if win.bold_handler_id is not None:
                 win.bold_button.handler_block(win.bold_handler_id)
@@ -2450,6 +2645,17 @@ class HTMLEditorApp(Adw.Application):
                 win.strikeout_button.handler_block(win.strikeout_handler_id)
                 win.strikeout_button.set_active(format_state.get('strikeThrough', False))
                 win.strikeout_button.handler_unblock(win.strikeout_handler_id)
+            
+            # Update subscript and superscript buttons
+            if win.subscript_handler_id is not None:
+                win.subscript_button.handler_block(win.subscript_handler_id)
+                win.subscript_button.set_active(format_state.get('subscript', False))
+                win.subscript_button.handler_unblock(win.subscript_handler_id)
+                
+            if win.superscript_handler_id is not None:
+                win.superscript_button.handler_block(win.superscript_handler_id)
+                win.superscript_button.set_active(format_state.get('superscript', False))
+                win.superscript_button.handler_unblock(win.superscript_handler_id)
             
             # Update paragraph style dropdown
             paragraph_style = format_state.get('paragraphStyle', 'Normal')
