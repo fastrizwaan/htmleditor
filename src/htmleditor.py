@@ -921,126 +921,159 @@ class HTMLEditorApp(Adw.Application):
         win.webview.grab_focus()
 
     # ---- FONT SIZE HANDLER ----
-    def cleanup_font_tags(self, win):
-        """Clean up redundant font tags in the editor content"""
-        js_code = """
-        (function() {
-            // Get the editor content
-            const editor = document.getElementById('editor');
-            
-            // Function to determine if a font tag is redundant
-            function isRedundantFontTag(fontEl) {
-                return !fontEl.hasAttribute('style') && 
-                       !fontEl.hasAttribute('face') && 
-                       !fontEl.hasAttribute('color') &&
-                       (!fontEl.hasAttribute('size') || fontEl.getAttribute('size') === '');
-            }
-            
-            // Find all font tags
-            const fontTags = editor.querySelectorAll('font');
-            
-            // Process each font tag
-            fontTags.forEach(fontTag => {
-                if (isRedundantFontTag(fontTag)) {
-                    // Create a document fragment to hold the contents
-                    const fragment = document.createDocumentFragment();
-                    
-                    // Move all children to the fragment
-                    while (fontTag.firstChild) {
-                        fragment.appendChild(fontTag.firstChild);
-                    }
-                    
-                    // Replace the font tag with its contents
-                    fontTag.parentNode.replaceChild(fragment, fontTag);
-                }
-            });
-            
-            return true;
-        })();
-        """
-        self.execute_js(win, js_code)
-
-
     def on_font_size_changed(self, win, dropdown):
         """Handle font size dropdown change using direct font-size styling"""
         # Get the selected size
         selected_item = dropdown.get_selected_item()
         size_pt = selected_item.get_string()
         
-        # First approach: apply font size with execCommand
+        # Apply font size using execCommand with proper style attribute
         js_code = f"""
         (function() {{
-            // First save the current selection
+            // Get the editor
+            const editor = document.getElementById('editor');
             const selection = window.getSelection();
             
             if (selection.rangeCount > 0) {{
                 const range = selection.getRangeAt(0);
                 
-                // If text is selected, apply font size to selection
+                // If text is selected
                 if (!range.collapsed) {{
-                    // Apply fontSize command
+                    // Use execCommand to apply the font size
                     document.execCommand('fontSize', false, '7');
                     
                     // Find all font elements with size=7 and set the correct size
-                    const fontElements = document.querySelectorAll('font[size="7"]');
+                    const fontElements = editor.querySelectorAll('font[size="7"]');
                     for (const font of fontElements) {{
                         font.removeAttribute('size');
                         font.style.fontSize = '{size_pt}pt';
                     }}
-                }} else {{
-                    // For cursor position, we'll set up the environment for next typed character
-                    const editor = document.getElementById('editor');
                     
-                    // Store the font size in a global variable
-                    window.nextFontSize = '{size_pt}pt';
+                    // Clean up redundant nested font tags
+                    cleanupEditorTags();
                     
-                    // Add listener for next character typed
-                    const handleInput = function(e) {{
-                        if (e.inputType && e.inputType.includes('insert')) {{
-                            // Remove this listener to only handle the next input
-                            editor.removeEventListener('input', handleInput);
-                            
-                            // Get current selection after input
-                            const sel = window.getSelection();
-                            if (sel.rangeCount > 0) {{
-                                // Select the last typed character
-                                const range = sel.getRangeAt(0);
-                                if (range.startOffset > 0) {{
-                                    range.setStart(range.startContainer, range.startOffset - 1);
-                                    
-                                    // Apply the stored font size
-                                    document.execCommand('fontSize', false, '7');
-                                    
-                                    // Style the font tag
-                                    const fontElements = document.querySelectorAll('font[size="7"]');
-                                    for (const font of fontElements) {{
-                                        font.removeAttribute('size');
-                                        font.style.fontSize = window.nextFontSize;
-                                    }}
-                                    
-                                    // Restore cursor position
-                                    range.collapse(false);
-                                    sel.removeAllRanges();
-                                    sel.addRange(range);
-                                }}
-                            }}
-                        }}
-                    }};
-                    
-                    // Add the input handler
-                    editor.addEventListener('input', handleInput);
-                }}
-                
-                // Update undo stack for font changes with selection
-                if (!selection.isCollapsed) {{
+                    // Record undo state
                     saveState();
-                    window.lastContent = document.getElementById('editor').innerHTML;
+                    window.lastContent = editor.innerHTML;
                     window.redoStack = [];
                     try {{
                         window.webkit.messageHandlers.contentChanged.postMessage("changed");
                     }} catch(e) {{
                         console.log("Could not notify about changes:", e);
                     }}
+                }} else {{
+                    // For cursor position (no selection)
+                    // Store font size for next character
+                    editor.setAttribute('data-next-font-size', '{size_pt}pt');
+                    
+                    // Add handler for next input
+                    const handleInput = function(e) {{
+                        // Remove the handler after first use
+                        editor.removeEventListener('input', handleInput);
+                        
+                        // Get the font size
+                        const fontSize = editor.getAttribute('data-next-font-size');
+                        if (!fontSize) return;
+                        
+                        // Get the current selection
+                        const sel = window.getSelection();
+                        if (sel.rangeCount > 0) {{
+                            // Try to select the last character typed
+                            const range = sel.getRangeAt(0);
+                            if (range.startOffset > 0) {{
+                                try {{
+                                    // Select the last character
+                                    range.setStart(range.startContainer, range.startOffset - 1);
+                                    
+                                    // Apply font size
+                                    document.execCommand('fontSize', false, '7');
+                                    
+                                    // Update the font elements
+                                    const fontElements = editor.querySelectorAll('font[size="7"]');
+                                    for (const font of fontElements) {{
+                                        font.removeAttribute('size');
+                                        font.style.fontSize = fontSize;
+                                    }}
+                                    
+                                    // Restore cursor position
+                                    range.collapse(false);
+                                    sel.removeAllRanges();
+                                    sel.addRange(range);
+                                    
+                                    // Clean up tags
+                                    cleanupEditorTags();
+                                    
+                                    // Record state
+                                    saveState();
+                                    window.lastContent = editor.innerHTML;
+                                    window.redoStack = [];
+                                    try {{
+                                        window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                                    }} catch(e) {{
+                                        console.log("Could not notify about changes:", e);
+                                    }}
+                                }} catch (error) {{
+                                    console.error("Error applying font size:", error);
+                                }}
+                            }}
+                        }}
+                    }};
+                    
+                    editor.addEventListener('input', handleInput);
+                }}
+            }}
+            
+            // Combined function to clean up tags
+            function cleanupEditorTags() {{
+                // Clean up redundant nested font tags
+                function cleanupNestedFontTags() {{
+                    const fontTags = editor.querySelectorAll('font');
+                    
+                    // Process each font tag
+                    for (let i = 0; i < fontTags.length; i++) {{
+                        const font = fontTags[i];
+                        
+                        // Check if this font tag has nested font tags
+                        const nestedFonts = font.querySelectorAll('font');
+                        
+                        for (let j = 0; j < nestedFonts.length; j++) {{
+                            const nestedFont = nestedFonts[j];
+                            
+                            // If nested font has no attributes, replace it with its contents
+                            if (!nestedFont.hasAttribute('style') && 
+                                !nestedFont.hasAttribute('face') && 
+                                !nestedFont.hasAttribute('color') &&
+                                !nestedFont.hasAttribute('size')) {{
+                                
+                                const fragment = document.createDocumentFragment();
+                                while (nestedFont.firstChild) {{
+                                    fragment.appendChild(nestedFont.firstChild);
+                                }}
+                                
+                                nestedFont.parentNode.replaceChild(fragment, nestedFont);
+                            }}
+                        }}
+                    }}
+                }}
+                
+                // Clean up empty tags
+                function cleanupEmptyTags() {{
+                    // Find all font and span elements
+                    const elements = [...editor.querySelectorAll('font'), ...editor.querySelectorAll('span')];
+                    
+                    // Process in reverse to handle nested elements
+                    for (let i = elements.length - 1; i >= 0; i--) {{
+                        const el = elements[i];
+                        if (el.textContent.trim() === '') {{
+                            el.parentNode.removeChild(el);
+                        }}
+                    }}
+                }}
+                
+                // Run the cleanup functions multiple times to handle nested cases
+                for (let i = 0; i < 2; i++) {{
+                    cleanupNestedFontTags();
+                    cleanupEmptyTags();
                 }}
             }}
             
@@ -1051,13 +1084,74 @@ class HTMLEditorApp(Adw.Application):
         # Execute the JavaScript code
         self.execute_js(win, js_code)
         
-        # Clean up redundant font tags after the operation
-        # Use a short delay to allow the first operation to complete
-        GLib.timeout_add(100, lambda: self.cleanup_font_tags(win))
+        # Run another cleanup after a short delay to catch any remaining issues
+        GLib.timeout_add(100, lambda: self.cleanup_editor_tags(win))
         
         win.statusbar.set_text(f"Applied font size: {size_pt}pt")
         win.webview.grab_focus()
 
+    def cleanup_editor_tags(self, win):
+        """Clean up both empty tags and redundant nested font tags in the editor content"""
+        js_code = """
+        (function() {
+            // Get the editor
+            const editor = document.getElementById('editor');
+            
+            // Clean up redundant nested font tags
+            function cleanupNestedFontTags() {
+                const fontTags = editor.querySelectorAll('font');
+                
+                // Process each font tag
+                for (let i = 0; i < fontTags.length; i++) {
+                    const font = fontTags[i];
+                    
+                    // Check if this font tag has nested font tags
+                    const nestedFonts = font.querySelectorAll('font');
+                    
+                    for (let j = 0; j < nestedFonts.length; j++) {
+                        const nestedFont = nestedFonts[j];
+                        
+                        // If nested font has no attributes, replace it with its contents
+                        if (!nestedFont.hasAttribute('style') && 
+                            !nestedFont.hasAttribute('face') && 
+                            !nestedFont.hasAttribute('color') &&
+                            !nestedFont.hasAttribute('size')) {
+                            
+                            const fragment = document.createDocumentFragment();
+                            while (nestedFont.firstChild) {
+                                fragment.appendChild(nestedFont.firstChild);
+                            }
+                            
+                            nestedFont.parentNode.replaceChild(fragment, nestedFont);
+                        }
+                    }
+                }
+            }
+            
+            // Clean up empty tags
+            function cleanupEmptyTags() {
+                // Find all font and span elements
+                const elements = [...editor.querySelectorAll('font'), ...editor.querySelectorAll('span')];
+                
+                // Process in reverse to handle nested elements
+                for (let i = elements.length - 1; i >= 0; i--) {
+                    const el = elements[i];
+                    if (el.textContent.trim() === '') {
+                        el.parentNode.removeChild(el);
+                    }
+                }
+            }
+            
+            // Run the cleanup functions multiple times to handle nested cases
+            for (let i = 0; i < 3; i++) {
+                cleanupNestedFontTags();
+                cleanupEmptyTags();
+            }
+            
+            return true;
+        })();
+        """
+        self.execute_js(win, js_code)
         
     def setup_keyboard_shortcuts(self, win):
         """Setup keyboard shortcuts for the window"""
