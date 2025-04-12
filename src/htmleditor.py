@@ -117,28 +117,27 @@ class HTMLEditorApp(Adw.Application):
                 border: solid 1px rgba(127, 127, 127, 0.20);
                 padding: 0px 0px;
                 /* Ensure borders are always visible */
-                min-width: 40px;
+                min-width: 38px;
                 min-height: 30px;
             }
 
             .linked button:first-child { 
                 border-top-left-radius: 5px; 
                 border-bottom-left-radius: 5px; 
-                min-width: 40px;
+
                 min-height: 30px;
             }
 
             .linked button:last-child { 
                 border-top-right-radius: 5px; 
                 border-bottom-right-radius: 5px; 
-                min-width: 40px;
                 min-height: 30px;
             }
 
             /* Ensure middle elements have no border radius */
             .linked button:not(:first-child):not(:last-child) {
                 border-radius: 0;
-                min-width: 40px;
+
                 min-height: 30px;
             }
 
@@ -147,7 +146,7 @@ class HTMLEditorApp(Adw.Application):
                 background: linear-gradient(to bottom, #ffe08d, #ffb73d);
                 color: #000000;
                 border: solid 1px #e59728;
-                min-width: 40px;
+
                 min-height: 30px; 
             }
 
@@ -157,7 +156,7 @@ class HTMLEditorApp(Adw.Application):
                 border: solid 1px #e59728;
                 border-top-left-radius: 5px; 
                 border-bottom-left-radius: 5px; 
-                min-width: 40px;
+
                 min-height: 30px;
             }
 
@@ -167,7 +166,7 @@ class HTMLEditorApp(Adw.Application):
                 background: linear-gradient(to bottom, #ffe08d, #ffb73d);
                 color: #000000;
                 border: solid 1px #e59728;
-                min-width: 40px;
+
                 min-height: 30px; 
             }
 
@@ -177,7 +176,7 @@ class HTMLEditorApp(Adw.Application):
                 color: #000000;
                 border: solid 1px #e59728;
                 border-radius: 0;
-                min-width: 40px;
+
                 min-height: 30px;
             }
 
@@ -195,7 +194,7 @@ class HTMLEditorApp(Adw.Application):
                 padding: 0;
                 margin: 0;
                 border-radius: 0;
-                min-width: 40px;
+
                 min-height: 30px;
             }
 
@@ -218,7 +217,7 @@ class HTMLEditorApp(Adw.Application):
                 border-bottom-right-radius: 0;
                 border: solid 1px;
                 border-color: rgba(127, 127, 127, 0.20);
-                min-width: 40px;
+
                 min-height: 30px;
             }
 
@@ -229,14 +228,13 @@ class HTMLEditorApp(Adw.Application):
                 border-bottom-left-radius: 0;
                 border: solid 1px;
                 border-color: rgba(127, 127, 127, 0.20);
-                min-width: 40px;
+
                 min-height: 30px;
             }
 
             /* Explicit rule to ensure middle dropdowns have NO radius */
             .linked dropdown:not(:first-child):not(:last-child) > button {
                 border-radius: 0;
-                min-width: 40px;
                 min-height: 30px;
                 border: solid 1px;
                 border-color: rgba(127, 127, 127, 0.20);
@@ -285,7 +283,6 @@ class HTMLEditorApp(Adw.Application):
                 color: #000000;
                 border-radius: 0;
                 border: solid 1px #e59728;
-                min-width: 40px;
                 min-height: 30px;
             }
 
@@ -295,7 +292,6 @@ class HTMLEditorApp(Adw.Application):
                 color: #000000;
                 border-radius: 0;
                 border: solid 1px #e59728;
-                min-width: 40px;
                 min-height: 30px;
             }
 
@@ -360,6 +356,282 @@ class HTMLEditorApp(Adw.Application):
             menubutton.flat:hover { background: rgba(127, 127, 127, 0.15); border-radius: 6px; }
             menubutton.flat > button { border-radius: 6px; }
             menubutton.flat > button:hover { border-radius: 6px; }
+            
+            .color-indicator { 
+                min-height: 2px; 
+                min-width: 6px; 
+                margin-top: 1px; 
+                margin-bottom: 0px; 
+                border-radius: 2px; 
+            }
+
+            .color-box { 
+                padding: 0px; 
+            }
+
+            /* Custom CSS for SplitButton border and hover effects */
+            splitbutton.linked button {
+                background-color: @theme_bg_color;
+                color: @theme_fg_color;
+                border-radius: 0; 
+                border: solid 1px rgba(127, 127, 127, 0.20);
+                min-height: 30px;
+            }
+
+            splitbutton.linked button:first-child { 
+                border-top-left-radius: 5px; 
+                border-bottom-left-radius: 5px; 
+            }
+
+            splitbutton.linked button:last-child { 
+                border-top-right-radius: 5px; 
+                border-bottom-right-radius: 5px; 
+            }
+
+            splitbutton.linked button:hover {                 
+                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                color: #000000;
+                border: solid 1px #e59728;
+            }
+
+            splitbutton.linked button:checked, 
+            splitbutton.linked button:active { 
+                background: linear-gradient(to top, #ffe08d, #ffb73d);
+                border: solid 1px #e59728;
+                color: #000000;
+            }
+
+            /* Style for color grid in popovers */
+            grid.color-grid {
+                margin: 2px;
+            }
+
+            /* Style for color buttons in the grid */
+            grid.color-grid button {
+                min-width: 18px;
+                min-height: 18px;
+                padding: 0;
+            }
+            
+            /* Custom class for our compact split buttons */
+splitbutton.compact-button {
+    margin: 0;
+    padding: 0;
+}
+
+/* Main action button part */
+splitbutton.compact-button > button:first-child {
+    min-width: 30px;
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+/* Dropdown arrow part */
+splitbutton.compact-button > button:last-child {
+    min-width: 20px;
+    padding-left: 0px;
+    padding-right: 0px;
+}
+
+/* Target the specific arrow icon to make it more compact */
+splitbutton.compact-button > button:last-child image {
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+/* Adjust the padding on the popovers to make them more compact */
+popover.menu {
+    margin: 0;
+    padding: 0;
+}
+
+popover box.vertical {
+    margin: 6px;  /* Smaller margin for the popover content */
+}
+
+/* Make the grid more compact */
+grid.color-grid {
+    margin: 0;
+}
+
+/* Make the color buttons in the grid more compact */
+grid.color-grid button {
+    margin: 1px;
+    padding: 1px;
+    min-width: 16px;
+    min-height: 16px;
+}
+
+/* Make the grid cells more compact */
+grid.color-grid {
+    row-spacing: 1px;
+    column-spacing: 1px;
+}
+
+/* Make the color boxes inside buttons more compact */
+.color-box {
+    min-width: 14px;
+    min-height: 14px;
+}
+/* Custom class for our compact split buttons */
+splitbutton.compact-button {
+                background-color: @theme_bg_color;
+                color: @theme_fg_color;
+    margin: 0;
+    padding: 0;
+}
+
+/* Main action button part */
+splitbutton.compact-button > button:first-child {
+                background-color: @theme_bg_color;
+                color: @theme_fg_color;
+    min-width: 10px;
+    padding-left: 0px;
+    padding-right: 0px;
+}
+
+/* Dropdown arrow part */
+splitbutton.compact-button > button:last-child {
+                background-color: @theme_bg_color;
+                color: @theme_fg_color;
+    min-width: 1px;
+    padding-left: 0px;
+    padding-right: 0px;
+}
+
+/* Target the specific arrow icon to make it more compact */
+splitbutton.compact-button > button:last-child image {
+                background-color: @theme_bg_color;
+                color: @theme_fg_color;
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+/* Adjust the padding on the popovers to make them more compact */
+popover.menu {
+    margin: 0;
+    padding: 0;
+}
+
+popover box.vertical {
+    margin: 6px;  /* Smaller margin for the popover content */
+}
+
+/* Make the grid more compact */
+grid.color-grid {
+    margin: 0;
+}
+
+/* Make the color buttons in the grid more compact */
+grid.color-grid button {
+    margin: 1px;
+    padding: 1px;
+    min-width: 14px;
+    min-height: 14px;
+}
+
+/* Make the grid cells more compact */
+grid.color-grid {
+    row-spacing: 1px;
+    column-spacing: 1px;
+}
+
+/* Make the color boxes inside buttons more compact */
+.color-box {
+    min-width: 14px;
+    min-height: 14px;
+}
+
+
+
+            
+            .linked menubutton { 
+                background-color: @theme_bg_color;
+                color: @theme_fg_color;
+                border-radius: 0; 
+                border: solid 1px rgba(127, 127, 127, 0.20);
+                padding: 0px 0px;
+                /* Ensure borders are always visible */
+                min-width: 38px;
+                min-height: 30px;
+            }
+
+            .linked menubutton:first-child { 
+                border-top-left-radius: 5px; 
+                border-bottom-left-radius: 5px; 
+
+                min-height: 30px;
+            }
+
+            .linked menubutton:last-child { 
+                border-top-right-radius: 5px; 
+                border-bottom-right-radius: 5px; 
+                min-height: 30px;
+            }
+
+            /* Ensure middle elements have no border radius */
+            .linked menubutton:not(:first-child):not(:last-child) {
+                border-radius: 0;
+
+                min-height: 30px;
+            }
+
+            /* Button hover states */
+            .linked menubutton:hover {                 
+                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                color: #000000;
+                border: solid 1px #e59728;
+
+                min-height: 30px; 
+            }
+
+            .linked menubutton:first-child:hover { 
+                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                color: #000000;
+                border: solid 1px #e59728;
+                border-top-left-radius: 5px; 
+                border-bottom-left-radius: 5px; 
+
+                min-height: 30px;
+            }
+
+            .linked menubutton:last-child:hover { 
+                border-top-right-radius: 5px; 
+                border-bottom-right-radius: 5px; 
+                border-top-left-radius: 0px; 
+                border-bottom-left-radius: 0px;
+                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                color: #000000;
+                border: solid 1px #e59728;
+                min-width: 40px;
+                min-height: 30px; 
+            }
+
+            /* Ensure middle elements have no border radius on hover */
+            .linked menubutton:not(:first-child):not(:last-child):hover {
+                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
+                color: #000000;
+                border: solid 1px #e59728;
+                border-radius: 0;
+
+                min-height: 30px;
+            }
+
+            /* Button checked state */
+            .linked menubutton:checked { 
+                background: linear-gradient(to top, #ffe08d, #ffb73d);
+                border: solid 0px #e59728;
+                color: #000000;
+            }
+
+
+
+
+
         """)
         
         # Apply the CSS to the default display
@@ -1078,6 +1350,7 @@ class HTMLEditorApp(Adw.Application):
         bottom_row.set_margin_start(5)
         bottom_row.set_margin_top(5)
         bottom_row.set_margin_bottom(5)
+        
         # ---- BASIC FORMATTING BUTTONS ----
         # Create a linked box for formatting buttons
         basic_formatting_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
@@ -1141,6 +1414,203 @@ class HTMLEditorApp(Adw.Application):
         
         # Add the basic formatting box to the bottom row
         bottom_row.append(basic_formatting_box)
+                
+        # ---- COLOR FORMATTING BUTTONS ----
+        # Create a linked box for color formatting buttons
+        color_formatting_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        color_formatting_box.add_css_class("linked")  # Add linked class to match other button groups
+        color_formatting_box.set_margin_start(0)  # Add some spacing from the previous button group
+
+        # Text Color button
+        win.font_color_button = Gtk.MenuButton()
+        win.font_color_button.set_tooltip_text("Text Color")
+        win.font_color_button.set_focus_on_click(False)
+
+        # Create vertical box to hold the icon and color indicator
+        font_color_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        font_color_icon = Gtk.Image.new_from_icon_name("draw-text-symbolic")
+        font_color_icon.set_margin_top(4)
+        font_color_box.append(font_color_icon)
+
+        # Add color indicator with transparent background
+        win.font_color_indicator = Gtk.Box()
+        win.font_color_indicator.add_css_class("color-indicator")
+        win.font_color_indicator.set_size_request(4, 1)
+        win.font_color_indicator.set_margin_start(10)
+        win.font_color_indicator.set_margin_end(8)
+        win.font_color_indicator.set_margin_top(0)
+        color = Gdk.RGBA()
+        color.parse("transparent")  # Start with transparent (like bg color)
+        self.set_box_color(win.font_color_indicator, color)
+
+        font_color_box.append(win.font_color_indicator)
+        win.font_color_button.set_child(font_color_box)
+
+        # Create font color popover
+        font_color_popover = Gtk.Popover()
+        font_color_popover.set_autohide(True)
+        font_color_popover.set_has_arrow(False)
+        font_color_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        font_color_box.set_margin_start(10)
+        font_color_box.set_margin_end(10)
+        font_color_box.set_margin_top(10)
+        font_color_box.set_margin_bottom(10)
+
+        # Add "Automatic" option at the top
+        automatic_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        automatic_row.set_margin_bottom(6)
+        automatic_icon = Gtk.Image.new_from_icon_name("edit-undo-symbolic")
+        automatic_label = Gtk.Label(label="Automatic")
+        automatic_row.append(automatic_icon)
+        automatic_row.append(automatic_label)
+
+        automatic_button = Gtk.Button()
+        automatic_button.set_child(automatic_row)
+        automatic_button.connect("clicked", lambda btn: self.on_font_color_automatic_clicked(win, font_color_popover))
+        font_color_box.append(automatic_button)
+
+        # Add separator
+        separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        separator.set_margin_bottom(6)
+        font_color_box.append(separator)
+
+        # Create color grid
+        font_color_grid = Gtk.Grid()
+        font_color_grid.set_row_spacing(2)
+        font_color_grid.set_column_spacing(2)
+        font_color_grid.set_row_homogeneous(True)
+        font_color_grid.set_column_homogeneous(True)
+        font_color_grid.add_css_class("color-grid")
+
+        # Basic colors for text
+        text_colors = [
+            "#000000", "#434343", "#666666", "#999999", "#b7b7b7", "#cccccc", "#d9d9d9", "#efefef", "#f3f3f3", "#ffffff",
+            "#980000", "#ff0000", "#ff9900", "#ffff00", "#00ff00", "#00ffff", "#4a86e8", "#0000ff", "#9900ff", "#ff00ff",
+            "#e6b8af", "#f4cccc", "#fce5cd", "#fff2cc", "#d9ead3", "#d0e0e3", "#c9daf8", "#cfe2f3", "#d9d2e9", "#ead1dc",
+            "#dd7e6b", "#ea9999", "#f9cb9c", "#ffe599", "#b6d7a8", "#a2c4c9", "#a4c2f4", "#9fc5e8", "#b4a7d6", "#d5a6bd",
+            "#cc4125", "#e06666", "#f6b26b", "#ffd966", "#93c47d", "#76a5af", "#6d9eeb", "#6fa8dc", "#8e7cc3", "#c27ba0",
+            "#a61c00", "#cc0000", "#e69138", "#f1c232", "#6aa84f", "#45818e", "#3c78d8", "#3d85c6", "#674ea7", "#a64d79",
+            "#85200c", "#990000", "#b45f06", "#bf9000", "#38761d", "#134f5c", "#1155cc", "#0b5394", "#351c75", "#741b47",
+            "#5b0f00", "#660000", "#783f04", "#7f6000", "#274e13", "#0c343d", "#1c4587", "#073763", "#20124d", "#4c1130"
+        ]
+
+        # Create color buttons and add to grid
+        row, col = 0, 0
+        for color_hex in text_colors:
+            color_button = self.create_color_button(color_hex)
+            color_button.connect("clicked", lambda btn, c=color_hex: self.on_font_color_selected(win, c, font_color_popover))
+            font_color_grid.attach(color_button, col, row, 1, 1)
+            col += 1
+            if col >= 10:  # 10 columns
+                col = 0
+                row += 1
+
+        font_color_box.append(font_color_grid)
+
+        # Add "More Colors..." button
+        more_colors_button = Gtk.Button(label="More Colors...")
+        more_colors_button.set_margin_top(6)
+        more_colors_button.connect("clicked", lambda btn: self.on_more_font_colors_clicked(win, font_color_popover))
+        font_color_box.append(more_colors_button)
+
+        # Set content and connect popover
+        font_color_popover.set_child(font_color_box)
+        win.font_color_button.set_popover(font_color_popover)
+
+        # Background Color button
+        win.bg_color_button = Gtk.MenuButton()
+        win.bg_color_button.add_css_class("flat")  # Ensure flat class is applied
+        win.bg_color_button.set_tooltip_text("Background Color")
+        win.bg_color_button.set_focus_on_click(False)
+
+        # Create vertical box to hold the icon and color indicator
+        bg_color_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        bg_color_icon = Gtk.Image.new_from_icon_name("marker-symbolic")
+        bg_color_icon.set_margin_top(4)
+        bg_color_box.append(bg_color_icon)
+
+        # Add color indicator
+        win.bg_color_indicator = Gtk.Box()
+        win.bg_color_indicator.add_css_class("color-indicator")
+        win.bg_color_indicator.set_size_request(4, 1)
+        win.bg_color_indicator.set_margin_start(10)
+        win.bg_color_indicator.set_margin_end(8)
+        win.bg_color_indicator.set_margin_top(0)
+        bg_color = Gdk.RGBA()
+        bg_color.parse("transparent")  # Default color (transparent)
+        self.set_box_color(win.bg_color_indicator, bg_color)
+
+        bg_color_box.append(win.bg_color_indicator)
+        win.bg_color_button.set_child(bg_color_box)
+
+        # Create Background Color popover
+        bg_color_popover = Gtk.Popover()
+        bg_color_popover.set_autohide(True)
+        bg_color_popover.set_has_arrow(False)
+        bg_color_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        bg_color_box.set_margin_start(10)
+        bg_color_box.set_margin_end(10)
+        bg_color_box.set_margin_top(10)
+        bg_color_box.set_margin_bottom(10)
+
+        # Add "Automatic" option at the top
+        bg_automatic_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        bg_automatic_row.set_margin_bottom(6)
+        bg_automatic_icon = Gtk.Image.new_from_icon_name("edit-undo-symbolic")
+        bg_automatic_label = Gtk.Label(label="Automatic")
+        bg_automatic_row.append(bg_automatic_icon)
+        bg_automatic_row.append(bg_automatic_label)
+
+        bg_automatic_button = Gtk.Button()
+        bg_automatic_button.set_child(bg_automatic_row)
+        bg_automatic_button.connect("clicked", lambda btn: self.on_bg_color_automatic_clicked(win, bg_color_popover))
+        bg_color_box.append(bg_automatic_button)
+
+        # Add separator
+        bg_separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        bg_separator.set_margin_bottom(6)
+        bg_color_box.append(bg_separator)
+
+        # Create color grid
+        bg_color_grid = Gtk.Grid()
+        bg_color_grid.set_row_spacing(2)
+        bg_color_grid.set_column_spacing(2)
+        bg_color_grid.set_row_homogeneous(True)
+        bg_color_grid.set_column_homogeneous(True)
+        bg_color_grid.add_css_class("color-grid")
+
+        # Basic colors for background (same palette as text)
+        bg_colors = text_colors
+
+        # Create color buttons and add to grid
+        row, col = 0, 0
+        for color_hex in bg_colors:
+            color_button = self.create_color_button(color_hex)
+            color_button.connect("clicked", lambda btn, c=color_hex: self.on_bg_color_selected(win, c, bg_color_popover))
+            bg_color_grid.attach(color_button, col, row, 1, 1)
+            col += 1
+            if col >= 10:  # 10 columns
+                col = 0
+                row += 1
+
+        bg_color_box.append(bg_color_grid)
+
+        # Add "More Colors..." button
+        bg_more_colors_button = Gtk.Button(label="More Colors...")
+        bg_more_colors_button.set_margin_top(6)
+        bg_more_colors_button.connect("clicked", lambda btn: self.on_more_bg_colors_clicked(win, bg_color_popover))
+        bg_color_box.append(bg_more_colors_button)
+
+        # Set content and connect popover
+        bg_color_popover.set_child(bg_color_box)
+        win.bg_color_button.set_popover(bg_color_popover)
+
+        # Add color buttons to the linked box
+        color_formatting_box.append(win.font_color_button)
+        color_formatting_box.append(win.bg_color_button)
+
+        # Add the color formatting box to the bottom row
+        bottom_row.append(color_formatting_box)
         
         # Add a spacer (expanding box) at the end of bottom row
         bottom_spacer = Gtk.Box()
@@ -1150,7 +1620,7 @@ class HTMLEditorApp(Adw.Application):
         # Add the bottom row to the toolbar
         formatting_toolbar.append(bottom_row)
         
-        return formatting_toolbar
+        return formatting_toolbar   
 
 # ---- PARAGRAPH STYLE HANDLER ----
     def on_paragraph_style_changed(self, win, dropdown):
@@ -3716,8 +4186,420 @@ class HTMLEditorApp(Adw.Application):
         # Run the print dialog
         print_op.run_dialog(win)
 ######################
+    def create_color_button(self, color_hex):
+        """Create a button with a color swatch"""
+        button = Gtk.Button()
+        button.set_size_request(18, 18)
+        
+        # Create a colored box
+        color_box = Gtk.Box()
+        color_box.set_size_request(16, 16)
+        color_box.add_css_class("color-box")
+        
+        # Set the background color
+        css_provider = Gtk.CssProvider()
+        css = f".color-box {{ background-color: {color_hex}; border: 1px solid rgba(0,0,0,0.2); border-radius: 2px; }}"
+        css_provider.load_from_data(css.encode())
+        
+        # Apply the CSS
+        style_context = color_box.get_style_context()
+        style_context.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        
+        button.set_child(color_box)
+        return button
 
+    def on_font_color_button_clicked(self, win):
+        """Handle font color button click (the main button, not the dropdown)"""
+        # Get the currently selected color from the indicator
+        if hasattr(win, 'current_font_color'):
+            color_hex = win.current_font_color
+        else:
+            color_hex = "#000000"  # Default to black
+            win.current_font_color = color_hex
+        
+        # Apply color to selected text
+        self.apply_font_color(win, color_hex)
 
+    def on_font_color_selected(self, win, color_hex, popover):
+        """Handle selection of a specific font color"""
+        # Save the current color
+        win.current_font_color = color_hex
+        
+        # Update the indicator color
+        rgba = Gdk.RGBA()
+        rgba.parse(color_hex)
+        self.set_box_color(win.font_color_indicator, rgba)
+        
+        # Apply color to selected text
+        self.apply_font_color(win, color_hex)
+        
+        # Close the popover
+        popover.popdown()
+
+    def on_font_color_automatic_clicked(self, win, popover):
+        """Reset font color to automatic (remove color formatting)"""
+        # Reset the stored color preference 
+        win.current_font_color = "inherit"
+        
+        # Set the indicator color back to black (representing automatic)
+        rgba = Gdk.RGBA()
+        rgba.parse("#000000")
+        self.set_box_color(win.font_color_indicator, rgba)
+        
+        # Apply to selected text
+        self.apply_font_color(win, "inherit")
+        
+        # Close the popover
+        popover.popdown()
+
+    def on_more_font_colors_clicked(self, win, popover):
+        """Show a color chooser dialog for more font colors"""
+        # Close the popover first
+        popover.popdown()
+        
+        # Create a color chooser dialog
+        dialog = Gtk.ColorDialog()
+        dialog.set_title("Select Text Color")
+        
+        # Get the current color to use as default
+        if hasattr(win, 'current_font_color') and win.current_font_color != "inherit":
+            rgba = Gdk.RGBA()
+            rgba.parse(win.current_font_color)
+        else:
+            rgba = Gdk.RGBA()
+            rgba.parse("#000000")  # Default black
+        
+        # Show the dialog asynchronously
+        dialog.choose_rgba(
+            win,  # parent window
+            rgba,  # initial color
+            None,  # cancellable
+            lambda dialog, result: self.on_font_color_dialog_response(win, dialog, result)
+        )
+
+    def on_font_color_dialog_response(self, win, dialog, result):
+        """Handle response from the font color chooser dialog"""
+        try:
+            rgba = dialog.choose_rgba_finish(result)
+            if rgba:
+                # Convert RGBA to hex
+                color_hex = "#{:02x}{:02x}{:02x}".format(
+                    int(rgba.red * 255),
+                    int(rgba.green * 255),
+                    int(rgba.blue * 255)
+                )
+                
+                # Update current color
+                win.current_font_color = color_hex
+                
+                # Update indicator color
+                self.set_box_color(win.font_color_indicator, rgba)
+                
+                # Apply to selected text
+                self.apply_font_color(win, color_hex)
+        except GLib.Error as error:
+            # Handle errors, e.g., user cancelled
+            pass
+
+    def apply_font_color(self, win, color_hex):
+        """Apply selected font color to text or set it for future typing"""
+        js_code = f"""
+        (function() {{
+            // Get the editor
+            const editor = document.getElementById('editor');
+            const selection = window.getSelection();
+            
+            if (selection.rangeCount > 0) {{
+                const range = selection.getRangeAt(0);
+                
+                // If text is selected
+                if (!range.collapsed) {{
+                    // Use execCommand to apply the color
+                    document.execCommand('foreColor', false, '{color_hex}');
+                    
+                    // Clean up redundant nested tags
+                    cleanupEditorTags();
+                    
+                    // Record undo state
+                    saveState();
+                    window.lastContent = editor.innerHTML;
+                    window.redoStack = [];
+                    try {{
+                        window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                    }} catch(e) {{
+                        console.log("Could not notify about changes:", e);
+                    }}
+                }} else {{
+                    // For cursor position (no selection)
+                    // Store color for next character
+                    editor.setAttribute('data-next-font-color', '{color_hex}');
+                    
+                    // Add handler for next input
+                    const handleInput = function(e) {{
+                        // Remove the handler after first use
+                        editor.removeEventListener('input', handleInput);
+                        
+                        // Get the color
+                        const fontColor = editor.getAttribute('data-next-font-color');
+                        if (!fontColor) return;
+                        
+                        // Get the current selection
+                        const sel = window.getSelection();
+                        if (sel.rangeCount > 0) {{
+                            // Try to select the last character typed
+                            const range = sel.getRangeAt(0);
+                            if (range.startOffset > 0) {{
+                                try {{
+                                    // Select the last character
+                                    range.setStart(range.startContainer, range.startOffset - 1);
+                                    
+                                    // Apply color
+                                    document.execCommand('foreColor', false, fontColor);
+                                    
+                                    // Restore cursor position
+                                    range.collapse(false);
+                                    sel.removeAllRanges();
+                                    sel.addRange(range);
+                                    
+                                    // Clean up tags
+                                    cleanupEditorTags();
+                                    
+                                    // Record state
+                                    saveState();
+                                    window.lastContent = editor.innerHTML;
+                                    window.redoStack = [];
+                                    try {{
+                                        window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                                    }} catch(e) {{
+                                        console.log("Could not notify about changes:", e);
+                                    }}
+                                }} catch (error) {{
+                                    console.error("Error applying font color:", error);
+                                }}
+                            }}
+                        }}
+                    }};
+                    
+                    editor.addEventListener('input', handleInput);
+                }}
+            }}
+            
+            return true;
+        }})();
+        """
+        
+        self.execute_js(win, js_code)
+        win.statusbar.set_text(f"Text color set to: {color_hex}")
+        win.webview.grab_focus()
+
+    def on_bg_color_button_clicked(self, win):
+        """Handle background color button click (the main button, not the dropdown)"""
+        # Get the currently selected color from the indicator
+        if hasattr(win, 'current_bg_color'):
+            color_hex = win.current_bg_color
+        else:
+            color_hex = "#FFFF00"  # Default to yellow
+            win.current_bg_color = color_hex
+        
+        # Apply color to selected text
+        self.apply_bg_color(win, color_hex)
+
+    def on_bg_color_selected(self, win, color_hex, popover):
+        """Handle selection of a specific background color"""
+        # Save the current color
+        win.current_bg_color = color_hex
+        
+        # Update the indicator color
+        rgba = Gdk.RGBA()
+        rgba.parse(color_hex)
+        self.set_box_color(win.bg_color_indicator, rgba)
+        
+        # Apply color to selected text
+        self.apply_bg_color(win, color_hex)
+        
+        # Close the popover
+        popover.popdown()
+
+    def on_bg_color_automatic_clicked(self, win, popover):
+        """Reset background color to automatic (remove background color formatting)"""
+        # Reset the stored color preference
+        win.current_bg_color = "transparent"
+        
+        # Set the indicator color to transparent
+        rgba = Gdk.RGBA()
+        rgba.parse("transparent")
+        self.set_box_color(win.bg_color_indicator, rgba)
+        
+        # Apply to selected text
+        self.apply_bg_color(win, "transparent")
+        
+        # Close the popover
+        popover.popdown()
+
+    def on_more_bg_colors_clicked(self, win, popover):
+        """Show a color chooser dialog for more background colors"""
+        # Close the popover first
+        popover.popdown()
+        
+        # Create a color chooser dialog
+        dialog = Gtk.ColorDialog()
+        dialog.set_title("Select Background Color")
+        
+        # Get the current color to use as default
+        if hasattr(win, 'current_bg_color') and win.current_bg_color != "transparent":
+            rgba = Gdk.RGBA()
+            rgba.parse(win.current_bg_color)
+        else:
+            rgba = Gdk.RGBA()
+            rgba.parse("#FFFF00")  # Default yellow
+        
+        # Show the dialog asynchronously
+        dialog.choose_rgba(
+            win,  # parent window
+            rgba,  # initial color
+            None,  # cancellable
+            lambda dialog, result: self.on_bg_color_dialog_response(win, dialog, result)
+        )
+
+    def on_bg_color_dialog_response(self, win, dialog, result):
+        """Handle response from the background color chooser dialog"""
+        try:
+            rgba = dialog.choose_rgba_finish(result)
+            if rgba:
+                # Convert RGBA to hex
+                color_hex = "#{:02x}{:02x}{:02x}".format(
+                    int(rgba.red * 255),
+                    int(rgba.green * 255),
+                    int(rgba.blue * 255)
+                )
+                
+                # Update current color
+                win.current_bg_color = color_hex
+                
+                # Update indicator color
+                self.set_box_color(win.bg_color_indicator, rgba)
+                
+                # Apply to selected text
+                self.apply_bg_color(win, color_hex)
+        except GLib.Error as error:
+            # Handle errors, e.g., user cancelled
+            pass
+
+    def apply_bg_color(self, win, color_hex):
+        """Apply selected background color to text or set it for future typing"""
+        js_code = f"""
+        (function() {{
+            // Get the editor
+            const editor = document.getElementById('editor');
+            const selection = window.getSelection();
+            
+            if (selection.rangeCount > 0) {{
+                const range = selection.getRangeAt(0);
+                
+                // If text is selected
+                if (!range.collapsed) {{
+                    // Use execCommand to apply the background color
+                    document.execCommand('hiliteColor', false, '{color_hex}');
+                    
+                    // Clean up redundant nested tags
+                    cleanupEditorTags();
+                    
+                    // Record undo state
+                    saveState();
+                    window.lastContent = editor.innerHTML;
+                    window.redoStack = [];
+                    try {{
+                        window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                    }} catch(e) {{
+                        console.log("Could not notify about changes:", e);
+                    }}
+                }} else {{
+                    // For cursor position (no selection)
+                    // Store color for next character
+                    editor.setAttribute('data-next-bg-color', '{color_hex}');
+                    
+                    // Add handler for next input
+                    const handleInput = function(e) {{
+                        // Remove the handler after first use
+                        editor.removeEventListener('input', handleInput);
+                        
+                        // Get the color
+                        const bgColor = editor.getAttribute('data-next-bg-color');
+                        if (!bgColor) return;
+                        
+                        // Get the current selection
+                        const sel = window.getSelection();
+                        if (sel.rangeCount > 0) {{
+                            // Try to select the last character typed
+                            const range = sel.getRangeAt(0);
+                            if (range.startOffset > 0) {{
+                                try {{
+                                    // Select the last character
+                                    range.setStart(range.startContainer, range.startOffset - 1);
+                                    
+                                    // Apply background color
+                                    document.execCommand('hiliteColor', false, bgColor);
+                                    
+                                    // Restore cursor position
+                                    range.collapse(false);
+                                    sel.removeAllRanges();
+                                    sel.addRange(range);
+                                    
+                                    // Clean up tags
+                                    cleanupEditorTags();
+                                    
+                                    // Record state
+                                    saveState();
+                                    window.lastContent = editor.innerHTML;
+                                    window.redoStack = [];
+                                    try {{
+                                        window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                                    }} catch(e) {{
+                                        console.log("Could not notify about changes:", e);
+                                    }}
+                                }} catch (error) {{
+                                    console.error("Error applying background color:", error);
+                                }}
+                            }}
+                        }}
+                    }};
+                    
+                    editor.addEventListener('input', handleInput);
+                }}
+            }}
+            
+            return true;
+        }})();
+        """
+        
+        self.execute_js(win, js_code)
+        win.statusbar.set_text(f"Background color set to: {color_hex}")
+        win.webview.grab_focus()
+        
+    def set_box_color(self, box, color):
+        """Set the background color of a box using CSS"""
+        # Create a CSS provider
+        css_provider = Gtk.CssProvider()
+        
+        # Generate CSS based on color
+        if isinstance(color, Gdk.RGBA):
+            if color.alpha == 0:  # Transparent
+                css = ".color-indicator { background-color: transparent; border: 1px dashed rgba(127, 127, 127, 0.5); }"
+            else:
+                css = f".color-indicator {{ background-color: rgba({int(color.red*255)}, {int(color.green*255)}, {int(color.blue*255)}, {color.alpha}); }}"
+        elif color == "transparent":
+            css = ".color-indicator { background-color: transparent; border: 1px dashed rgba(127, 127, 127, 0.5); }"
+        else:
+            css = f".color-indicator {{ background-color: {color}; }}"
+        
+        # Load the CSS
+        css_provider.load_from_data(css.encode())
+        
+        # Apply to the box
+        style_context = box.get_style_context()
+        style_context.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+################
         
 def main():
     app = HTMLEditorApp()
