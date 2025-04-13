@@ -198,9 +198,8 @@ class HTMLEditorApp(Adw.Application):
         win.main_box.set_vexpand(True)
         win.main_box.set_hexpand(True)
         
-        # Create headerbar with revealer
+        # Create master headerbar revealer
         win.headerbar_revealer = Gtk.Revealer()
-        
         win.headerbar_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_DOWN)
         win.headerbar_revealer.set_margin_start(0)
         win.headerbar_revealer.set_margin_end(0)
@@ -209,16 +208,14 @@ class HTMLEditorApp(Adw.Application):
         win.headerbar_revealer.set_transition_duration(250)
         win.headerbar_revealer.set_reveal_child(True)  # Visible by default
         
+        # Create a vertical box to contain headerbar and toolbars
+        win.headerbar_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        
+        # Create the main headerbar
         win.headerbar = Adw.HeaderBar()
         win.headerbar.add_css_class("flat-header")  # Add flat-header style
         self.setup_headerbar_content(win)
-        win.headerbar_revealer.set_child(win.headerbar)
-        win.main_box.append(win.headerbar_revealer)
-        
-        # Create content box (for webview and toolbars)
-        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        content_box.set_vexpand(True)
-        content_box.set_hexpand(True)
+        win.headerbar_box.append(win.headerbar)
         
         # Create file toolbar with revealer
         win.file_toolbar_revealer = Gtk.Revealer()
@@ -226,15 +223,10 @@ class HTMLEditorApp(Adw.Application):
         win.file_toolbar_revealer.set_transition_duration(250)
         win.file_toolbar_revealer.set_reveal_child(True)  # Visible by default
         
-        # Create toolbar container with CSS class
-        win.file_toolbar_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        win.file_toolbar_container.add_css_class("toolbar-container")
-        
         # Create and add file toolbar
         win.file_toolbar = self.create_file_toolbar(win)
-        win.file_toolbar_container.append(win.file_toolbar)
-        win.file_toolbar_revealer.set_child(win.file_toolbar_container)
-        content_box.append(win.file_toolbar_revealer)
+        win.file_toolbar_revealer.set_child(win.file_toolbar)
+        win.headerbar_box.append(win.file_toolbar_revealer)
         
         # Create formatting toolbar with revealer
         win.formatting_toolbar_revealer = Gtk.Revealer()
@@ -242,19 +234,24 @@ class HTMLEditorApp(Adw.Application):
         win.formatting_toolbar_revealer.set_margin_end(0)
         win.formatting_toolbar_revealer.set_margin_top(0)
         win.formatting_toolbar_revealer.set_margin_bottom(0)
-        win.formatting_toolbar_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_UP)
+        win.formatting_toolbar_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_DOWN)
         win.formatting_toolbar_revealer.set_transition_duration(250)
         win.formatting_toolbar_revealer.set_reveal_child(True)  # Visible by default
         
-        # Create toolbar container with CSS class
-        win.toolbar_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        win.toolbar_container.add_css_class("toolbar-container")
-        
+        # Create and add formatting toolbar
         win.toolbar = self.create_formatting_toolbar(win)
-        win.toolbar_container.append(win.toolbar)
-        win.formatting_toolbar_revealer.set_child(win.toolbar_container)
-        content_box.append(win.formatting_toolbar_revealer)
-
+        win.formatting_toolbar_revealer.set_child(win.toolbar)
+        win.headerbar_box.append(win.formatting_toolbar_revealer)
+        
+        # Set the headerbar_box as the child of the headerbar_revealer
+        win.headerbar_revealer.set_child(win.headerbar_box)
+        win.main_box.append(win.headerbar_revealer)
+        
+        # Create content box (for webview and toolbars)
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        content_box.set_vexpand(True)
+        content_box.set_hexpand(True)
+        
         # Create webview
         win.webview = WebKit.WebView()
         win.webview.set_vexpand(True)
@@ -4307,467 +4304,7 @@ class HTMLEditorApp(Adw.Application):
         
         win.statusbar.set_text(status_messages.get(case_type, "Changed text case"))
         win.webview.grab_focus()
-######################
 
-    def setup_css_provider(self):
-        """Set up CSS provider for custom styling"""
-        self.css_provider = Gtk.CssProvider()
-        self.css_provider.load_from_data(b"""
-            /* Original CSS with modifications */
-            .toolbar-container { padding: 0px 0px; background-color: rgba(127, 127, 127, 0.05); }
-            .flat { background: none; }
-            .flat:hover { background: rgba(127, 127, 127, 0.20); }
-            .flat:checked { background: rgba(127, 127, 127, 0.20); }
-            colorbutton.flat, colorbutton.flat button { background: none; }
-            colorbutton.flat:hover, colorbutton.flat button:hover { background: rgba(127, 127, 127, 0.15); }
-
-            /* Linked container styling */
-            .linked { background: none; border-radius: 5px; }
-
-            /* Linked button styling with clear borders */
-            .linked button { 
-                background-color: @theme_bg_color;
-                color: @theme_fg_color;
-                border-radius: 0; 
-                border: solid 1px rgba(127, 127, 127, 0.20);
-                padding: 0px 0px;
-                /* Ensure borders are always visible */
-                min-width: 38px;
-                min-height: 30px;
-            }
-
-            .linked button:first-child { 
-                border-top-left-radius: 5px; 
-                border-bottom-left-radius: 5px; 
-
-                min-height: 30px;
-            }
-
-            .linked button:last-child { 
-                border-top-right-radius: 5px; 
-                border-bottom-right-radius: 5px; 
-                min-height: 30px;
-            }
-
-            /* Ensure middle elements have no border radius */
-            .linked button:not(:first-child):not(:last-child) {
-                border-radius: 0;
-
-                min-height: 30px;
-            }
-
-            /* Button hover states */
-            .linked button:hover {                 
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
-                color: #000000;
-                border: solid 1px #e59728;
-
-                min-height: 30px; 
-            }
-
-            .linked button:first-child:hover { 
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
-                color: #000000;
-                border: solid 1px #e59728;
-                border-top-left-radius: 5px; 
-                border-bottom-left-radius: 5px; 
-
-                min-height: 30px;
-            }
-
-            .linked button:last-child:hover { 
-                border-top-right-radius: 5px; 
-                border-bottom-right-radius: 5px; 
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
-                color: #000000;
-                border: solid 1px #e59728;
-
-                min-height: 30px; 
-            }
-
-            /* Ensure middle elements have no border radius on hover */
-            .linked button:not(:first-child):not(:last-child):hover {
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
-                color: #000000;
-                border: solid 1px #e59728;
-                border-radius: 0;
-
-                min-height: 30px;
-            }
-
-            /* Button checked state */
-            .linked button:checked { 
-                background: linear-gradient(to top, #ffe08d, #ffb73d);
-                border: solid 1px #e59728;
-                color: #000000;
-            }
-
-            /* Linked dropdown styling - treat just like buttons */
-            .linked dropdown { 
-                min-height: 0;
-                min-width: 0;
-                padding: 0;
-                margin: 0;
-                border-radius: 0;
-
-                min-height: 30px;
-            }
-
-            .linked dropdown > button {
-                background-color: @theme_bg_color;
-                color: @theme_fg_color;
-                border-radius: 0; 
-                border: solid 1px;
-                border-color: rgba(127, 127, 127, 0.20);
-                border-left-width: 0;
-                min-width: 40px;
-                min-height: 30px;
-                padding: 0px 10px 0px 15px;
-            }
-
-            .linked dropdown:first-child > button { 
-                border-top-left-radius: 5px; 
-                border-bottom-left-radius: 5px; 
-                border-top-right-radius: 0;
-                border-bottom-right-radius: 0;
-                border: solid 1px;
-                border-color: rgba(127, 127, 127, 0.20);
-
-                min-height: 30px;
-            }
-
-            .linked dropdown:last-child > button { 
-                border-top-right-radius: 5px; 
-                border-bottom-right-radius: 5px; 
-                border-top-left-radius: 0;
-                border-bottom-left-radius: 0;
-                border: solid 1px;
-                border-color: rgba(127, 127, 127, 0.20);
-
-                min-height: 30px;
-            }
-
-            /* Explicit rule to ensure middle dropdowns have NO radius */
-            .linked dropdown:not(:first-child):not(:last-child) > button {
-                border-radius: 0;
-                min-height: 30px;
-                border: solid 1px;
-                border-color: rgba(127, 127, 127, 0.20);
-            }
-
-            /* Fix for dropdown borders to ensure they connect properly */
-            .linked dropdown > button {
-                margin-left: -1px;  /* Negative margin to overlay borders */
-                border: solid 1px;
-                border-color: rgba(127, 127, 127, 0.20);
-            }
-
-            .linked dropdown:first-child > button {
-                margin-left: 0;  /* Reset margin for first child */
-            }
-
-            /* Dropdown hover states */
-            .linked dropdown > button:hover { 
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
-                color: #000000;
-                border: solid 1px #e59728;
-            }
-
-            .linked dropdown:first-child > button:hover {
-                border-top-right-radius: 0px; 
-                border-bottom-right-radius: 0px;
-                border-top-left-radius: 5px; 
-                border-bottom-left-radius: 5px;
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
-                color: #000000;
-                border: solid 1px #e59728;
-            }
-
-            .linked dropdown:last-child > button:hover {
-                border-top-right-radius: 5px; 
-                border-bottom-right-radius: 5px;
-                border-top-left-radius: 0px; 
-                border-bottom-left-radius: 0px;
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
-                color: #000000;
-                border: solid 1px #e59728;
-            }
-
-            .linked dropdown:not(:first-child):not(:last-child) > button:hover { 
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
-                color: #000000;
-                border-radius: 0;
-                border: solid 1px #e59728;
-                min-height: 30px;
-            }
-
-            /* Dropdown checked states */
-            .linked dropdown:not(:first-child):not(:last-child) > button:checked { 
-                background: linear-gradient(to bottom, #ffb73d, #ffe08d);
-                color: #000000;
-                border-radius: 0;
-                border: solid 1px #e59728;
-                min-height: 30px;
-            }
-
-            /* Style for active/selected dropdown item - FIXED: removed height property */
-            dropdown listview {
-                margin: 0;
-                margin-start: 5px; /* Add 5px left padding/margin */
-            }
-
-            dropdown listview row {
-                background: @theme_bg_color;
-                color: @theme_fg_color;
-                min-height: 30px;
-                margin: 0;
-                padding: 0 6px; /* Keep some horizontal padding for text */
-            }   
-
-            dropdown listview row:selected {
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
-                color: #000000;
-                border: 1px solid #e59728;
-                min-height: 30px;
-                padding: 0 6px;
-                border-radius: 0;
-            }   
-
-            /* Dropdown positioning - align with left border of button */
-            dropdown popover {
-                margin: 0;
-                padding: 0;
-                border-radius: 0 0 5px 5px; /* Round only bottom corners */
-            }
-
-            dropdown popover contents {
-                margin: 0;
-                padding: 0;
-                border-radius: 0 0 5px 5px; /* Round only bottom corners */
-            }
-
-            /* Explicitly set top corners to 0px radius and bottom corners to 5px */
-            popover.menu {
-                margin: 0;
-                margin-left: -1px; /* Align with left edge of button */
-                border-top-left-radius: 0;
-                border-top-right-radius: 0;
-                border-bottom-left-radius: 5px;
-                border-bottom-right-radius: 5px;
-            }
-
-            /* General dropdown styling */
-            dropdown.flat, dropdown.flat button { background: none; border-radius: 5px; }
-            dropdown.flat:hover { background: rgba(127, 127, 127, 0.05); }
-
-            .flat-header { background: rgba(127, 127, 127, 0.05); border: none; box-shadow: none; padding: 0; }
-            .button-box button { min-width: 80px; min-height: 36px; }
-            .highlighted { background-color: rgba(127, 127, 127, 0.15); }
-            .toolbar-group { margin: 0px 3px; }
-            .toolbar-separator { min-height: 16px; min-width: 1px; background-color: alpha(currentColor, 0.15); margin: 10px 6px; }
-            .color-indicator { min-height: 3px; min-width: 16px; margin-top: 1px; margin-bottom: 0px; border-radius: 2px; }
-            .color-box { padding: 0px; }
-            menubutton.flat { border-radius: 6px; }
-            menubutton.flat:hover { background: rgba(127, 127, 127, 0.15); border-radius: 6px; }
-            menubutton.flat > button { border-radius: 6px; }
-            menubutton.flat > button:hover { border-radius: 6px; }
-            
-            .color-indicator { 
-                min-height: 3px; 
-                min-width: 8px; 
-                margin-top: 1px; 
-                margin-bottom: 0px; 
-                border-radius: 2px; 
-            }
-
-            .color-box { 
-                padding: 0px; 
-            }
-
-            /* Custom CSS for SplitButton border and hover effects */
-            splitbutton.linked button {
-                background-color: @theme_bg_color;
-                color: @theme_fg_color;
-                border-radius: 0; 
-                border: solid 1px rgba(127, 127, 127, 0.20);
-                min-height: 30px;
-            }
-
-            splitbutton.linked button:first-child { 
-                border-top-left-radius: 5px; 
-                border-bottom-left-radius: 5px; 
-            }
-
-            splitbutton.linked button:last-child { 
-                border-top-right-radius: 5px; 
-                border-bottom-right-radius: 5px; 
-            }
-
-            splitbutton.linked button:hover {                 
-                background: linear-gradient(to bottom, #ffe08d, #ffb73d);
-                color: #000000;
-                border: solid 1px #e59728;
-            }
-
-            splitbutton.linked button:checked, 
-            splitbutton.linked button:active { 
-                background: linear-gradient(to top, #ffe08d, #ffb73d);
-                border: solid 1px #e59728;
-                color: #000000;
-            }
-
-            /* Style for color grid in popovers */
-            grid.color-grid {
-                margin: 2px;
-            }
-
-            /* Style for color buttons in the grid */
-            grid.color-grid button {
-                min-width: 18px;
-                min-height: 18px;
-                padding: 0;
-            }
-            
-            /* Custom class for our compact split buttons */
-splitbutton.compact-button {
-    margin: 0;
-    padding: 0;
-}
-
-/* Main action button part */
-splitbutton.compact-button > button:first-child {
-    min-width: 30px;
-    padding-left: 4px;
-    padding-right: 4px;
-}
-
-/* Dropdown arrow part */
-splitbutton.compact-button > button:last-child {
-    min-width: 20px;
-    padding-left: 0px;
-    padding-right: 0px;
-}
-
-/* Target the specific arrow icon to make it more compact */
-splitbutton.compact-button > button:last-child image {
-    margin-left: 0;
-    margin-right: 0;
-    padding-left: 0;
-    padding-right: 0;
-}
-
-/* Adjust the padding on the popovers to make them more compact */
-popover.menu {
-    margin: 0;
-    padding: 0;
-}
-
-popover box.vertical {
-    margin: 6px;  /* Smaller margin for the popover content */
-}
-
-/* Make the grid more compact */
-grid.color-grid {
-    margin: 0;
-}
-
-/* Make the color buttons in the grid more compact */
-grid.color-grid button {
-    margin: 1px;
-    padding: 1px;
-    min-width: 16px;
-    min-height: 16px;
-}
-
-/* Make the grid cells more compact */
-grid.color-grid {
-    row-spacing: 1px;
-    column-spacing: 1px;
-}
-
-/* Make the color boxes inside buttons more compact */
-.color-box {
-    min-width: 14px;
-    min-height: 14px;
-}
-/* Custom class for our compact split buttons */
-splitbutton.compact-button {
-                background-color: @theme_bg_color;
-                color: @theme_fg_color;
-    margin: 0;
-    padding: 0;
-}
-
-/* Main action button part */
-splitbutton.compact-button > button:first-child {
-                background-color: @theme_bg_color;
-                color: @theme_fg_color;
-    min-width: 10px;
-    padding-left: 0px;
-    padding-right: 0px;
-}
-
-/* Dropdown arrow part */
-splitbutton.compact-button > button:last-child {
-                background-color: @theme_bg_color;
-                color: @theme_fg_color;
-    min-width: 1px;
-    padding-left: 0px;
-    padding-right: 0px;
-}
-
-/* Target the specific arrow icon to make it more compact */
-splitbutton.compact-button > button:last-child image {
-                background-color: @theme_bg_color;
-                color: @theme_fg_color;
-    margin-left: 0;
-    margin-right: 0;
-    padding-left: 0;
-    padding-right: 0;
-}
-
-/* Adjust the padding on the popovers to make them more compact */
-popover.menu {
-    margin: 0;
-    padding: 0;
-}
-
-popover box.vertical {
-    margin: 6px;  /* Smaller margin for the popover content */
-}
-
-/* Make the grid more compact */
-grid.color-grid {
-    margin: 0;
-}
-
-/* Make the color buttons in the grid more compact */
-grid.color-grid button {
-    margin: 1px;
-    padding: 1px;
-    min-width: 16px;
-    min-height: 16px;
-}
-
-/* Make the grid cells more compact */
-grid.color-grid {
-    row-spacing: 1px;
-    column-spacing: 1px;
-}
-
-/* Make the color boxes inside buttons more compact */
-.color-box {
-    min-width: 14px;
-    min-height: 14px;
-}
-        """)
-        
-        # Apply the CSS to the default display
-        Gtk.StyleContext.add_provider_for_display(
-            Gdk.Display.get_default(),
-            self.css_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
         
 def main():
     app = HTMLEditorApp()
