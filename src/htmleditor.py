@@ -881,7 +881,11 @@ grid.color-grid {
         win.set_content(win.main_box)
 
         self.setup_keyboard_shortcuts(win)
-
+        # Add case change action to the window
+        case_change_action = Gio.SimpleAction.new("change-case", GLib.VariantType.new("s"))
+        case_change_action.connect("activate", lambda action, param: self.on_change_case(win, param.get_string()))
+        win.add_action(case_change_action)
+        
         win.connect("close-request", self.on_window_close_request)
 
         # Add to windows list
@@ -1155,13 +1159,19 @@ grid.color-grid {
         
     def create_formatting_toolbar(self, win):
         """Create the toolbar for formatting options with toggle buttons and dropdowns"""
-        formatting_toolbar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        # Main vertical container for the entire toolbar
+        formatting_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         formatting_toolbar.set_margin_start(0)
         formatting_toolbar.set_margin_end(0)
         formatting_toolbar.set_margin_top(0)
         formatting_toolbar.set_margin_bottom(4)
         
-        # Create horizontal box for the rows
+        # === LEFT SECTION ===
+        # Create vertical box for the left section
+        left_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        left_section.set_hexpand(True)
+        
+        # Create horizontal box for the top row
         top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         top_row.set_margin_start(5)
         # Store the handlers for blocking
@@ -1230,7 +1240,7 @@ grid.color-grid {
         win.font_dropdown.set_model(font_names)
 
         # Set fixed width and prevent expansion
-        win.font_dropdown.set_size_request(200, -1)
+        win.font_dropdown.set_size_request(205, -1)
         win.font_dropdown.set_hexpand(False)
         
         # Create a factory only for the BUTTON part of the dropdown
@@ -1319,21 +1329,21 @@ grid.color-grid {
         top_spacer.set_hexpand(True)
         top_row.append(top_spacer)
         
-        # Add the top row to the toolbar
-        formatting_toolbar.append(top_row)
+        # Add the top row to the left section
+        left_section.append(top_row)
         
         # Create second row for formatting buttons
         bottom_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         bottom_row.set_margin_start(5)
-        bottom_row.set_margin_top(5)
-        bottom_row.set_margin_bottom(5)
+        bottom_row.set_margin_top(4)
+        bottom_row.set_margin_bottom(4)
         
         # ---- BASIC FORMATTING BUTTONS ----
         # Create a linked box for formatting buttons
         basic_formatting_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         basic_formatting_box.add_css_class("linked")
         basic_formatting_box.set_margin_start(2)
-        basic_formatting_box.set_margin_end(6)
+        basic_formatting_box.set_margin_end(4)
         
         # Add HTML editing toggle buttons
         win.bold_button = Gtk.ToggleButton()
@@ -1428,10 +1438,10 @@ grid.color-grid {
         font_color_popover.set_autohide(True)
         font_color_popover.set_has_arrow(False)
         font_color_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        font_color_box.set_margin_start(10)
-        font_color_box.set_margin_end(10)
-        font_color_box.set_margin_top(10)
-        font_color_box.set_margin_bottom(10)
+        font_color_box.set_margin_start(0)
+        font_color_box.set_margin_end(0)
+        font_color_box.set_margin_top(0)
+        font_color_box.set_margin_bottom(0)
 
         # Add "Automatic" option at the top
         automatic_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -1486,7 +1496,7 @@ grid.color-grid {
 
         # Add "More Colors..." button
         more_colors_button = Gtk.Button(label="More Colors...")
-        more_colors_button.set_margin_top(6)
+        more_colors_button.set_margin_top(0)
         more_colors_button.connect("clicked", lambda btn: self.on_more_font_colors_clicked(win, font_color_popover))
         font_color_box.append(more_colors_button)
 
@@ -1525,10 +1535,10 @@ grid.color-grid {
         bg_color_popover.set_autohide(True)
         bg_color_popover.set_has_arrow(False)
         bg_color_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        bg_color_box.set_margin_start(10)
-        bg_color_box.set_margin_end(10)
-        bg_color_box.set_margin_top(10)
-        bg_color_box.set_margin_bottom(10)
+        bg_color_box.set_margin_start(0)
+        bg_color_box.set_margin_end(0)
+        bg_color_box.set_margin_top(0)
+        bg_color_box.set_margin_bottom(0)
 
         # Add "Automatic" option at the top
         bg_automatic_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -1582,9 +1592,37 @@ grid.color-grid {
         bg_color_popover.set_child(bg_color_box)
         win.bg_color_button.set_popover(bg_color_popover)
 
+        # Add clear formatting button
+        clear_formatting_button = Gtk.Button()
+        clear_formatting_icon = Gtk.Image.new_from_icon_name("eraser-symbolic")
+        clear_formatting_button.set_child(clear_formatting_icon)
+        clear_formatting_button.set_tooltip_text("Remove Text Formatting")
+        clear_formatting_button.connect("clicked", lambda btn: self.on_clear_formatting_clicked(win, btn))
+        
+        # Add case change menu button
+        case_menu_button = Gtk.MenuButton()
+        case_menu_icon = Gtk.Image.new_from_icon_name("uppercase-symbolic")
+        case_menu_button.set_child(case_menu_icon)
+        case_menu_button.set_tooltip_text("Change Case")
+        
+        # Create case change menu
+        case_menu = Gio.Menu()
+        case_menu.append("Sentence case.", "win.change-case::sentence")
+        case_menu.append("lowercase", "win.change-case::lower")
+        case_menu.append("UPPERCASE", "win.change-case::upper")
+        case_menu.append("Capitalize Each Word", "win.change-case::title")
+        case_menu.append("tOGGLE cASE", "win.change-case::toggle")
+        
+        # Set the menu model for the button
+        case_menu_button.set_menu_model(case_menu)
+        
+        
         # Add color buttons to the linked box
         color_formatting_box.append(win.font_color_button)
         color_formatting_box.append(win.bg_color_button)
+        # Add buttons to the text operations box
+        color_formatting_box.append(clear_formatting_button)
+        color_formatting_box.append(case_menu_button)
 
         # Add the color formatting box to the bottom row
         bottom_row.append(color_formatting_box)
@@ -1594,10 +1632,66 @@ grid.color-grid {
         bottom_spacer.set_hexpand(True)
         bottom_row.append(bottom_spacer)
         
-        # Add the bottom row to the toolbar
-        formatting_toolbar.append(bottom_row)
+        # Add the bottom row to the left section
+        left_section.append(bottom_row)
         
-        return formatting_toolbar   
+        # Add left section to the main toolbar
+        formatting_toolbar.append(left_section)
+        
+        # === VERTICAL SEPARATOR ===
+        # Create vertical separator
+        vertical_separator = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        vertical_separator.set_margin_start(6)
+        vertical_separator.set_margin_end(6)
+        vertical_separator.add_css_class("toolbar-separator")
+        formatting_toolbar.append(vertical_separator)
+        
+        # === RIGHT SECTION ===
+        # Create vertical box for the right section
+        right_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        right_section.set_hexpand(False)
+        
+        # Create top row for the right section
+        right_top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        right_top_row.set_margin_start(5)
+        right_top_row.set_margin_top(4)
+        
+        # Create a label for the right top row (as a placeholder)
+        right_top_label = Gtk.Label(label="Additional Formatting")
+        right_top_label.set_halign(Gtk.Align.START)
+        right_top_row.append(right_top_label)
+        
+        # Add a spacer for the right top row
+        right_top_spacer = Gtk.Box()
+        right_top_spacer.set_hexpand(True)
+        right_top_row.append(right_top_spacer)
+        
+        # Add the right top row to the right section
+        right_section.append(right_top_row)
+        
+        # Create bottom row for the right section
+        right_bottom_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        right_bottom_row.set_margin_start(5)
+        right_bottom_row.set_margin_top(4)
+        right_bottom_row.set_margin_bottom(4)
+        
+
+        
+        # Add the text operations box to the right bottom row
+        #right_bottom_row.append(text_operations_box)
+        
+        # Add a spacer for the right bottom row
+        right_bottom_spacer = Gtk.Box()
+        right_bottom_spacer.set_hexpand(True)
+        right_bottom_row.append(right_bottom_spacer)
+        
+        # Add the right bottom row to the right section
+        right_section.append(right_bottom_row)
+        
+        # Add the right section to the main toolbar
+        formatting_toolbar.append(right_section)
+        
+        return formatting_toolbar
 
 # ---- PARAGRAPH STYLE HANDLER ----
     def on_paragraph_style_changed(self, win, dropdown):
@@ -4631,8 +4725,136 @@ grid.color-grid {
         new_value = max(current_value - 10, 50)  # Decrease by 10%, min 50%
         win.zoom_scale.set_value(new_value)
 
+###### clear formatting and change case
+    def on_clear_formatting_clicked(self, win, button):
+        """Remove all formatting from selected text"""
+        js_code = """
+        (function() {
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                
+                // Check if there's selected text
+                if (!range.collapsed) {
+                    // Get the selected text content
+                    const selectedText = range.toString();
+                    
+                    // Remove the formatting by replacing with plain text
+                    document.execCommand('insertText', false, selectedText);
+                    
+                    // Record undo state
+                    saveState();
+                    window.lastContent = document.getElementById('editor').innerHTML;
+                    window.redoStack = [];
+                    try {
+                        window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                    } catch(e) {
+                        console.log("Could not notify about changes:", e);
+                    }
+                    
+                    return true;
+                }
+            }
+            return false;
+        })();
+        """
+        
+        self.execute_js(win, js_code)
+        win.statusbar.set_text("Text formatting removed")
+        win.webview.grab_focus()
 
-
+    def on_change_case(self, win, case_type):
+        """Change the case of selected text"""
+        # Define JavaScript function for each case type
+        js_transformations = {
+            "sentence": """
+                function transformText(text) {
+                    if (!text) return text;
+                    return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+                }
+            """,
+            "lower": """
+                function transformText(text) {
+                    return text.toLowerCase();
+                }
+            """,
+            "upper": """
+                function transformText(text) {
+                    return text.toUpperCase();
+                }
+            """,
+            "title": """
+                function transformText(text) {
+                    return text.replace(/\\b\\w+/g, function(word) {
+                        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+                    });
+                }
+            """,
+            "toggle": """
+                function transformText(text) {
+                    return text.split('').map(function(char) {
+                        if (char === char.toUpperCase()) {
+                            return char.toLowerCase();
+                        } else {
+                            return char.toUpperCase();
+                        }
+                    }).join('');
+                }
+            """
+        }
+        
+        # Get the transformation function for this case type
+        transform_function = js_transformations.get(case_type, js_transformations["lower"])
+        
+        # Create the complete JavaScript code
+        js_code = f"""
+        (function() {{
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0) {{
+                const range = selection.getRangeAt(0);
+                
+                // Check if there's selected text
+                if (!range.collapsed) {{
+                    // Get the selected text content
+                    const selectedText = range.toString();
+                    
+                    // Transform the text according to the selected case
+                    {transform_function}
+                    const transformedText = transformText(selectedText);
+                    
+                    // Replace the selected text with the transformed text
+                    document.execCommand('insertText', false, transformedText);
+                    
+                    // Record undo state
+                    saveState();
+                    window.lastContent = document.getElementById('editor').innerHTML;
+                    window.redoStack = [];
+                    try {{
+                        window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                    }} catch(e) {{
+                        console.log("Could not notify about changes:", e);
+                    }}
+                    
+                    return true;
+                }}
+            }}
+            return false;
+        }})();
+        """
+        
+        self.execute_js(win, js_code)
+        
+        # Update status text based on case type
+        status_messages = {
+            "sentence": "Applied sentence case",
+            "lower": "Applied lowercase",
+            "upper": "Applied UPPERCASE",
+            "title": "Applied Title Case",
+            "toggle": "Applied tOGGLE cASE"
+        }
+        
+        win.statusbar.set_text(status_messages.get(case_type, "Changed text case"))
+        win.webview.grab_focus()
 
         
 def main():
