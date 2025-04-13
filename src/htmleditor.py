@@ -98,6 +98,8 @@ class HTMLEditorApp(Adw.Application):
         """Set up CSS provider for custom styling"""
         self.css_provider = Gtk.CssProvider()
         self.css_provider.load_from_data(b"""
+        
+
             /* Original CSS with modifications */
             .toolbar-container { padding: 0px 0px; background-color: rgba(127, 127, 127, 0.05); }
             .flat { background: none; }
@@ -789,27 +791,103 @@ grid.color-grid {
         win.statusbar_revealer.set_transition_duration(250)
         win.statusbar_revealer.set_reveal_child(True)  # Visible by default
         
+        # Create a box for the statusbar 
+        statusbar_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        statusbar_box.set_margin_start(10)
+        statusbar_box.set_margin_end(10)
+        statusbar_box.set_margin_top(0)
+        statusbar_box.set_margin_bottom(4)
+        
+        # Create the text label
         win.statusbar = Gtk.Label(label="Ready")
         win.statusbar.set_halign(Gtk.Align.START)
-        win.statusbar.set_margin_start(10)
-        win.statusbar.set_margin_end(10)
-        win.statusbar.set_margin_top(5)
-        win.statusbar.set_margin_bottom(5)
-        win.statusbar_revealer.set_child(win.statusbar)
-        content_box.append(win.statusbar_revealer)
+        win.statusbar.set_hexpand(True)
+        statusbar_box.append(win.statusbar)
         
+        # Add zoom toggle button at the right side of the statusbar
+        win.zoom_toggle_button = Gtk.ToggleButton()
+        win.zoom_toggle_button.set_icon_name("org.gnome.Settings-accessibility-zoom-symbolic")
+        win.zoom_toggle_button.set_tooltip_text("Toggle Zoom Controls")
+        win.zoom_toggle_button.add_css_class("flat")
+        win.zoom_toggle_button.connect("toggled", lambda btn: self.on_zoom_toggle_clicked(win, btn))
+        statusbar_box.append(win.zoom_toggle_button)
+        
+        # Create zoom revealer for toggle functionality
+        win.zoom_revealer = Gtk.Revealer()
+        win.zoom_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_LEFT)
+        win.zoom_revealer.set_transition_duration(200)
+        win.zoom_revealer.set_reveal_child(False)  # Hidden by default
+        
+        # Create zoom control element inside the revealer
+        zoom_control_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        zoom_control_box.add_css_class("linked")  # Use linked styling for cleaner appearance
+        zoom_control_box.set_halign(Gtk.Align.END)
+        
+        # Create zoom level label
+        win.zoom_label = Gtk.Label(label="100%")
+        win.zoom_label.set_width_chars(4)  # Set a fixed width for the label
+        win.zoom_label.set_margin_start(6)
+        zoom_control_box.append(win.zoom_label)
+        
+        # Add zoom out button
+        zoom_out_button = Gtk.Button.new_from_icon_name("zoom-out-symbolic")
+        zoom_out_button.set_tooltip_text("Zoom Out")
+        zoom_out_button.connect("clicked", lambda btn: self.on_zoom_out_clicked(win))
+        zoom_control_box.append(zoom_out_button)
+        
+        # Create the slider for zoom with just marks, no text
+        adjustment = Gtk.Adjustment(
+            value=100,     # Default value
+            lower=50,      # Minimum value
+            upper=400,     # Maximum value
+            step_increment=10,  # Step size
+            page_increment=50   # Page step size
+        )
+
+        win.zoom_scale = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, adjustment=adjustment)
+        win.zoom_scale.set_draw_value(False)  # Don't show the value on the scale
+        win.zoom_scale.set_size_request(200, -1)  # Set a reasonable width
+        win.zoom_scale.set_round_digits(0)  # Round to integer values
+
+        # Add only marks without any text
+        # Using NULL for the text parameter to create marks without labels
+        for mark_value in [50, 100, 200, 300]:
+            win.zoom_scale.add_mark(mark_value, Gtk.PositionType.BOTTOM, None)
+
+        # Connect to our zoom handler
+        win.zoom_scale.connect("value-changed", lambda s: self.on_zoom_changed_statusbar(win, s))
+        zoom_control_box.append(win.zoom_scale)
+
+        # Enable snapping to the marks
+        win.zoom_scale.set_has_origin(False)  # Disable highlighting from origin to current value
+
+        # Add zoom in button
+        zoom_in_button = Gtk.Button.new_from_icon_name("zoom-in-symbolic")
+        zoom_in_button.set_tooltip_text("Zoom In")
+        zoom_in_button.connect("clicked", lambda btn: self.on_zoom_in_clicked(win))
+        zoom_control_box.append(zoom_in_button)
+
+        # Set the zoom control box as the child of the revealer
+        win.zoom_revealer.set_child(zoom_control_box)
+
+        # Add the zoom revealer to the statusbar, before the toggle button
+        statusbar_box.insert_child_after(win.zoom_revealer, win.statusbar)
+
+        # Set the statusbar box as the child of the revealer
+        win.statusbar_revealer.set_child(statusbar_box)
+        content_box.append(win.statusbar_revealer)
+
         win.main_box.append(content_box)
         win.set_content(win.main_box)
-        
+
         self.setup_keyboard_shortcuts(win)
-        
+
         win.connect("close-request", self.on_window_close_request)
-        
+
         # Add to windows list
         self.windows.append(win)
-        
-        return win
 
+        return win
 
                     
     def setup_headerbar_content(self, win):
@@ -971,83 +1049,7 @@ grid.color-grid {
         # Add history group to toolbar
         file_toolbar.append(history_group)
         
-        # --- Zoom control (unchanged) ---
-        zoom_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
-        zoom_group.add_css_class("toolbar-group")
-        zoom_group.set_margin_start(6)
-        
-        # Zoom button with popup menu
-        zoom_button = Gtk.MenuButton()
-        zoom_button.set_label("100%")
-        zoom_button.set_tooltip_text("Zoom")
-        zoom_button.add_css_class("flat")
-        
-        # Create zoom scale menu
-        popover = Gtk.Popover()
-        popover_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        popover_box.set_margin_start(10)
-        popover_box.set_margin_end(10)
-        popover_box.set_margin_top(10)
-        popover_box.set_margin_bottom(10)
-        
-        # Add slider for zoom
-        scale_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
-        zoom_out_icon = Gtk.Image.new_from_icon_name("zoom-out-symbolic")
-        scale_box.append(zoom_out_icon)
-        
-        adjustment = Gtk.Adjustment(
-            value=100,
-            lower=50,
-            upper=300,
-            step_increment=10
-        )
-        
-        scale = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, adjustment=adjustment)
-        scale.set_draw_value(False)
-        scale.set_size_request(200, -1)
-        scale.connect("value-changed", lambda s: self.on_zoom_changed(win, s, zoom_button))
-        scale_box.append(scale)
-        
-        zoom_in_icon = Gtk.Image.new_from_icon_name("zoom-in-symbolic")
-        scale_box.append(zoom_in_icon)
-        
-        popover_box.append(scale_box)
-        
-        # Add preset zoom levels
-        presets_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
-        presets_box.set_homogeneous(True)
-        
-        # Create and add preset buttons 
-        zoom_presets = [100, 200, 300]
-        
-        for preset in zoom_presets:
-            preset_button = Gtk.Button(label=f"{preset}%")
-            preset_button.set_valign(Gtk.Align.CENTER)
-            preset_button.connect("clicked", lambda btn, p=preset: self.on_zoom_preset_clicked(win, p, scale, zoom_button, popover))
-            presets_box.append(preset_button)
-        
-        # Make the presets box scrollable for small screens
-        presets_scroll = Gtk.ScrolledWindow()
-        presets_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
-        presets_scroll.set_min_content_width(250)
-        presets_scroll.set_child(presets_box)
-        
-        popover_box.append(presets_scroll)
-        
-        # Set up the popover
-        popover.set_child(popover_box)
-        zoom_button.set_popover(popover)
-        
-        # Store references for updating
-        win.zoom_button = zoom_button
-        win.zoom_scale = scale
-        win.zoom_level = 100  # Initial zoom level
-        
-        # Add zoom button to zoom group
-        zoom_group.append(zoom_button)
-        
-        # Add zoom group to toolbar
-        file_toolbar.append(zoom_group)
+        # Note: We've removed the zoom control section from here
         
         # Add spacer (expanding box) at the end
         spacer = Gtk.Box()
@@ -1149,7 +1151,7 @@ grid.color-grid {
         """
         
         self.execute_js(win, js_code)
-        win.statusbar.set_text(f"Zoom level: {zoom_level}%")    
+        #win.statusbar.set_text(f"Zoom level: {zoom_level}%")    
         
     def create_formatting_toolbar(self, win):
         """Create the toolbar for formatting options with toggle buttons and dropdowns"""
@@ -4574,7 +4576,64 @@ grid.color-grid {
         style_context = box.get_style_context()
         style_context.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
-################
+#### Zoom statusbar
+    def on_zoom_changed_statusbar(self, win, scale):
+        """Handle zoom scale change with snapping to common values"""
+        # Get the current value from the scale
+        raw_value = scale.get_value()
+        
+        # Define common zoom levels to snap to
+        common_zoom_levels = [50, 75, 100, 125, 150, 175, 200, 250, 300, 350, 400]
+        
+        # Find the closest common zoom level
+        closest_zoom = min(common_zoom_levels, key=lambda x: abs(x - raw_value))
+        
+        # Check if we're close enough to snap
+        snap_threshold = 5  # Snap if within 5% of a common value
+        if abs(raw_value - closest_zoom) <= snap_threshold:
+            # We're close to a common value, snap to it
+            if raw_value != closest_zoom:  # Only set if different to avoid infinite recursion
+                scale.set_value(closest_zoom)
+            zoom_level = closest_zoom
+        else:
+            # Not close to a common value, use the rounded value
+            zoom_level = int(raw_value)
+        
+        # Update the label and apply zoom
+        win.zoom_label.set_text(f"{zoom_level}%")
+        win.zoom_level = zoom_level
+        
+        # Apply zoom to the editor
+        self.apply_zoom(win, zoom_level)
+        
+    # Add these new methods for zoom control in the statusbar
+    def on_zoom_toggle_clicked(self, win, button):
+        """Handle zoom toggle button click"""
+        is_active = button.get_active()
+        win.zoom_revealer.set_reveal_child(is_active)
+        
+        # Update status text
+        if is_active:
+            win.statusbar.set_text("Zoom controls shown")
+        else:
+            # Restore previous status message or show 'Ready'
+            win.statusbar.set_text("Ready")
+
+    def on_zoom_in_clicked(self, win):
+        """Handle zoom in button click"""
+        current_value = win.zoom_scale.get_value()
+        new_value = min(current_value + 10, 400)  # Increase by 10%, max 400%
+        win.zoom_scale.set_value(new_value)
+
+    def on_zoom_out_clicked(self, win):
+        """Handle zoom out button click"""
+        current_value = win.zoom_scale.get_value()
+        new_value = max(current_value - 10, 50)  # Decrease by 10%, min 50%
+        win.zoom_scale.set_value(new_value)
+
+
+
+
         
 def main():
     app = HTMLEditorApp()
