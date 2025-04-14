@@ -722,7 +722,7 @@ class HTMLEditorApp(Adw.Application):
         # Connect signal handler
         win.paragraph_style_handler_id = win.paragraph_style_dropdown.connect(
             "notify::selected", lambda dd, param: self.on_paragraph_style_changed(win, dd))
-        win.paragraph_style_dropdown.set_size_request(108, -1)
+        win.paragraph_style_dropdown.set_size_request(122, -1)
         pfs_box.append(win.paragraph_style_dropdown)
         
         # ---- FONT FAMILY DROPDOWN ----
@@ -745,7 +745,7 @@ class HTMLEditorApp(Adw.Application):
         win.font_dropdown.set_model(font_names)
 
         # Set fixed width and prevent expansion
-        win.font_dropdown.set_size_request(205, -1)
+        win.font_dropdown.set_size_request(235, -1)
         win.font_dropdown.set_hexpand(False)
         
         # Create a factory only for the BUTTON part of the dropdown
@@ -1104,7 +1104,7 @@ class HTMLEditorApp(Adw.Application):
 
         button_group = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
         button_group.set_margin_start(2)
-        button_group.set_margin_end(4)
+        button_group.set_margin_end(5)
         button_group.append(win.bold_button)
         button_group.append(win.italic_button)
         button_group.append(win.underline_button)
@@ -1114,7 +1114,7 @@ class HTMLEditorApp(Adw.Application):
         
         button_group2 = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=1)        
         button_group2.set_margin_start(0)
-        button_group2.set_margin_end(4)
+        button_group2.set_margin_end(5)
 
         button_group2.append(win.font_color_button)
         button_group2.append(win.bg_color_button)
