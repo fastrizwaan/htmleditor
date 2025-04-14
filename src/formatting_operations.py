@@ -1115,13 +1115,60 @@ def _update_alignment_buttons(self, win, active_alignment):
 
 def on_align_left_toggled(self, win, button):
     """Handle align left button toggle"""
-    # No need to check for handler_id, it should already be set
-    
-    # Execute alignment command
+    # Execute alignment command with list support
     js_code = """
     (function() {
-        document.execCommand('justifyLeft', false, null);
+        applyAlignmentWithListSupport('left');
         return 'left';  // Return the alignment type
+        
+        function applyAlignmentWithListSupport(alignment) {
+            // Get the current selection
+            const selection = window.getSelection();
+            if (selection.rangeCount === 0) return;
+            
+            const range = selection.getRangeAt(0);
+            
+            // First, apply standard alignment using execCommand
+            document.execCommand('justifyLeft', false, null);
+            
+            // Get all affected list elements
+            const commonAncestor = range.commonAncestorContainer;
+            let container;
+            
+            if (commonAncestor.nodeType === 3) { // Text node
+                container = commonAncestor.parentNode;
+            } else {
+                container = commonAncestor;
+            }
+            
+            // Find if we're dealing with a list
+            const listContainer = findListContainer(container);
+            
+            if (listContainer) {
+                // Apply additional CSS for list alignment
+                const listItems = listContainer.querySelectorAll('li');
+                listItems.forEach(li => {
+                    // Set the CSS for list item alignment
+                    li.style.textAlign = 'left';
+                    li.style.listStylePosition = 'outside'; // Default
+                });
+                
+                // Reset the list container padding/margin
+                listContainer.style.paddingLeft = '';
+                listContainer.style.marginLeft = '';
+            }
+        }
+        
+        // Helper function to find the list container (ul/ol)
+        function findListContainer(element) {
+            while (element && element !== document.body) {
+                if (element.tagName === 'UL' || element.tagName === 'OL') {
+                    return element;
+                }
+                element = element.parentNode;
+            }
+            return null;
+        }
     })();
     """
     
@@ -1135,13 +1182,60 @@ def on_align_left_toggled(self, win, button):
 
 def on_align_center_toggled(self, win, button):
     """Handle align center button toggle"""
-    # No need to check for handler_id, it should already be set
-    
-    # Execute alignment command
+    # Execute alignment command with list support
     js_code = """
     (function() {
-        document.execCommand('justifyCenter', false, null);
+        applyAlignmentWithListSupport('center');
         return 'center';  // Return the alignment type
+        
+        function applyAlignmentWithListSupport(alignment) {
+            // Get the current selection
+            const selection = window.getSelection();
+            if (selection.rangeCount === 0) return;
+            
+            const range = selection.getRangeAt(0);
+            
+            // First, apply standard alignment using execCommand
+            document.execCommand('justifyCenter', false, null);
+            
+            // Get all affected list elements
+            const commonAncestor = range.commonAncestorContainer;
+            let container;
+            
+            if (commonAncestor.nodeType === 3) { // Text node
+                container = commonAncestor.parentNode;
+            } else {
+                container = commonAncestor;
+            }
+            
+            // Find if we're dealing with a list
+            const listContainer = findListContainer(container);
+            
+            if (listContainer) {
+                // Apply additional CSS for list alignment
+                const listItems = listContainer.querySelectorAll('li');
+                listItems.forEach(li => {
+                    // Set the CSS for list item alignment
+                    li.style.textAlign = 'center';
+                    li.style.listStylePosition = 'inside';
+                });
+                
+                // Adjust the list container too
+                listContainer.style.paddingLeft = '0';
+                listContainer.style.marginLeft = '0';
+            }
+        }
+        
+        // Helper function to find the list container (ul/ol)
+        function findListContainer(element) {
+            while (element && element !== document.body) {
+                if (element.tagName === 'UL' || element.tagName === 'OL') {
+                    return element;
+                }
+                element = element.parentNode;
+            }
+            return null;
+        }
     })();
     """
     
@@ -1155,13 +1249,60 @@ def on_align_center_toggled(self, win, button):
 
 def on_align_right_toggled(self, win, button):
     """Handle align right button toggle"""
-    # No need to check for handler_id, it should already be set
-    
-    # Execute alignment command
+    # Execute alignment command with list support
     js_code = """
     (function() {
-        document.execCommand('justifyRight', false, null);
+        applyAlignmentWithListSupport('right');
         return 'right';  // Return the alignment type
+        
+        function applyAlignmentWithListSupport(alignment) {
+            // Get the current selection
+            const selection = window.getSelection();
+            if (selection.rangeCount === 0) return;
+            
+            const range = selection.getRangeAt(0);
+            
+            // First, apply standard alignment using execCommand
+            document.execCommand('justifyRight', false, null);
+            
+            // Get all affected list elements
+            const commonAncestor = range.commonAncestorContainer;
+            let container;
+            
+            if (commonAncestor.nodeType === 3) { // Text node
+                container = commonAncestor.parentNode;
+            } else {
+                container = commonAncestor;
+            }
+            
+            // Find if we're dealing with a list
+            const listContainer = findListContainer(container);
+            
+            if (listContainer) {
+                // Apply additional CSS for list alignment
+                const listItems = listContainer.querySelectorAll('li');
+                listItems.forEach(li => {
+                    // Set the CSS for list item alignment
+                    li.style.textAlign = 'right';
+                    li.style.listStylePosition = 'inside';
+                });
+                
+                // Adjust the list container too
+                listContainer.style.paddingLeft = '0';
+                listContainer.style.marginLeft = '0';
+            }
+        }
+        
+        // Helper function to find the list container (ul/ol)
+        function findListContainer(element) {
+            while (element && element !== document.body) {
+                if (element.tagName === 'UL' || element.tagName === 'OL') {
+                    return element;
+                }
+                element = element.parentNode;
+            }
+            return null;
+        }
     })();
     """
     
@@ -1175,13 +1316,60 @@ def on_align_right_toggled(self, win, button):
 
 def on_align_justify_toggled(self, win, button):
     """Handle justify button toggle"""
-    # No need to check for handler_id, it should already be set
-    
-    # Execute alignment command
+    # Execute alignment command with list support
     js_code = """
     (function() {
-        document.execCommand('justifyFull', false, null);
+        applyAlignmentWithListSupport('justify');
         return 'justify';  // Return the alignment type
+        
+        function applyAlignmentWithListSupport(alignment) {
+            // Get the current selection
+            const selection = window.getSelection();
+            if (selection.rangeCount === 0) return;
+            
+            const range = selection.getRangeAt(0);
+            
+            // First, apply standard alignment using execCommand
+            document.execCommand('justifyFull', false, null);
+            
+            // Get all affected list elements
+            const commonAncestor = range.commonAncestorContainer;
+            let container;
+            
+            if (commonAncestor.nodeType === 3) { // Text node
+                container = commonAncestor.parentNode;
+            } else {
+                container = commonAncestor;
+            }
+            
+            // Find if we're dealing with a list
+            const listContainer = findListContainer(container);
+            
+            if (listContainer) {
+                // Apply additional CSS for list alignment
+                const listItems = listContainer.querySelectorAll('li');
+                listItems.forEach(li => {
+                    // Set the CSS for list item alignment
+                    li.style.textAlign = 'justify';
+                    li.style.listStylePosition = 'inside';
+                });
+                
+                // Adjust the list container too
+                listContainer.style.paddingLeft = '0';
+                listContainer.style.marginLeft = '0';
+            }
+        }
+        
+        // Helper function to find the list container (ul/ol)
+        function findListContainer(element) {
+            while (element && element !== document.body) {
+                if (element.tagName === 'UL' || element.tagName === 'OL') {
+                    return element;
+                }
+                element = element.parentNode;
+            }
+            return null;
+        }
     })();
     """
     
@@ -2231,4 +2419,5 @@ def on_change_case(self, win, case_type):
     
     win.statusbar.set_text(status_messages.get(case_type, "Changed text case"))
     win.webview.grab_focus()
+##################
 
