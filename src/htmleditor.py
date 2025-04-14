@@ -5,7 +5,7 @@ import re
 import os
 
 # Hardware Acclerated Rendering (0); Software Rendering (1)
-os.environ['WEBKIT_DISABLE_COMPOSITING_MODE'] = '0'
+os.environ['WEBKIT_DISABLE_COMPOSITING_MODE'] = '1'
 
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
@@ -422,7 +422,8 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
 
         # Add to windows list
         self.windows.append(win)
-
+        self.setup_spacing_actions(win)
+        
         return win
 
                     
@@ -478,12 +479,11 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
             
     def create_file_toolbar(self, win):
         """Create the file toolbar with linked button groups"""
-        file_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        file_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
         file_toolbar.set_margin_start(4)
         file_toolbar.set_margin_end(0)
         file_toolbar.set_margin_top(5)
         file_toolbar.set_margin_bottom(0)
-        #file_toolbar.add_css_class("toolbar-group")
         
         # --- File operations group (New, Open, Save, Save As) ---
         file_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
@@ -590,7 +590,72 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         # Add history group to toolbar
         file_toolbar.append(history_group)
         
-        # Note: We've removed the zoom control section from here
+        # --- Spacing operations group (Line Spacing, Paragraph Spacing) ---
+        spacing_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
+        spacing_group.add_css_class("linked")  # Apply linked styling
+        spacing_group.set_margin_start(6)
+        
+        # Line spacing button menu
+        line_spacing_button = Gtk.MenuButton(icon_name="line_space_new")
+        line_spacing_button.set_size_request(40, 36)
+        line_spacing_button.set_tooltip_text("Line Spacing")
+        line_spacing_button.add_css_class("flat")
+        
+        # Create line spacing menu
+        line_spacing_menu = Gio.Menu()
+        
+        # Add line spacing options
+        line_spacing_menu.append("Single (1.0)", "win.line-spacing('1.0')")
+        line_spacing_menu.append("1.5 Lines", "win.line-spacing('1.5')")
+        line_spacing_menu.append("Double (2.0)", "win.line-spacing('2.0')")
+        line_spacing_menu.append("Custom...", "win.line-spacing-dialog")
+        
+        line_spacing_button.set_menu_model(line_spacing_menu)
+        
+        # Paragraph spacing button menu
+        para_spacing_button = Gtk.MenuButton(icon_name="paragraph_line_spacing")
+        para_spacing_button.set_size_request(40, 36)
+        para_spacing_button.set_tooltip_text("Paragraph Spacing")
+        para_spacing_button.add_css_class("flat")
+        
+        # Create paragraph spacing menu
+        para_spacing_menu = Gio.Menu()
+        
+        # Add paragraph spacing options
+        para_spacing_menu.append("None", "win.paragraph-spacing('0')")
+        para_spacing_menu.append("Small (5px)", "win.paragraph-spacing('5')")
+        para_spacing_menu.append("Medium (15px)", "win.paragraph-spacing('15')")
+        para_spacing_menu.append("Large (30px)", "win.paragraph-spacing('30')")
+        para_spacing_menu.append("Custom...", "win.paragraph-spacing-dialog")
+        
+        para_spacing_button.set_menu_model(para_spacing_menu)
+        
+        # Column layout button menu
+        column_button = Gtk.MenuButton(icon_name="columns-symbolic")
+        column_button.set_size_request(40, 36)
+        column_button.set_tooltip_text("Column Layout")
+        column_button.add_css_class("flat")
+        
+        # Create column menu
+        column_menu = Gio.Menu()
+        
+        # Add column options
+        column_menu.append("Single Column", "win.set-columns('1')")
+        column_menu.append("Two Columns", "win.set-columns('2')")
+        column_menu.append("Three Columns", "win.set-columns('3')")
+        column_menu.append("Four Columns", "win.set-columns('4')")
+        column_menu.append("Remove Columns", "win.set-columns('0')")
+        
+        column_button.set_menu_model(column_menu)
+        
+        # Add buttons to spacing group
+        spacing_group.append(line_spacing_button)
+        spacing_group.append(para_spacing_button)
+        spacing_group.append(column_button)
+        
+        # Add spacing group to toolbar
+        file_toolbar.append(spacing_group)        
+
         
         # Add spacer (expanding box) at the end
         spacer = Gtk.Box()
@@ -598,6 +663,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         file_toolbar.append(spacer)
         
         return file_toolbar
+
 
     def on_cut_clicked(self, win, btn):
         """Handle cut button click"""
@@ -2586,8 +2652,628 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         new_value = max(current_value - 10, 50)  # Decrease by 10%, min 50%
         win.zoom_scale.set_value(new_value)
 
-
+########################### line spacing and column
+    def setup_spacing_actions(self, win):
+        """Setup actions for paragraph and line spacing"""
+        # Line spacing actions
+        line_spacing_action = Gio.SimpleAction.new("line-spacing", GLib.VariantType.new("s"))
+        line_spacing_action.connect("activate", lambda action, param: self.apply_quick_line_spacing(win, float(param.get_string())))
+        win.add_action(line_spacing_action)
         
+        line_spacing_dialog_action = Gio.SimpleAction.new("line-spacing-dialog", None)
+        line_spacing_dialog_action.connect("activate", lambda action, param: self.on_line_spacing_clicked(win, action, param))
+        win.add_action(line_spacing_dialog_action)
+        
+        # Paragraph spacing actions
+        para_spacing_action = Gio.SimpleAction.new("paragraph-spacing", GLib.VariantType.new("s"))
+        para_spacing_action.connect("activate", lambda action, param: self.apply_quick_paragraph_spacing(win, int(param.get_string())))
+        win.add_action(para_spacing_action)
+        
+        para_spacing_dialog_action = Gio.SimpleAction.new("paragraph-spacing-dialog", None)
+        para_spacing_dialog_action.connect("activate", lambda action, param: self.on_paragraph_spacing_clicked(win, action, param))
+        win.add_action(para_spacing_dialog_action)
+
+    def on_paragraph_spacing_clicked(self, win, action, param):
+        """Show dialog to adjust paragraph spacing for individual or all paragraphs"""
+        dialog = Adw.Dialog()
+        dialog.set_title("Paragraph Spacing")
+        
+        # Create main content box
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=20)
+        content_box.set_margin_top(24)
+        content_box.set_margin_bottom(24)
+        content_box.set_margin_start(24)
+        content_box.set_margin_end(24)
+        
+        # Create spacing selection
+        header = Gtk.Label()
+        header.set_markup("<b>Paragraph Spacing Options:</b>")
+        header.set_halign(Gtk.Align.START)
+        content_box.append(header)
+        
+        # Radio buttons for scope selection
+        scope_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        scope_box.set_margin_top(12)
+        scope_box.set_margin_bottom(12)
+        
+        scope_label = Gtk.Label(label="Apply to:")
+        scope_label.set_halign(Gtk.Align.START)
+        scope_box.append(scope_label)
+        
+        # Create radio buttons
+        current_radio = Gtk.CheckButton(label="Current paragraph only")
+        current_radio.set_active(True)
+        scope_box.append(current_radio)
+        
+        all_radio = Gtk.CheckButton(label="All paragraphs")
+        all_radio.set_group(current_radio)
+        scope_box.append(all_radio)
+        
+        content_box.append(scope_box)
+        
+        # Spacing slider
+        spacing_label = Gtk.Label(label="Spacing value:")
+        spacing_label.set_halign(Gtk.Align.START)
+        content_box.append(spacing_label)
+        
+        adjustment = Gtk.Adjustment.new(10, 0, 50, 1, 5, 0)
+        spacing_scale = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, adjustment=adjustment)
+        spacing_scale.set_hexpand(True)
+        spacing_scale.set_digits(0)
+        spacing_scale.set_draw_value(True)
+        spacing_scale.add_mark(0, Gtk.PositionType.BOTTOM, "None")
+        spacing_scale.add_mark(10, Gtk.PositionType.BOTTOM, "Default")
+        spacing_scale.add_mark(30, Gtk.PositionType.BOTTOM, "Wide")
+        content_box.append(spacing_scale)
+        
+        # Preset buttons
+        presets_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        presets_box.set_homogeneous(True)
+        presets_box.set_margin_top(12)
+        
+        none_button = Gtk.Button(label="None")
+        none_button.connect("clicked", lambda btn: spacing_scale.set_value(0))
+        presets_box.append(none_button)
+        
+        small_button = Gtk.Button(label="Small")
+        small_button.connect("clicked", lambda btn: spacing_scale.set_value(5))
+        presets_box.append(small_button)
+        
+        medium_button = Gtk.Button(label="Medium") 
+        medium_button.connect("clicked", lambda btn: spacing_scale.set_value(15))
+        presets_box.append(medium_button)
+        
+        large_button = Gtk.Button(label="Large")
+        large_button.connect("clicked", lambda btn: spacing_scale.set_value(30))
+        presets_box.append(large_button)
+        
+        content_box.append(presets_box)
+        
+        # Button box
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        button_box.set_halign(Gtk.Align.END)
+        button_box.set_margin_top(24)
+        
+        # Cancel button
+        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button.connect("clicked", lambda btn: dialog.close())
+        button_box.append(cancel_button)
+        
+        # Apply button
+        apply_button = Gtk.Button(label="Apply")
+        apply_button.add_css_class("suggested-action")
+        apply_button.connect("clicked", lambda btn: self.apply_paragraph_spacing(
+            win, dialog, spacing_scale.get_value(), current_radio.get_active()))
+        button_box.append(apply_button)
+        
+        content_box.append(button_box)
+        
+        # Set up the dialog content
+        dialog.set_child(content_box)
+        
+        # Present the dialog
+        dialog.present(win)
+
+    def apply_paragraph_spacing(self, win, dialog, spacing, current_only):
+        """Apply paragraph spacing to the current paragraph or all paragraphs"""
+        if current_only:
+            # Apply spacing to just the selected paragraphs
+            js_code = f"""
+            (function() {{
+                return setParagraphSpacing({int(spacing)});
+            }})();
+            """
+            self.execute_js(win, js_code)
+        else:
+            # Apply spacing to all paragraphs
+            js_code = f"""
+            (function() {{
+                // First ensure all direct text content is wrapped
+                wrapUnwrappedText(document.getElementById('editor'));
+                
+                // Target both p tags and div tags as paragraphs
+                let paragraphs = document.getElementById('editor').querySelectorAll('p, div');
+                
+                // Apply to all paragraphs
+                for (let i = 0; i < paragraphs.length; i++) {{
+                    paragraphs[i].style.marginBottom = '{int(spacing)}px';
+                }}
+                
+                return true;
+            }})();
+            """
+            self.execute_js(win, js_code)
+        
+        win.statusbar.set_text(f"Paragraph spacing set to {int(spacing)}px")
+        dialog.close()
+
+    def apply_quick_paragraph_spacing(self, win, spacing):
+        """Apply spacing to the selected paragraphs through menu action"""
+        js_code = f"""
+        (function() {{
+            return setParagraphSpacing({spacing});
+        }})();
+        """
+        self.execute_js(win, js_code)
+        win.statusbar.set_text(f"Paragraph spacing set to {spacing}px")
+
+    def on_line_spacing_clicked(self, win, action, param):
+        """Show dialog to adjust line spacing for individual or all paragraphs"""
+        dialog = Adw.Dialog()
+        dialog.set_title("Line Spacing")
+        
+        # Create main content box
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=20)
+        content_box.set_margin_top(24)
+        content_box.set_margin_bottom(24)
+        content_box.set_margin_start(24)
+        content_box.set_margin_end(24)
+        
+        # Create spacing selection
+        header = Gtk.Label()
+        header.set_markup("<b>Line Spacing Options:</b>")
+        header.set_halign(Gtk.Align.START)
+        content_box.append(header)
+        
+        # Radio buttons for scope selection
+        scope_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        scope_box.set_margin_top(12)
+        scope_box.set_margin_bottom(12)
+        
+        scope_label = Gtk.Label(label="Apply to:")
+        scope_label.set_halign(Gtk.Align.START)
+        scope_box.append(scope_label)
+        
+        # Create radio buttons
+        current_radio = Gtk.CheckButton(label="Current paragraph only")
+        current_radio.set_active(True)
+        scope_box.append(current_radio)
+        
+        all_radio = Gtk.CheckButton(label="All paragraphs")
+        all_radio.set_group(current_radio)
+        scope_box.append(all_radio)
+        
+        content_box.append(scope_box)
+        
+        # Preset buttons
+        presets_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        presets_label = Gtk.Label(label="Common spacing:")
+        presets_label.set_halign(Gtk.Align.START)
+        presets_box.append(presets_label)
+        
+        buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        buttons_box.set_homogeneous(True)
+        
+        single_button = Gtk.Button(label="Single (1.0)")
+        single_button.connect("clicked", lambda btn: self.apply_line_spacing(
+            win, dialog, 1.0, current_radio.get_active()))
+        buttons_box.append(single_button)
+        
+        one_half_button = Gtk.Button(label="1.5 lines")
+        one_half_button.connect("clicked", lambda btn: self.apply_line_spacing(
+            win, dialog, 1.5, current_radio.get_active()))
+        buttons_box.append(one_half_button)
+        
+        double_button = Gtk.Button(label="Double (2.0)")
+        double_button.connect("clicked", lambda btn: self.apply_line_spacing(
+            win, dialog, 2.0, current_radio.get_active()))
+        buttons_box.append(double_button)
+        
+        presets_box.append(buttons_box)
+        content_box.append(presets_box)
+        
+        # Custom spacing section
+        custom_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        custom_box.set_margin_top(8)
+        
+        custom_label = Gtk.Label(label="Custom spacing:")
+        custom_label.set_halign(Gtk.Align.START)
+        custom_box.append(custom_label)
+        
+        # Add slider for custom spacing
+        adjustment = Gtk.Adjustment.new(1.0, 0.8, 3.0, 0.1, 0.2, 0)
+        spacing_scale = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, adjustment=adjustment)
+        spacing_scale.set_hexpand(True)
+        spacing_scale.set_digits(1)
+        spacing_scale.set_draw_value(True)
+        spacing_scale.add_mark(1.0, Gtk.PositionType.BOTTOM, "1.0")
+        spacing_scale.add_mark(1.5, Gtk.PositionType.BOTTOM, "1.5")
+        spacing_scale.add_mark(2.0, Gtk.PositionType.BOTTOM, "2.0")
+        custom_box.append(spacing_scale)
+        
+        # Apply custom button
+        custom_apply_button = Gtk.Button(label="Apply Custom Value")
+        custom_apply_button.connect("clicked", lambda btn: self.apply_line_spacing(
+            win, dialog, spacing_scale.get_value(), current_radio.get_active()))
+        custom_apply_button.set_margin_top(8)
+        custom_box.append(custom_apply_button)
+        
+        content_box.append(custom_box)
+        
+        # Button box
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        button_box.set_halign(Gtk.Align.END)
+        button_box.set_margin_top(24)
+        
+        # Cancel button
+        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button.connect("clicked", lambda btn: dialog.close())
+        button_box.append(cancel_button)
+        
+        content_box.append(button_box)
+        
+        # Set up the dialog content
+        dialog.set_child(content_box)
+        
+        # Present the dialog
+        dialog.present(win)
+
+    def apply_line_spacing(self, win, dialog, spacing, current_only):
+        """Apply line spacing to the current paragraph or all paragraphs"""
+        if current_only:
+            # Apply spacing to just the selected paragraphs
+            js_code = f"""
+            (function() {{
+                return setLineSpacing({spacing});
+            }})();
+            """
+            self.execute_js(win, js_code)
+        else:
+            # Apply spacing to all paragraphs
+            js_code = f"""
+            (function() {{
+                // First ensure all direct text content is wrapped
+                wrapUnwrappedText(document.getElementById('editor'));
+                
+                // Target both p tags and div tags as paragraphs
+                let paragraphs = document.getElementById('editor').querySelectorAll('p, div');
+                
+                // Apply to all paragraphs
+                for (let i = 0; i < paragraphs.length; i++) {{
+                    paragraphs[i].style.lineHeight = '{spacing}';
+                }}
+                
+                return true;
+            }})();
+            """
+            self.execute_js(win, js_code)
+        
+        win.statusbar.set_text(f"Line spacing set to {spacing}")
+        dialog.close()
+    def apply_quick_line_spacing(self, win, spacing):
+        """Apply line spacing to the selected paragraphs through menu action"""
+        js_code = f"""
+        (function() {{
+            return setLineSpacing({spacing});
+        }})();
+        """
+        self.execute_js(win, js_code)
+        win.statusbar.set_text(f"Line spacing set to {spacing}")
+
+    def get_editor_js(self):
+        """Return the combined JavaScript logic for the editor."""
+        return f"""
+        // Global scope for persistence
+        window.undoStack = [];
+        window.redoStack = [];
+        window.isUndoRedo = false;
+        window.lastContent = "";
+        
+        // Search variables
+        var searchResults = [];
+        var searchIndex = -1;
+        var currentSearchText = "";
+
+        {self.save_state_js()}
+        {self.perform_undo_js()}
+        {self.perform_redo_js()}
+        {self.find_last_text_node_js()}
+        {self.get_stack_sizes_js()}
+        {self.set_content_js()}
+        {self.selection_change_js()}
+        {self.search_functions_js()}
+        {self.paragraph_and_line_spacing_js()}
+        {self.init_editor_js()}
+        """
+
+    def paragraph_and_line_spacing_js(self):
+        """JavaScript for paragraph and line spacing functions"""
+        return """
+        // Function to set paragraph spacing
+        function setParagraphSpacing(spacing) {
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return false;
+            
+            // Strategy: Get all paragraphs in the selection range
+            const range = selection.getRangeAt(0);
+            const startNode = findContainerParagraph(range.startContainer);
+            const endNode = findContainerParagraph(range.endContainer);
+            
+            // If we couldn't find containers, try a different approach
+            if (!startNode || !endNode) {
+                return setSimpleParagraphSpacing(spacing);
+            }
+            
+            // Get all paragraphs in the selection range
+            const paragraphs = getAllParagraphsInRange(startNode, endNode);
+            
+            // Apply spacing to all found paragraphs
+            paragraphs.forEach(para => {
+                para.style.marginBottom = spacing + 'px';
+            });
+            
+            return true;
+        }
+        
+        // Function to set line spacing
+        function setLineSpacing(spacing) {
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return false;
+            
+            // Strategy: Get all paragraphs in the selection range
+            const range = selection.getRangeAt(0);
+            const startNode = findContainerParagraph(range.startContainer);
+            const endNode = findContainerParagraph(range.endContainer);
+            
+            // If we couldn't find containers, try a different approach
+            if (!startNode || !endNode) {
+                return setSimpleLineSpacing(spacing);
+            }
+            
+            // Get all paragraphs in the selection range
+            const paragraphs = getAllParagraphsInRange(startNode, endNode);
+            
+            // Apply spacing to all found paragraphs
+            paragraphs.forEach(para => {
+                para.style.lineHeight = spacing;
+            });
+            
+            return true;
+        }
+        
+        // Helper function to find the container paragraph of a node
+        function findContainerParagraph(node) {
+            while (node && node.id !== 'editor') {
+                if (node.nodeType === 1 && 
+                    (node.nodeName.toLowerCase() === 'p' || 
+                     node.nodeName.toLowerCase() === 'div')) {
+                    return node;
+                }
+                node = node.parentNode;
+            }
+            return null;
+        }
+        
+        // Get all paragraphs between start and end node (inclusive)
+        function getAllParagraphsInRange(startNode, endNode) {
+            // If start and end are the same, just return that node
+            if (startNode === endNode) {
+                return [startNode];
+            }
+            
+            // Get all paragraphs in the editor
+            const allParagraphs = Array.from(document.getElementById('editor').querySelectorAll('p, div'));
+            
+            // Find the indices of our start and end nodes
+            const startIndex = allParagraphs.indexOf(startNode);
+            const endIndex = allParagraphs.indexOf(endNode);
+            
+            // Handle case where we can't find one of the nodes
+            if (startIndex === -1 || endIndex === -1) {
+                // Fall back to just the nodes we have
+                return [startNode, endNode].filter(node => node !== null);
+            }
+            
+            // Return all paragraphs between start and end (inclusive)
+            return allParagraphs.slice(
+                Math.min(startIndex, endIndex), 
+                Math.max(startIndex, endIndex) + 1
+            );
+        }
+        
+        // Fallback method for paragraph spacing when selection is unusual
+        function setSimpleParagraphSpacing(spacing) {
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return false;
+            
+            let node = selection.getRangeAt(0).commonAncestorContainer;
+            
+            // Navigate up to find the paragraph node
+            while (node && node.nodeType !== 1) {
+                node = node.parentNode;
+            }
+            
+            // Find the containing paragraph or div
+            while (node && node.id !== 'editor' && 
+                  (node.nodeName.toLowerCase() !== 'p' && 
+                   node.nodeName.toLowerCase() !== 'div')) {
+                node = node.parentNode;
+            }
+            
+            if (node && node.id !== 'editor') {
+                node.style.marginBottom = spacing + 'px';
+                return true;
+            }
+            return false;
+        }
+        
+        // Fallback method for line spacing when selection is unusual
+        function setSimpleLineSpacing(spacing) {
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return false;
+            
+            let node = selection.getRangeAt(0).commonAncestorContainer;
+            
+            // Navigate up to find the paragraph node
+            while (node && node.nodeType !== 1) {
+                node = node.parentNode;
+            }
+            
+            // Find the containing paragraph or div
+            while (node && node.id !== 'editor' && 
+                  (node.nodeName.toLowerCase() !== 'p' && 
+                   node.nodeName.toLowerCase() !== 'div')) {
+                node = node.parentNode;
+            }
+            
+            if (node && node.id !== 'editor') {
+                node.style.lineHeight = spacing;
+                return true;
+            }
+            return false;
+        }
+        
+        // Function to wrap unwrapped text
+        function wrapUnwrappedText(container) {
+            let childNodes = Array.from(container.childNodes);
+            for (let i = 0; i < childNodes.length; i++) {
+                let node = childNodes[i];
+                if (node.nodeType === 3 && node.nodeValue.trim() !== '') {
+                    // It's a text node with content, wrap it
+                    let wrapper = document.createElement('div');
+                    node.parentNode.insertBefore(wrapper, node);
+                    wrapper.appendChild(node);
+                }
+            }
+        }
+        // Function to apply column layout to a container
+        function setColumnLayout(container, columns) {
+            if (columns <= 1) {
+                // Remove column styling
+                container.style.columnCount = '';
+                container.style.columnGap = '';
+                container.style.columnRule = '';
+            } else {
+                // Apply column styling
+                container.style.columnCount = columns;
+                container.style.columnGap = '20px';
+                container.style.columnRule = '1px solid #ccc';
+            }
+        }
+        """      
+        
+############ column
+    def setup_spacing_actions(self, win):
+        """Setup actions for paragraph and line spacing"""
+        # Line spacing actions
+        line_spacing_action = Gio.SimpleAction.new("line-spacing", GLib.VariantType.new("s"))
+        line_spacing_action.connect("activate", lambda action, param: self.apply_quick_line_spacing(win, float(param.get_string())))
+        win.add_action(line_spacing_action)
+        
+        line_spacing_dialog_action = Gio.SimpleAction.new("line-spacing-dialog", None)
+        line_spacing_dialog_action.connect("activate", lambda action, param: self.on_line_spacing_clicked(win, action, param))
+        win.add_action(line_spacing_dialog_action)
+        
+        # Paragraph spacing actions
+        para_spacing_action = Gio.SimpleAction.new("paragraph-spacing", GLib.VariantType.new("s"))
+        para_spacing_action.connect("activate", lambda action, param: self.apply_quick_paragraph_spacing(win, int(param.get_string())))
+        win.add_action(para_spacing_action)
+        
+        para_spacing_dialog_action = Gio.SimpleAction.new("paragraph-spacing-dialog", None)
+        para_spacing_dialog_action.connect("activate", lambda action, param: self.on_paragraph_spacing_clicked(win, action, param))
+        win.add_action(para_spacing_dialog_action)
+        
+        # Column layout actions
+        column_action = Gio.SimpleAction.new("set-columns", GLib.VariantType.new("s"))
+        column_action.connect("activate", lambda action, param: self.apply_column_layout(win, int(param.get_string())))
+        win.add_action(column_action)        
+
+    def apply_column_layout(self, win, columns):
+        """Apply column layout to the selected content"""
+        js_code = f"""
+        (function() {{
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return false;
+            
+            // Strategy similar to paragraph spacing
+            const range = selection.getRangeAt(0);
+            
+            // First, try to get a structured element like div or p
+            let container = null;
+            
+            // Check if selection is within a paragraph or div
+            let node = range.commonAncestorContainer;
+            if (node.nodeType === 3) {{ // Text node
+                node = node.parentNode;
+            }}
+            
+            // Find a suitable container or create one
+            while (node && node.id !== 'editor') {{
+                if (node.nodeName.toLowerCase() === 'div' || 
+                    node.nodeName.toLowerCase() === 'p') {{
+                    container = node;
+                    break;
+                }}
+                node = node.parentNode;
+            }}
+            
+            // If we didn't find a container, we'll need to create a wrapper
+            if (!container || container.id === 'editor') {{
+                // Create a wrapper around the selection
+                document.execCommand('formatBlock', false, 'div');
+                
+                // Get the newly created div
+                const newRange = selection.getRangeAt(0);
+                node = newRange.commonAncestorContainer;
+                if (node.nodeType === 3) {{
+                    node = node.parentNode;
+                }}
+                
+                // Find our new container
+                while (node && node.id !== 'editor') {{
+                    if (node.nodeName.toLowerCase() === 'div') {{
+                        container = node;
+                        break;
+                    }}
+                    node = node.parentNode;
+                }}
+            }}
+            
+            if (container) {{
+                if ({columns} <= 1) {{
+                    // Remove column styling
+                    container.style.columnCount = '';
+                    container.style.columnGap = '';
+                    container.style.columnRule = '';
+                    return true;
+                }} else {{
+                    // Apply column styling
+                    container.style.columnCount = {columns};
+                    container.style.columnGap = '20px';
+                    container.style.columnRule = '1px solid #ccc';
+                    return true;
+                }}
+            }}
+            
+            return false;
+        }})();
+        """
+        self.execute_js(win, js_code)
+        
+        status_text = "Column layout removed" if columns <= 1 else f"Applied {columns}-column layout"
+        win.statusbar.set_text(status_text)
+
+         
 def main():
     app = HTMLEditorApp()
     return app.run(sys.argv)
