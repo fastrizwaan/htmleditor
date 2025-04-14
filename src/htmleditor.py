@@ -482,7 +482,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         file_toolbar.set_margin_start(4)
         file_toolbar.set_margin_end(0)
         file_toolbar.set_margin_top(5)
-        file_toolbar.set_margin_bottom(5)
+        file_toolbar.set_margin_bottom(0)
         #file_toolbar.add_css_class("toolbar-group")
         
         # --- File operations group (New, Open, Save, Save As) ---
@@ -2594,4 +2594,4 @@ def main():
 
 if __name__ == "__main__":
     Adw.init()
-    sys.exit(main())
+    sys.exit(main())    

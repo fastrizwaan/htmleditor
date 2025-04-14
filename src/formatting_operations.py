@@ -84,7 +84,7 @@ def create_formatting_toolbar(self, win):
     win.font_dropdown.set_model(font_names)
 
     # Set fixed width and prevent expansion
-    win.font_dropdown.set_size_request(235, -1)
+    win.font_dropdown.set_size_request(282, -1)
     win.font_dropdown.set_hexpand(False)
     
     # Create a factory only for the BUTTON part of the dropdown
