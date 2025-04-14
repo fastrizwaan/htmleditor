@@ -99,28 +99,34 @@ class HTMLEditorApp(Adw.Application):
         self.css_provider = Gtk.CssProvider()
         
         css_data = b"""
-            .toolbar-container { padding: 0px 0px; background-color: rgba(127, 127, 127, 0.05); }
-            .flat { background: none; }
-            .flat:hover { background: rgba(127, 127, 127, 0.25); }
-            .flat:checked { background: rgba(127, 127, 127, 0.25); }
-            colorbutton.flat, colorbutton.flat button { background: none; }
-            colorbutton.flat:hover, colorbutton.flat button:hover { background: rgba(127, 127, 127, 0.25); }
-            dropdown.flat, dropdown.flat button { background: none; border-radius: 5px; }
-            dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
-            .flat-header { background: rgba(127, 127, 127, 0.05); border: none; box-shadow: none; padding: 0px; }
-            .button-box button { min-width: 80px; min-height: 36px; }
-            .highlighted { background-color: rgba(127, 127, 127, 0.15); }
-            .toolbar-group { margin: 0px 3px; }
-            .toolbar-separator { min-height: 0px; min-width: 1px; background-color: alpha(currentColor, 0.15); margin: 0px 0px; }
-            .color-indicator { min-height: 2px; min-width: 16px; margin-top: 1px; margin-bottom: 0px; border-radius: 2px; }
-            .color-box { padding: 0px; }
-            .linked button               {background-color: rgba(127, 127, 127, 0.10); border: solid 1px rgba(127, 127, 127, 0.00);}
-            .linked button:hover         {background-color: rgba(127, 127, 127, 0.35); border: solid 1px rgba(127, 127, 127, 0.30);}
-            .linked button:active        {background-color: rgba(127, 127, 127, 0.35); border: solid 1px rgba(127, 127, 127, 0.00);}
-            .linked button:checked       {background-color: rgba(127, 127, 127, 0.35); border: solid 1px rgba(127, 127, 127, 0.00);}
-            .linked button:checked:hover {background-color: rgba(127, 127, 127, 0.35); border: solid 1px rgba(127, 127, 127, 0.30);}
- 
-        """
+.toolbar-container { padding: 0px 0px; background-color: rgba(127, 127, 127, 0.05); }
+.flat { background: none; }
+.flat:hover { background: rgba(127, 127, 127, 0.25); }
+.flat:checked { background: rgba(127, 127, 127, 0.25); }
+colorbutton.flat, colorbutton.flat button { background: none; }
+colorbutton.flat:hover, colorbutton.flat button:hover { background: rgba(127, 127, 127, 0.25); }
+dropdown.flat, dropdown.flat button { background: none; border-radius: 5px; }
+dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
+.flat-header { background: rgba(127, 127, 127, 0.05); border: none; box-shadow: none; padding: 0px; }
+.button-box button { min-width: 80px; min-height: 36px; }
+.highlighted { background-color: rgba(127, 127, 127, 0.15); }
+.toolbar-group { margin: 0px 3px; }
+.toolbar-separator { min-height: 0px; min-width: 1px; background-color: alpha(currentColor, 0.15); margin: 0px 0px; }
+.color-indicator { min-height: 2px; min-width: 16px; margin-top: 1px; margin-bottom: 0px; border-radius: 2px; }
+.color-box { padding: 0px; }
+.linked button               {background-color: rgba(127, 127, 127, 0.10); border: solid 1px rgba(127, 127, 127, 0.00);}
+.linked button:hover         {background-color: rgba(127, 127, 127, 0.35); border: solid 1px rgba(127, 127, 127, 0.30);}
+.linked button:active        {background-color: rgba(127, 127, 127, 0.35); border: solid 1px rgba(127, 127, 127, 0.00);}
+.linked button:checked       {background-color: rgba(127, 127, 127, 0.35); border: solid 1px rgba(127, 127, 127, 0.00);}
+.linked button:checked:hover {background-color: rgba(127, 127, 127, 0.35); border: solid 1px rgba(127, 127, 127, 0.30);}
+.linked splitbutton > menubutton > button.toggle {
+    border-top-left-radius: 0px; border-bottom-left-radius: 0px; border-top-right-radius: 0px; border-bottom-right-radius: 0px;}
+.linked splitbutton > button  {
+    border-top-left-radius: 0px; border-bottom-left-radius: 0px; border-top-right-radius: 0px; border-bottom-right-radius: 0px;}
+.linked splitbutton:first-child > button  {
+    border-top-left-radius: 5px; border-bottom-left-radius: 5px; border-top-right-radius: 0px; border-bottom-right-radius: 0px;}
+
+"""
         
         # Load the CSS data
         try:
@@ -894,37 +900,35 @@ class HTMLEditorApp(Adw.Application):
         #formatting_buttons_box.append(win.superscript_button)
         
         # Text Color button
-        win.font_color_button = Gtk.MenuButton()
-        win.font_color_button.set_tooltip_text("Text Color")
-        win.font_color_button.set_focus_on_click(False)
-        win.font_color_button.set_size_request(40, 36)
-
-        # Create vertical box to hold the icon and color indicator
+        # --- Text Color SplitButton
+        # Create the main button part with icon and color indicator
         font_color_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+
+        # Icon
         font_color_icon = Gtk.Image.new_from_icon_name("draw-text-symbolic")
         font_color_icon.set_margin_top(4)
+        font_color_icon.set_margin_bottom(0)
         font_color_box.append(font_color_icon)
 
-        # Add color indicator with transparent background
+        # Color indicator
         win.font_color_indicator = Gtk.Box()
         win.font_color_indicator.add_css_class("color-indicator")
-        win.font_color_indicator.set_size_request(4, 2)
+        win.font_color_indicator.set_size_request(16, 2)
         color = Gdk.RGBA()
         color.parse("transparent")
         self.set_box_color(win.font_color_indicator, color)
-
         font_color_box.append(win.font_color_indicator)
-        win.font_color_button.set_child(font_color_box)
 
-        # Create font color popover
+        # Create font color popover for the dropdown part
         font_color_popover = Gtk.Popover()
         font_color_popover.set_autohide(True)
         font_color_popover.set_has_arrow(False)
-        font_color_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        font_color_box.set_margin_start(0)
-        font_color_box.set_margin_end(0)
-        font_color_box.set_margin_top(0)
-        font_color_box.set_margin_bottom(0)
+
+        font_color_box_menu = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        font_color_box_menu.set_margin_start(6)
+        font_color_box_menu.set_margin_end(6)
+        font_color_box_menu.set_margin_top(6)
+        font_color_box_menu.set_margin_bottom(6)
 
         # Add "Automatic" option at the top
         automatic_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -937,17 +941,17 @@ class HTMLEditorApp(Adw.Application):
         automatic_button = Gtk.Button()
         automatic_button.set_child(automatic_row)
         automatic_button.connect("clicked", lambda btn: self.on_font_color_automatic_clicked(win, font_color_popover))
-        font_color_box.append(automatic_button)
+        font_color_box_menu.append(automatic_button)
 
         # Add separator
         separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        separator.set_margin_bottom(0)
-        font_color_box.append(separator)
+        separator.set_margin_bottom(6)
+        font_color_box_menu.append(separator)
 
         # Create color grid
         font_color_grid = Gtk.Grid()
-        font_color_grid.set_row_spacing(0)
-        font_color_grid.set_column_spacing(0)
+        font_color_grid.set_row_spacing(2)
+        font_color_grid.set_column_spacing(2)
         font_color_grid.set_row_homogeneous(True)
         font_color_grid.set_column_homogeneous(True)
         font_color_grid.add_css_class("color-grid")
@@ -975,53 +979,59 @@ class HTMLEditorApp(Adw.Application):
                 col = 0
                 row += 1
 
-        font_color_box.append(font_color_grid)
+        font_color_box_menu.append(font_color_grid)
 
         # Add "More Colors..." button
         more_colors_button = Gtk.Button(label="More Colors...")
-        more_colors_button.set_margin_top(0)
+        more_colors_button.set_margin_top(6)
         more_colors_button.connect("clicked", lambda btn: self.on_more_font_colors_clicked(win, font_color_popover))
-        font_color_box.append(more_colors_button)
+        font_color_box_menu.append(more_colors_button)
 
-        # Set content and connect popover
-        font_color_popover.set_child(font_color_box)
+        # Set content for popover
+        font_color_popover.set_child(font_color_box_menu)
+
+        # Create the SplitButton
+        win.font_color_button = Adw.SplitButton()
+
+        win.font_color_button.set_tooltip_text("Text Color")
+        win.font_color_button.set_focus_on_click(False)
+        win.font_color_button.set_size_request(40, 36)
+        win.font_color_button.set_child(font_color_box)
         win.font_color_button.set_popover(font_color_popover)
-        
-        #formatting_buttons_box.append(win.font_color_button)
+
+        # Connect the click handler to apply the current color
+        win.font_color_button.connect("clicked", lambda btn: self.on_font_color_button_clicked(win))
+
 
         # Background Color button
-        win.bg_color_button = Gtk.MenuButton()
-        win.bg_color_button.set_tooltip_text("Background Color")
-        win.bg_color_button.set_focus_on_click(False)
-        win.bg_color_button.set_size_request(40, 36)
-
-        # Create vertical box to hold the icon and color indicator
+        # --- Background Color SplitButton ---
+        # Create the main button part with icon and color indicator
         bg_color_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+
+        # Icon
         bg_color_icon = Gtk.Image.new_from_icon_name("marker-symbolic")
         bg_color_icon.set_margin_top(4)
+        bg_color_icon.set_margin_bottom(0)
         bg_color_box.append(bg_color_icon)
 
-        # Add color indicator
+        # Color indicator
         win.bg_color_indicator = Gtk.Box()
         win.bg_color_indicator.add_css_class("color-indicator")
-        win.bg_color_indicator.set_size_request(4, 2)
-        win.bg_color_indicator.set_margin_top(0)
+        win.bg_color_indicator.set_size_request(16, 2)
         bg_color = Gdk.RGBA()
         bg_color.parse("transparent")
         self.set_box_color(win.bg_color_indicator, bg_color)
-
         bg_color_box.append(win.bg_color_indicator)
-        win.bg_color_button.set_child(bg_color_box)
 
-        # Create Background Color popover
+        # Create Background Color popover for the dropdown
         bg_color_popover = Gtk.Popover()
         bg_color_popover.set_autohide(True)
         bg_color_popover.set_has_arrow(False)
-        bg_color_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        bg_color_box.set_margin_start(0)
-        bg_color_box.set_margin_end(0)
-        bg_color_box.set_margin_top(0)
-        bg_color_box.set_margin_bottom(0)
+        bg_color_box_menu = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        bg_color_box_menu.set_margin_start(6)
+        bg_color_box_menu.set_margin_end(6)
+        bg_color_box_menu.set_margin_top(6)
+        bg_color_box_menu.set_margin_bottom(6)
 
         # Add "Automatic" option at the top
         bg_automatic_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -1034,12 +1044,12 @@ class HTMLEditorApp(Adw.Application):
         bg_automatic_button = Gtk.Button()
         bg_automatic_button.set_child(bg_automatic_row)
         bg_automatic_button.connect("clicked", lambda btn: self.on_bg_color_automatic_clicked(win, bg_color_popover))
-        bg_color_box.append(bg_automatic_button)
+        bg_color_box_menu.append(bg_automatic_button)
 
         # Add separator
         bg_separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
         bg_separator.set_margin_bottom(6)
-        bg_color_box.append(bg_separator)
+        bg_color_box_menu.append(bg_separator)
 
         # Create color grid
         bg_color_grid = Gtk.Grid()
@@ -1063,17 +1073,27 @@ class HTMLEditorApp(Adw.Application):
                 col = 0
                 row += 1
 
-        bg_color_box.append(bg_color_grid)
+        bg_color_box_menu.append(bg_color_grid)
 
         # Add "More Colors..." button
         bg_more_colors_button = Gtk.Button(label="More Colors...")
         bg_more_colors_button.set_margin_top(6)
         bg_more_colors_button.connect("clicked", lambda btn: self.on_more_bg_colors_clicked(win, bg_color_popover))
-        bg_color_box.append(bg_more_colors_button)
+        bg_color_box_menu.append(bg_more_colors_button)
 
-        # Set content and connect popover
-        bg_color_popover.set_child(bg_color_box)
+        # Set content for popover
+        bg_color_popover.set_child(bg_color_box_menu)
+
+        # Create the SplitButton
+        win.bg_color_button = Adw.SplitButton()
+        win.bg_color_button.set_tooltip_text("Background Color")
+        win.bg_color_button.set_focus_on_click(False)
+        win.bg_color_button.set_size_request(40, 36)
+        win.bg_color_button.set_child(bg_color_box)
         win.bg_color_button.set_popover(bg_color_popover)
+
+        # Connect the click handler to apply the current color
+        win.bg_color_button.connect("clicked", lambda btn: self.on_bg_color_button_clicked(win))
         
         #formatting_buttons_box.append(win.bg_color_button)
 
@@ -1087,9 +1107,8 @@ class HTMLEditorApp(Adw.Application):
         # Case change menu button
         case_menu_button = Gtk.MenuButton(icon_name="uppercase-symbolic")
         case_menu_button.set_tooltip_text("Change Case")
-        #case_menu_button.set_size_request(50, -1)
         case_menu_button.set_size_request(40, 36)
-        
+
         # Create case change menu
         case_menu = Gio.Menu()
         case_menu.append("Sentence case.", "win.change-case::sentence")
@@ -1097,10 +1116,9 @@ class HTMLEditorApp(Adw.Application):
         case_menu.append("UPPERCASE", "win.change-case::upper")
         case_menu.append("Capitalize Each Word", "win.change-case::title")
         case_menu.append("tOGGLE cASE", "win.change-case::toggle")
-        
+
         # Set the menu model for the button
         case_menu_button.set_menu_model(case_menu)
-        #formatting_buttons_box.append(case_menu_button)
 
         button_group = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
         button_group.set_margin_start(2)
@@ -1112,7 +1130,7 @@ class HTMLEditorApp(Adw.Application):
         button_group.append(win.subscript_button)
         button_group.append(win.superscript_button)
         
-        button_group2 = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=1)        
+        button_group2 = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=0)        
         button_group2.set_margin_start(0)
         button_group2.set_margin_end(5)
 
