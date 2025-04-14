@@ -112,9 +112,13 @@ class HTMLEditorApp(Adw.Application):
             .highlighted { background-color: rgba(127, 127, 127, 0.15); }
             .toolbar-group { margin: 0px 3px; }
             .toolbar-separator { min-height: 0px; min-width: 1px; background-color: alpha(currentColor, 0.15); margin: 0px 0px; }
-            .color-indicator { min-height: 3px; min-width: 16px; margin-top: 1px; margin-bottom: 0px; border-radius: 2px; }
+            .color-indicator { min-height: 2px; min-width: 16px; margin-top: 1px; margin-bottom: 0px; border-radius: 2px; }
             .color-box { padding: 0px; }
-
+            .linked button               {background-color: rgba(127, 127, 127, 0.10); border: solid 1px rgba(127, 127, 127, 0.00);}
+            .linked button:hover         {background-color: rgba(127, 127, 127, 0.35); border: solid 1px rgba(127, 127, 127, 0.30);}
+            .linked button:active        {background-color: rgba(127, 127, 127, 0.35); border: solid 1px rgba(127, 127, 127, 0.00);}
+            .linked button:checked       {background-color: rgba(127, 127, 127, 0.35); border: solid 1px rgba(127, 127, 127, 0.00);}
+            .linked button:checked:hover {background-color: rgba(127, 127, 127, 0.35); border: solid 1px rgba(127, 127, 127, 0.30);}
  
         """
         
@@ -453,7 +457,7 @@ class HTMLEditorApp(Adw.Application):
         #file_toolbar.add_css_class("toolbar-group")
         
         # --- File operations group (New, Open, Save, Save As) ---
-        file_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        file_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
         file_group.add_css_class("linked")  # Apply linked styling
         file_group.set_margin_start(4)
 
@@ -462,25 +466,25 @@ class HTMLEditorApp(Adw.Application):
         new_button.set_tooltip_text("New Document in New Window")
         new_button.connect("clicked", lambda btn: self.on_new_clicked(win, btn))
         # Set size request to match formatting toolbar buttons
-        #new_button.set_size_request(36, -1)
+        new_button.set_size_request(40, 36)
 
         # Open button
         open_button = Gtk.Button(icon_name="document-open-symbolic")
         open_button.set_tooltip_text("Open File in New Window")
         open_button.connect("clicked", lambda btn: self.on_open_clicked(win, btn))
-        #open_button.set_size_request(36, -1)
+        open_button.set_size_request(40, 36)
 
         # Save button
         save_button = Gtk.Button(icon_name="document-save-symbolic")
         save_button.set_tooltip_text("Save File")
         save_button.connect("clicked", lambda btn: self.on_save_clicked(win, btn))
-        #save_button.set_size_request(36, -1)
+        save_button.set_size_request(40, 36)
 
         # Save As button
         save_as_button = Gtk.Button(icon_name="document-save-as-symbolic")
         save_as_button.set_tooltip_text("Save File As")
         save_as_button.connect("clicked", lambda btn: self.on_save_as_clicked(win, btn))
-        #save_as_button.set_size_request(36, -1)
+        save_as_button.set_size_request(40, 36)
 
         # Add buttons to file group
         file_group.append(new_button)
@@ -492,7 +496,7 @@ class HTMLEditorApp(Adw.Application):
         file_toolbar.append(file_group)
         
         # --- Edit operations group (Cut, Copy, Paste, Print) ---
-        edit_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        edit_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
         edit_group.add_css_class("linked")  # Apply linked styling
         edit_group.set_margin_start(6)
         
@@ -526,7 +530,7 @@ class HTMLEditorApp(Adw.Application):
         file_toolbar.append(edit_group)
         
         # --- History operations group (Undo, Redo, Find) ---
-        history_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        history_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
         history_group.add_css_class("linked")  # Apply linked styling
         history_group.set_margin_start(6)
         
@@ -672,7 +676,7 @@ class HTMLEditorApp(Adw.Application):
         
         # === LEFT SECTION ===
         # Create vertical box for the left section
-        left_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        left_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
         left_section.set_hexpand(True)
         
         # Create horizontal box for the top row
@@ -691,10 +695,10 @@ class HTMLEditorApp(Adw.Application):
         win.font_size_handler_id = None
 
         # Paragraph, font family, font size box        
-        pffs_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        pffs_box.add_css_class("linked")
-        pffs_box.set_margin_start(2)
-        pffs_box.set_margin_end(6)
+        pfs_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        pfs_box.add_css_class("linked")
+        pfs_box.set_margin_start(2)
+        pfs_box.set_margin_end(6)
 
         # ---- PARAGRAPH STYLES DROPDOWN ----
         # Create paragraph styles dropdown
@@ -718,8 +722,8 @@ class HTMLEditorApp(Adw.Application):
         # Connect signal handler
         win.paragraph_style_handler_id = win.paragraph_style_dropdown.connect(
             "notify::selected", lambda dd, param: self.on_paragraph_style_changed(win, dd))
-        win.paragraph_style_dropdown.set_size_request(130, -1)
-        pffs_box.append(win.paragraph_style_dropdown)
+        win.paragraph_style_dropdown.set_size_request(108, -1)
+        pfs_box.append(win.paragraph_style_dropdown)
         
         # ---- FONT FAMILY DROPDOWN ----
         # Get available fonts from Pango
@@ -797,7 +801,7 @@ class HTMLEditorApp(Adw.Application):
         win.font_handler_id = win.font_dropdown.connect(
             "notify::selected", lambda dd, param: self.on_font_changed(win, dd))
         
-        pffs_box.append(win.font_dropdown)
+        pfs_box.append(win.font_dropdown)
         
         # ---- FONT SIZE DROPDOWN ----
         # Create string list for font sizes
@@ -822,8 +826,8 @@ class HTMLEditorApp(Adw.Application):
         win.font_size_handler_id = win.font_size_dropdown.connect(
             "notify::selected", lambda dd, param: self.on_font_size_changed(win, dd))
         
-        pffs_box.append(win.font_size_dropdown)
-        top_row.append(pffs_box)
+        pfs_box.append(win.font_size_dropdown)
+        top_row.append(pfs_box)
         
         # Add the top row to the left section
         left_section.append(top_row)
@@ -842,62 +846,50 @@ class HTMLEditorApp(Adw.Application):
         #formatting_buttons_box.set_margin_end(4)
         
         # Bold button
-        win.bold_button = Gtk.ToggleButton()
-        bold_icon = Gtk.Image.new_from_icon_name("format-text-bold-symbolic")
-        win.bold_button.set_child(bold_icon)
+        win.bold_button = Gtk.ToggleButton(icon_name="format-text-bold-symbolic")
         win.bold_button.set_tooltip_text("Bold")
         win.bold_button.set_focus_on_click(False)
-        #win.bold_button.set_size_request(36, -1)
+        win.bold_button.set_size_request(40, 36)
         win.bold_handler_id = win.bold_button.connect("toggled", lambda btn: self.on_bold_toggled(win, btn))
         #formatting_buttons_box.append(win.bold_button)
         
         # Italic button
-        win.italic_button = Gtk.ToggleButton()
-        italic_icon = Gtk.Image.new_from_icon_name("format-text-italic-symbolic")
-        win.italic_button.set_child(italic_icon)
+        win.italic_button = Gtk.ToggleButton(icon_name="format-text-italic-symbolic")
         win.italic_button.set_tooltip_text("Italic")
         win.italic_button.set_focus_on_click(False)
-        #win.italic_button.set_size_request(36, -1)
+        win.italic_button.set_size_request(40, 36)
         win.italic_handler_id = win.italic_button.connect("toggled", lambda btn: self.on_italic_toggled(win, btn))
         #formatting_buttons_box.append(win.italic_button)
         
         # Underline button
-        win.underline_button = Gtk.ToggleButton()
-        underline_icon = Gtk.Image.new_from_icon_name("format-text-underline-symbolic")
-        win.underline_button.set_child(underline_icon)
+        win.underline_button = Gtk.ToggleButton(icon_name="format-text-underline-symbolic")
         win.underline_button.set_tooltip_text("Underline")
         win.underline_button.set_focus_on_click(False)
-        #win.underline_button.set_size_request(36, -1)
+        win.underline_button.set_size_request(40, 36)
         win.underline_handler_id = win.underline_button.connect("toggled", lambda btn: self.on_underline_toggled(win, btn))
         #formatting_buttons_box.append(win.underline_button)
         
         # Strikeout button
-        win.strikeout_button = Gtk.ToggleButton()
-        strikeout_icon = Gtk.Image.new_from_icon_name("format-text-strikethrough-symbolic")
-        win.strikeout_button.set_child(strikeout_icon)
+        win.strikeout_button = Gtk.ToggleButton(icon_name="format-text-strikethrough-symbolic")
         win.strikeout_button.set_tooltip_text("Strikeout")
         win.strikeout_button.set_focus_on_click(False)
-        #win.strikeout_button.set_size_request(36, -1)
+        win.strikeout_button.set_size_request(40, 36)
         win.strikeout_handler_id = win.strikeout_button.connect("toggled", lambda btn: self.on_strikeout_toggled(win, btn))
         #formatting_buttons_box.append(win.strikeout_button)
         
         # Subscript button
-        win.subscript_button = Gtk.ToggleButton()
-        subscript_icon = Gtk.Image.new_from_icon_name("format-text-subscript-symbolic")
-        win.subscript_button.set_child(subscript_icon)
+        win.subscript_button = Gtk.ToggleButton(icon_name="format-text-subscript-symbolic")
         win.subscript_button.set_tooltip_text("Subscript")
         win.subscript_button.set_focus_on_click(False)
-        #win.subscript_button.set_size_request(36, -1)
+        win.subscript_button.set_size_request(40, 36)
         win.subscript_handler_id = win.subscript_button.connect("toggled", lambda btn: self.on_subscript_toggled(win, btn))
         #formatting_buttons_box.append(win.subscript_button)
         
         # Superscript button
-        win.superscript_button = Gtk.ToggleButton()
-        superscript_icon = Gtk.Image.new_from_icon_name("format-text-superscript-symbolic")
-        win.superscript_button.set_child(superscript_icon)
+        win.superscript_button = Gtk.ToggleButton(icon_name="format-text-superscript-symbolic")
         win.superscript_button.set_tooltip_text("Superscript")
         win.superscript_button.set_focus_on_click(False)
-        #win.superscript_button.set_size_request(36, -1)
+        win.superscript_button.set_size_request(40, 36)
         win.superscript_handler_id = win.superscript_button.connect("toggled", lambda btn: self.on_superscript_toggled(win, btn))
         #formatting_buttons_box.append(win.superscript_button)
         
@@ -905,7 +897,7 @@ class HTMLEditorApp(Adw.Application):
         win.font_color_button = Gtk.MenuButton()
         win.font_color_button.set_tooltip_text("Text Color")
         win.font_color_button.set_focus_on_click(False)
-        #win.font_color_button.set_size_request(36, -1)
+        win.font_color_button.set_size_request(40, 36)
 
         # Create vertical box to hold the icon and color indicator
         font_color_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -949,13 +941,13 @@ class HTMLEditorApp(Adw.Application):
 
         # Add separator
         separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        separator.set_margin_bottom(6)
+        separator.set_margin_bottom(0)
         font_color_box.append(separator)
 
         # Create color grid
         font_color_grid = Gtk.Grid()
-        font_color_grid.set_row_spacing(2)
-        font_color_grid.set_column_spacing(2)
+        font_color_grid.set_row_spacing(0)
+        font_color_grid.set_column_spacing(0)
         font_color_grid.set_row_homogeneous(True)
         font_color_grid.set_column_homogeneous(True)
         font_color_grid.add_css_class("color-grid")
@@ -1001,7 +993,7 @@ class HTMLEditorApp(Adw.Application):
         win.bg_color_button = Gtk.MenuButton()
         win.bg_color_button.set_tooltip_text("Background Color")
         win.bg_color_button.set_focus_on_click(False)
-        #win.bg_color_button.set_size_request(36, -1)
+        win.bg_color_button.set_size_request(40, 36)
 
         # Create vertical box to hold the icon and color indicator
         bg_color_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -1086,20 +1078,17 @@ class HTMLEditorApp(Adw.Application):
         #formatting_buttons_box.append(win.bg_color_button)
 
         # Clear formatting button
-        clear_formatting_button = Gtk.Button()
-        clear_formatting_icon = Gtk.Image.new_from_icon_name("eraser3-symbolic")
-        clear_formatting_button.set_child(clear_formatting_icon)
+        clear_formatting_button = Gtk.Button(icon_name="eraser-symbolic")
         clear_formatting_button.set_tooltip_text("Remove Text Formatting")
-        #clear_formatting_button.set_size_request(36, -1)
+        clear_formatting_button.set_size_request(40, 36)
         clear_formatting_button.connect("clicked", lambda btn: self.on_clear_formatting_clicked(win, btn))
         #formatting_buttons_box.append(clear_formatting_button)
         
         # Case change menu button
-        case_menu_button = Gtk.MenuButton()
-        case_menu_icon = Gtk.Image.new_from_icon_name("uppercase-symbolic")
-        case_menu_button.set_child(case_menu_icon)
+        case_menu_button = Gtk.MenuButton(icon_name="uppercase-symbolic")
         case_menu_button.set_tooltip_text("Change Case")
         #case_menu_button.set_size_request(50, -1)
+        case_menu_button.set_size_request(40, 36)
         
         # Create case change menu
         case_menu = Gio.Menu()
@@ -1113,7 +1102,7 @@ class HTMLEditorApp(Adw.Application):
         case_menu_button.set_menu_model(case_menu)
         #formatting_buttons_box.append(case_menu_button)
 
-        button_group = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL)
+        button_group = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
         button_group.set_margin_start(2)
         button_group.set_margin_end(4)
         button_group.append(win.bold_button)
@@ -1123,7 +1112,7 @@ class HTMLEditorApp(Adw.Application):
         button_group.append(win.subscript_button)
         button_group.append(win.superscript_button)
         
-        button_group2 = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL)        
+        button_group2 = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=1)        
         button_group2.set_margin_start(0)
         button_group2.set_margin_end(4)
 
