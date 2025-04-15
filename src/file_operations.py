@@ -1957,3 +1957,73 @@ def on_save_clicked(self, win, button):
     else:
         # Show custom save dialog for new file
         self.show_custom_save_dialog(win)
+        
+def save_as_html(self, win, file):
+    """Save document as HTML by extracting just the editor content"""
+    # We only want to get the editor content, not the entire HTML document
+    win.webview.evaluate_javascript(
+        "document.getElementById('editor').innerHTML",
+        -1, None, None, None,
+        # Use _on_get_html_content instead of save_html_callback
+        lambda webview, result, data: self._on_get_html_content(win, webview, result, file),
+        None
+    )
+    win.statusbar.set_text(f"Saving HTML file: {file.get_path()}")
+    return True  # Return success status
+
+def _on_get_html_content(self, win, webview, result, file):
+    """Process HTML content from webview and save to file"""
+    try:
+        js_result = webview.evaluate_javascript_finish(result)
+        if js_result:
+            # Get the content based on the available API
+            if hasattr(js_result, 'get_js_value'):
+                editor_content = js_result.get_js_value().to_string()
+            else:
+                editor_content = js_result.to_string()
+            
+            # Wrap the content in a proper HTML document
+            html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>HTML Document</title>
+    <meta charset="utf-8">
+</head>
+<body>
+{editor_content}
+</body>
+</html>"""
+
+            # Convert the string to bytes
+            content_bytes = html_content.encode('utf-8')
+            
+            # Use the synchronous replace_contents method
+            try:
+                success, etag = file.replace_contents(
+                    content_bytes,
+                    None,  # etag
+                    False,  # make_backup
+                    Gio.FileCreateFlags.REPLACE_DESTINATION,
+                    None   # cancellable
+                )
+                
+                if success:
+                    win.current_file = file
+                    win.modified = False
+                    
+                    # If this was a converted document, update the status
+                    if hasattr(win, 'is_converted_document') and win.is_converted_document:
+                        win.is_converted_document = False
+                        
+                    self.update_window_title(win)
+                    win.statusbar.set_text(f"Saved: {file.get_path()}")
+                else:
+                    win.statusbar.set_text("File save was not successful")
+                    
+            except GLib.Error as e:
+                print(f"Error writing file: {e.message if hasattr(e, 'message') else str(e)}")
+                win.statusbar.set_text(f"Error writing file: {str(e)}")
+                
+    except Exception as e:
+        print(f"Error processing HTML for save: {e}")
+        win.statusbar.set_text(f"Error saving HTML: {e}")
