@@ -3,7 +3,8 @@ sdk: org.gnome.Sdk
 runtime: org.gnome.Platform
 runtime-version: '47'
 command: htmleditor
-
+base: org.libreoffice.LibreOffice
+base-version: stable
 finish-args:
   - --allow=devel
   - --allow=multiarch
@@ -25,6 +26,7 @@ finish-args:
   - --filesystem=xdg-run/gvfs
   - --filesystem=xdg-run/gvfsd
 
+  
 modules:
   - name: pyyaml
     buildsystem: simple
@@ -45,7 +47,7 @@ modules:
     buildsystem: simple
     build-commands:
       - install -Dm755 htmleditor.py /app/bin/htmleditor
-      - install -Dm755 file_operations.py find.py /app/bin/
+      - install -Dm755 file_operations.py find.py formatting_operations.py /app/bin/
       - mkdir -p /app/share/icons/hicolor/scalable/apps
       - mkdir -p /app/share/applications
       - install -Dm755 io.github.fastrizwaan.htmleditor.desktop /app/share/applications
@@ -56,6 +58,8 @@ modules:
         path: htmleditor.py
       - type: file
         path: file_operations.py
+      - type: file
+        path: formatting_operations.py
       - type: file
         path: find.py
       - type: file
