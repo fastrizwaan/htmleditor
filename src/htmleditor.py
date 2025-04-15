@@ -65,7 +65,13 @@ class HTMLEditorApp(Adw.Application):
             
             # Legacy methods for backward compatibility
             '_on_save_response', '_on_save_as_response', '_on_get_html_content',
-            '_on_file_saved'
+            '_on_file_saved',
+            
+            # webkit
+            '_on_editor_ready_for_mhtml', '_check_mhtml_load_status', 
+            '_handle_mhtml_load_check', '_check_mhtml_load_error',
+            'load_mhtml_with_webkit', '_load_mhtml_file', '_process_mhtml_resources',
+            '_extract_mhtml_content', '_on_mhtml_content_extracted',
         ]
         
         # Import methods from file_operations

@@ -2027,3 +2027,1674 @@ def _on_get_html_content(self, win, webview, result, file):
     except Exception as e:
         print(f"Error processing HTML for save: {e}")
         win.statusbar.set_text(f"Error saving HTML: {e}")
+        
+        
+def load_file(self, win, filepath):
+    """Load file content into editor with enhanced format support and image handling"""
+    try:
+        # Check if file exists
+        if not os.path.exists(filepath):
+            self.show_error_dialog("File not found")
+            return
+            
+        # Store the original file path format for reference
+        win.original_format = os.path.splitext(filepath)[1].lower()
+        win.original_filepath = filepath
+        
+        # Check if file is MHTML format - handle differently
+        file_ext = os.path.splitext(filepath)[1].lower()
+        if file_ext in ['.mht', '.mhtml']:
+            # Use WebKit's native MHTML loading capability
+            self.load_mhtml_with_webkit(win, filepath)
+            return
+            
+        # Show loading dialog for potentially slow conversions
+        loading_dialog = None
+        if is_libreoffice_format(filepath) and win.original_format not in ['.html', '.htm', '.txt', '.md', '.markdown']:
+            loading_dialog = self.show_loading_dialog(win)
+        
+        # Function to continue loading after potential conversion
+        def continue_loading(html_content=None, converted_path=None, image_dir=None):
+            try:
+                # Close loading dialog if it was shown
+                if loading_dialog:
+                    try:
+                        loading_dialog.close()
+                    except Exception as e:
+                        print(f"Warning: Could not close loading dialog: {e}")
+                
+                # Initialize content variable
+                content = ""
+                
+                # If we already have HTML content from conversion, use it
+                if html_content:
+                    content = html_content
+                else:
+                    # Try to detect file encoding
+                    encoding = 'utf-8'  # Default encoding
+                    try:
+                        import chardet
+                        with open(filepath, 'rb') as raw_file:
+                            raw_content = raw_file.read()
+                            detected = chardet.detect(raw_content)
+                            if detected['confidence'] > 0.7:
+                                encoding = detected['encoding']
+                    except ImportError:
+                        pass  # Fallback to utf-8 if chardet not available
+                        
+                    # Now read the file with the detected encoding
+                    try:
+                        with open(filepath, 'r', encoding=encoding) as f:
+                            content = f.read()
+                    except UnicodeDecodeError:
+                        # If there's a decode error, try a fallback encoding
+                        with open(filepath, 'r', encoding='latin-1') as f:
+                            content = f.read()
+                
+                # Process content based on file type
+                if file_ext in ['.html', '.htm']:
+                    # Handle HTML content
+                    body_match = re.search(r'<body[^>]*>(.*?)</body>', content, re.DOTALL | re.IGNORECASE)
+                    if body_match:
+                        content = body_match.group(1).strip()
+                        
+                elif file_ext in ['.md', '.markdown']:
+                    # Convert markdown to HTML
+                    if MARKDOWN_AVAILABLE:
+                        try:
+                            # Get available extensions
+                            available_extensions = []
+                            for ext in ['tables', 'fenced_code', 'codehilite', 'nl2br', 'sane_lists', 'smarty', 'attr_list']:
+                                try:
+                                    # Test if extension can be loaded
+                                    markdown.markdown("test", extensions=[ext])
+                                    available_extensions.append(ext)
+                                except (ImportError, ValueError):
+                                    pass
+                            
+                            # Convert markdown to HTML
+                            content = markdown.markdown(content, extensions=available_extensions)
+                        except Exception as e:
+                            print(f"Error converting markdown: {e}")
+                            # Fallback to simple conversion
+                            content = self._simple_markdown_to_html(content)
+                    else:
+                        # Use simplified markdown conversion
+                        content = self._simple_markdown_to_html(content)
+                elif file_ext == '.txt':
+                    # Convert plain text to HTML
+                    content = content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                    content = f"<div>{content.replace(chr(10), '<br>')}</div>"
+                
+                # Process image references for converted LibreOffice documents
+                if converted_path and image_dir and os.path.exists(image_dir):
+                    # Look for an 'images' subfolder that LibreOffice might have created
+                    images_folder = os.path.join(image_dir, 'images')
+                    if os.path.exists(images_folder) and os.path.isdir(images_folder):
+                        print(f"Found images folder: {images_folder}")
+                        # Store the image directory for reference
+                        win.image_dir = images_folder
+                        
+                        # Process the image references in the content
+                        content = self._process_image_references(content, images_folder)
+                    else:
+                        # Check for any image files in the main output directory
+                        image_files = [f for f in os.listdir(image_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp'))]
+                        if image_files:
+                            print(f"Found {len(image_files)} image files in output directory")
+                            win.image_dir = image_dir
+                            content = self._process_image_references(content, image_dir)
+                        else:
+                            print(f"No images folder or image files found in {image_dir}")
+                
+                # Ensure content is properly wrapped in a div if not already
+                if not (content.strip().startswith('<div') or content.strip().startswith('<p') or 
+                       content.strip().startswith('<h')):
+                    content = f"<div>{content}</div>"
+                
+                # Escape for JavaScript
+                content = content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+                js_code = f'setContent("{content}");'
+                
+                # Check WebView load status and execute JS accordingly
+                def execute_when_ready():
+                    # Get the current load status
+                    load_status = win.webview.get_estimated_load_progress()
+                    
+                    if load_status == 1.0:  # Fully loaded
+                        # Execute directly
+                        self.execute_js(win, js_code)
+                        return False  # Stop the timeout
+                    else:
+                        # Set up a handler for when loading finishes
+                        def on_load_changed(webview, event):
+                            if event == WebKit.LoadEvent.FINISHED:
+                                self.execute_js(win, js_code)
+                                webview.disconnect_by_func(on_load_changed)
+                        
+                        win.webview.connect("load-changed", on_load_changed)
+                        return False  # Stop the timeout
+                
+                # Use GLib timeout to ensure we're not in the middle of another operation
+                GLib.timeout_add(50, execute_when_ready)
+                
+                # Update file information
+                win.current_file = Gio.File.new_for_path(filepath)
+                
+                # Mark as converted document if LibreOffice conversion was used
+                if converted_path and is_libreoffice_format(filepath) and win.original_format not in ['.html', '.htm', '.txt', '.md', '.markdown']:
+                    # Mark as a converted document
+                    win.is_converted_document = True
+                else:
+                    win.is_converted_document = False
+                
+                win.modified = False
+                self.update_window_title(win)
+                win.statusbar.set_text(f"Opened {os.path.basename(filepath)}")
+                        
+            except Exception as e:
+                # Close loading dialog if it was shown
+                if loading_dialog:
+                    try:
+                        loading_dialog.close()
+                    except:
+                        pass
+                print(f"Error processing file content: {str(e)}")
+                win.statusbar.set_text(f"Error processing file: {str(e)}")
+                self.show_error_dialog(f"Error processing file: {e}")
+        
+        # Check if file needs LibreOffice conversion
+        if is_libreoffice_format(filepath) and file_ext not in ['.html', '.htm', '.txt', '.md', '.markdown']:
+            # Start the conversion in a separate thread to keep UI responsive
+            def convert_thread():
+                try:
+                    # Convert the file to HTML using LibreOffice
+                    converted_file, image_dir = self.convert_with_libreoffice(filepath, "html")
+                    
+                    if converted_file:
+                        # Read the converted HTML file
+                        try:
+                            with open(converted_file, 'r', encoding='utf-8') as f:
+                                html_content = f.read()
+                                
+                            # Extract body content
+                            body_match = re.search(r'<body[^>]*>(.*?)</body>', html_content, re.DOTALL | re.IGNORECASE)
+                            if body_match:
+                                html_content = body_match.group(1).strip()
+                            
+                            # Schedule continuing in the main thread with the HTML content
+                            GLib.idle_add(lambda: continue_loading(html_content, converted_file, image_dir))
+                        except Exception as e:
+                            print(f"Error reading converted file: {e}")
+                            GLib.idle_add(lambda: self.show_error_dialog(f"Error reading converted file: {e}"))
+                            GLib.idle_add(lambda: loading_dialog.close() if loading_dialog else None)
+                    else:
+                        # Conversion failed
+                        GLib.idle_add(lambda: self.show_error_dialog("Failed to convert document with LibreOffice. Please check if LibreOffice is installed correctly."))
+                        GLib.idle_add(lambda: loading_dialog.close() if loading_dialog else None)
+                except Exception as e:
+                    print(f"Error in conversion thread: {e}")
+                    GLib.idle_add(lambda: self.show_error_dialog(f"Conversion error: {e}"))
+                    GLib.idle_add(lambda: loading_dialog.close() if loading_dialog else None)
+                
+                return False  # Don't repeat
+            
+            # Start the conversion thread
+            GLib.idle_add(lambda: GLib.Thread.new(None, convert_thread) and False)
+        else:
+            # Continue with normal loading for directly supported formats
+            continue_loading()
+            
+    except Exception as e:
+        if loading_dialog:
+            try:
+                loading_dialog.close()
+            except:
+                pass
+        print(f"Error loading file: {str(e)}")
+        win.statusbar.set_text(f"Error loading file: {str(e)}")
+        self.show_error_dialog(f"Error loading file: {e}")
+
+def load_mhtml_with_webkit(self, win, filepath):
+    """Load MHTML files directly using WebKit's native support"""
+    try:
+        # Create file URI
+        file_uri = f"file://{filepath}"
+        
+        # Show a loading message
+        win.statusbar.set_text(f"Loading MHTML file: {os.path.basename(filepath)}")
+        
+        # First, load the initial HTML editor
+        def on_editor_loaded(webview, event):
+            if event == WebKit.LoadEvent.FINISHED:
+                # Now that the editor has loaded, we need to extract the editor div
+                webview.evaluate_javascript(
+                    "document.getElementById('editor')",
+                    -1, None, None, None,
+                    lambda webview, result, data: self._on_editor_ready_for_mhtml(win, webview, result, filepath),
+                    None
+                )
+                # Disconnect after handling
+                webview.disconnect_by_func(on_editor_loaded)
+        
+        # Connect to load-changed signal
+        win.webview.connect("load-changed", on_editor_loaded)
+        
+        # Update file information
+        win.current_file = Gio.File.new_for_path(filepath)
+        win.is_converted_document = False  # MHTML is directly supported
+        win.modified = False
+        self.update_window_title(win)
+        
+    except Exception as e:
+        print(f"Error loading MHTML file: {e}")
+        win.statusbar.set_text(f"Error loading MHTML file: {e}")
+        self.show_error_dialog(f"Error loading MHTML file: {e}")
+
+def _on_editor_ready_for_mhtml(self, win, webview, result, filepath):
+    """Handle editor being ready for MHTML content"""
+    try:
+        # Now load the MHTML file into an iframe and extract its content
+        js_code = f"""
+        (function() {{
+            // Create an invisible iframe to load the MHTML file
+            var iframe = document.createElement('iframe');
+            iframe.style.width = '0';
+            iframe.style.height = '0';
+            iframe.style.border = 'none';
+            iframe.style.position = 'absolute';
+            iframe.style.top = '-9999px';
+            iframe.style.left = '-9999px';
+            iframe.id = 'mhtml-loader';
+            
+            // Set up load event to extract content
+            iframe.onload = function() {{
+                try {{
+                    // Get the body content from the iframe
+                    var iframeBody = iframe.contentDocument.body;
+                    if(iframeBody) {{
+                        // Copy content to editor
+                        var editorDiv = document.getElementById('editor');
+                        editorDiv.innerHTML = iframeBody.innerHTML;
+                        
+                        // Notify that load is complete
+                        window.mhtmlLoadComplete = true;
+                    }}
+                }} catch(e) {{
+                    console.error('Error loading MHTML content:', e);
+                    window.mhtmlLoadError = e.toString();
+                }}
+            }};
+            
+            // Load the MHTML file
+            iframe.src = "file://{filepath}";
+            document.body.appendChild(iframe);
+        }})();
+        """
+        
+        # Execute the JavaScript to load the MHTML into an iframe
+        webview.evaluate_javascript(
+            js_code,
+            -1, None, None, None,
+            lambda webview, result, data: None,  # Just execute, no callback needed
+            None
+        )
+        
+        # Check completion status periodically
+        GLib.timeout_add(100, lambda: self._check_mhtml_load_status(win, webview))
+        
+    except Exception as e:
+        print(f"Error preparing MHTML loading: {e}")
+        win.statusbar.set_text(f"Error loading MHTML file: {e}")
+
+def _check_mhtml_load_status(self, win, webview):
+    """Check if MHTML loading completed"""
+    webview.evaluate_javascript(
+        "window.mhtmlLoadComplete || false",
+        -1, None, None, None,
+        lambda webview, result, data: self._handle_mhtml_load_check(win, webview, result),
+        None
+    )
+    return False  # Don't repeat this timeout
+
+def _handle_mhtml_load_check(self, win, webview, result):
+    """Handle MHTML load status check result"""
+    try:
+        js_result = webview.evaluate_javascript_finish(result)
+        complete = False
+        
+        if js_result:
+            if hasattr(js_result, 'get_js_value'):
+                complete = js_result.get_js_value().to_boolean()
+            else:
+                complete = js_result.to_boolean()
+        
+        if complete:
+            # Loading complete
+            win.statusbar.set_text(f"Opened {os.path.basename(win.current_file.get_path())}")
+            
+            # Clean up the iframe
+            webview.evaluate_javascript(
+                "var frame = document.getElementById('mhtml-loader'); if(frame) document.body.removeChild(frame);",
+                -1, None, None, None, None, None
+            )
+        else:
+            # Check for error
+            webview.evaluate_javascript(
+                "window.mhtmlLoadError || ''",
+                -1, None, None, None,
+                lambda webview, result, data: self._check_mhtml_load_error(win, webview, result),
+                None
+            )
+            
+            # Try again in 100ms
+            GLib.timeout_add(100, lambda: self._check_mhtml_load_status(win, webview))
+            
+    except Exception as e:
+        print(f"Error checking MHTML load status: {e}")
+        win.statusbar.set_text(f"Error loading MHTML file: {e}")
+
+def _check_mhtml_load_error(self, win, webview, result):
+    """Check for MHTML loading errors"""
+    try:
+        js_result = webview.evaluate_javascript_finish(result)
+        error = ""
+        
+        if js_result:
+            if hasattr(js_result, 'get_js_value'):
+                error = js_result.get_js_value().to_string()
+            else:
+                error = js_result.to_string()
+        
+        if error:
+            print(f"MHTML loading error: {error}")
+            win.statusbar.set_text(f"Error loading MHTML file: {error}")
+            
+    except Exception as e:
+        print(f"Error checking MHTML load error: {e}")
+        
+def load_file(self, win, filepath):
+    """Load file content into editor with enhanced format support and image handling"""
+    try:
+        # Check if file exists
+        if not os.path.exists(filepath):
+            self.show_error_dialog("File not found")
+            return
+            
+        # Store the original file path format for reference
+        win.original_format = os.path.splitext(filepath)[1].lower()
+        win.original_filepath = filepath
+        
+        # Show loading dialog for potentially slow conversions
+        loading_dialog = None
+        if is_libreoffice_format(filepath) and win.original_format not in ['.html', '.htm', '.txt', '.md', '.markdown']:
+            loading_dialog = self.show_loading_dialog(win)
+        
+        # Process the file based on its format
+        file_ext = os.path.splitext(filepath)[1].lower()
+        
+        # Function to continue loading after potential conversion
+        def continue_loading(html_content=None, converted_path=None, image_dir=None):
+            try:
+                # Close loading dialog if it was shown
+                if loading_dialog:
+                    try:
+                        loading_dialog.close()
+                    except Exception as e:
+                        print(f"Warning: Could not close loading dialog: {e}")
+                
+                # Initialize content variable
+                content = ""
+                
+                # If we already have HTML content from conversion, use it
+                if html_content:
+                    content = html_content
+                else:
+                    # Try to detect file encoding
+                    encoding = 'utf-8'  # Default encoding
+                    try:
+                        import chardet
+                        with open(filepath, 'rb') as raw_file:
+                            raw_content = raw_file.read()
+                            detected = chardet.detect(raw_content)
+                            if detected['confidence'] > 0.7:
+                                encoding = detected['encoding']
+                    except ImportError:
+                        pass  # Fallback to utf-8 if chardet not available
+                        
+                    # Now read the file with the detected encoding
+                    try:
+                        with open(filepath, 'r', encoding=encoding) as f:
+                            content = f.read()
+                    except UnicodeDecodeError:
+                        # If there's a decode error, try a fallback encoding
+                        with open(filepath, 'r', encoding='latin-1') as f:
+                            content = f.read()
+                
+                # Process content based on file type
+                if file_ext in ['.mht', '.mhtml']:
+                    # For MHTML files, load the entire file with WebKit
+                    # This will be handled differently - see below
+                    pass
+                elif file_ext in ['.html', '.htm']:
+                    # Handle HTML content
+                    body_match = re.search(r'<body[^>]*>(.*?)</body>', content, re.DOTALL | re.IGNORECASE)
+                    if body_match:
+                        content = body_match.group(1).strip()
+                        
+                elif file_ext in ['.md', '.markdown']:
+                    # Convert markdown to HTML
+                    if MARKDOWN_AVAILABLE:
+                        try:
+                            # Get available extensions
+                            available_extensions = []
+                            for ext in ['tables', 'fenced_code', 'codehilite', 'nl2br', 'sane_lists', 'smarty', 'attr_list']:
+                                try:
+                                    # Test if extension can be loaded
+                                    markdown.markdown("test", extensions=[ext])
+                                    available_extensions.append(ext)
+                                except (ImportError, ValueError):
+                                    pass
+                            
+                            # Convert markdown to HTML
+                            content = markdown.markdown(content, extensions=available_extensions)
+                        except Exception as e:
+                            print(f"Error converting markdown: {e}")
+                            # Fallback to simple conversion
+                            content = self._simple_markdown_to_html(content)
+                    else:
+                        # Use simplified markdown conversion
+                        content = self._simple_markdown_to_html(content)
+                elif file_ext == '.txt':
+                    # Convert plain text to HTML
+                    content = content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                    content = f"<div>{content.replace(chr(10), '<br>')}</div>"
+                
+                # Process image references for converted LibreOffice documents
+                if converted_path and image_dir and os.path.exists(image_dir):
+                    # Look for an 'images' subfolder that LibreOffice might have created
+                    images_folder = os.path.join(image_dir, 'images')
+                    if os.path.exists(images_folder) and os.path.isdir(images_folder):
+                        print(f"Found images folder: {images_folder}")
+                        # Store the image directory for reference
+                        win.image_dir = images_folder
+                        
+                        # Process the image references in the content
+                        content = self._process_image_references(content, images_folder)
+                    else:
+                        # Check for any image files in the main output directory
+                        image_files = [f for f in os.listdir(image_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp'))]
+                        if image_files:
+                            print(f"Found {len(image_files)} image files in output directory")
+                            win.image_dir = image_dir
+                            content = self._process_image_references(content, image_dir)
+                        else:
+                            print(f"No images folder or image files found in {image_dir}")
+                
+                # Special handling for MHTML files
+                if file_ext in ['.mht', '.mhtml']:
+                    # For MHTML files, we'll load them directly in the WebView
+                    # Extract any HTML content
+                    try:
+                        # Try to extract HTML content from MHTML
+                        import email
+                        message = email.message_from_string(content)
+                        html_part = None
+                        
+                        # Find the HTML part
+                        for part in message.walk():
+                            if part.get_content_type() == 'text/html':
+                                html_part = part
+                                break
+                        
+                        if html_part:
+                            # Get the HTML content
+                            html_content = html_part.get_payload(decode=True)
+                            if isinstance(html_content, bytes):
+                                html_content = html_content.decode(html_part.get_content_charset() or 'utf-8')
+                            
+                            # Create a temporary HTML file with the content
+                            temp_dir = tempfile.mkdtemp()
+                            temp_html_path = os.path.join(temp_dir, "temp.html")
+                            
+                            with open(temp_html_path, 'w', encoding='utf-8') as f:
+                                f.write(html_content)
+                            
+                            # Load this HTML file in the WebView
+                            uri = f"file://{temp_html_path}"
+                            win.webview.load_uri(uri)
+                            
+                            # Set up a handler to extract content after loading
+                            def on_html_loaded(webview, event):
+                                if event == WebKit.LoadEvent.FINISHED:
+                                    # Now extract the body content
+                                    webview.evaluate_javascript(
+                                        "document.body.innerHTML",
+                                        -1, None, None, None,
+                                        lambda wv, result, data: self._on_mhtml_content_loaded(win, wv, result, filepath, temp_dir),
+                                        None
+                                    )
+                                    # Remove the handler
+                                    webview.disconnect_by_func(on_html_loaded)
+                            
+                            # Connect the handler
+                            win.webview.connect("load-changed", on_html_loaded)
+                            
+                            # Update file information
+                            win.current_file = Gio.File.new_for_path(filepath)
+                            win.is_converted_document = False
+                            win.modified = False
+                            self.update_window_title(win)
+                            win.statusbar.set_text(f"Loading MHTML file: {os.path.basename(filepath)}")
+                            
+                            # Return early - the content loading will happen asynchronously
+                            return
+                    except Exception as e:
+                        print(f"Error with MHTML extraction: {e}")
+                        # Fall back to simpler parsing
+                        
+                        # Extract body content from the HTML
+                        body_match = re.search(r'<body[^>]*>(.*?)</body>', content, re.DOTALL | re.IGNORECASE)
+                        if body_match:
+                            content = body_match.group(1).strip()
+                
+                # Ensure content is properly wrapped in a div if not already
+                if not (content.strip().startswith('<div') or content.strip().startswith('<p') or 
+                       content.strip().startswith('<h')):
+                    content = f"<div>{content}</div>"
+                
+                # Escape for JavaScript
+                content = content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+                js_code = f'setContent("{content}");'
+                
+                # Check WebView load status and execute JS accordingly
+                def execute_when_ready():
+                    # Get the current load status
+                    load_status = win.webview.get_estimated_load_progress()
+                    
+                    if load_status == 1.0:  # Fully loaded
+                        # Execute directly
+                        self.execute_js(win, js_code)
+                        return False  # Stop the timeout
+                    else:
+                        # Set up a handler for when loading finishes
+                        def on_load_changed(webview, event):
+                            if event == WebKit.LoadEvent.FINISHED:
+                                self.execute_js(win, js_code)
+                                webview.disconnect_by_func(on_load_changed)
+                        
+                        win.webview.connect("load-changed", on_load_changed)
+                        return False  # Stop the timeout
+                
+                # Use GLib timeout to ensure we're not in the middle of another operation
+                GLib.timeout_add(50, execute_when_ready)
+                
+                # Update file information if not MHTML (MHTML is handled above)
+                if file_ext not in ['.mht', '.mhtml']:
+                    win.current_file = Gio.File.new_for_path(filepath)
+                    
+                    # Mark as converted document if LibreOffice conversion was used
+                    if converted_path and is_libreoffice_format(filepath) and win.original_format not in ['.html', '.htm', '.txt', '.md', '.markdown']:
+                        # Mark as a converted document
+                        win.is_converted_document = True
+                    else:
+                        win.is_converted_document = False
+                    
+                    win.modified = False
+                    self.update_window_title(win)
+                    win.statusbar.set_text(f"Opened {os.path.basename(filepath)}")
+                        
+            except Exception as e:
+                # Close loading dialog if it was shown
+                if loading_dialog:
+                    try:
+                        loading_dialog.close()
+                    except:
+                        pass
+                print(f"Error processing file content: {str(e)}")
+                win.statusbar.set_text(f"Error processing file: {str(e)}")
+                self.show_error_dialog(f"Error processing file: {e}")
+        
+        # Check if file needs LibreOffice conversion
+        if is_libreoffice_format(filepath) and file_ext not in ['.html', '.htm', '.txt', '.md', '.markdown']:
+            # Start the conversion in a separate thread to keep UI responsive
+            def convert_thread():
+                try:
+                    # Convert the file to HTML using LibreOffice
+                    converted_file, image_dir = self.convert_with_libreoffice(filepath, "html")
+                    
+                    if converted_file:
+                        # Read the converted HTML file
+                        try:
+                            with open(converted_file, 'r', encoding='utf-8') as f:
+                                html_content = f.read()
+                                
+                            # Extract body content
+                            body_match = re.search(r'<body[^>]*>(.*?)</body>', html_content, re.DOTALL | re.IGNORECASE)
+                            if body_match:
+                                html_content = body_match.group(1).strip()
+                            
+                            # Schedule continuing in the main thread with the HTML content
+                            GLib.idle_add(lambda: continue_loading(html_content, converted_file, image_dir))
+                        except Exception as e:
+                            print(f"Error reading converted file: {e}")
+                            GLib.idle_add(lambda: self.show_error_dialog(f"Error reading converted file: {e}"))
+                            GLib.idle_add(lambda: loading_dialog.close() if loading_dialog else None)
+                    else:
+                        # Conversion failed
+                        GLib.idle_add(lambda: self.show_error_dialog("Failed to convert document with LibreOffice. Please check if LibreOffice is installed correctly."))
+                        GLib.idle_add(lambda: loading_dialog.close() if loading_dialog else None)
+                except Exception as e:
+                    print(f"Error in conversion thread: {e}")
+                    GLib.idle_add(lambda: self.show_error_dialog(f"Conversion error: {e}"))
+                    GLib.idle_add(lambda: loading_dialog.close() if loading_dialog else None)
+                
+                return False  # Don't repeat
+            
+            # Start the conversion thread
+            GLib.idle_add(lambda: GLib.Thread.new(None, convert_thread) and False)
+        else:
+            # Continue with normal loading for directly supported formats
+            continue_loading()
+            
+    except Exception as e:
+        # Handle loading dialog error
+        try:
+            # Make sure loading_dialog exists before attempting to close it
+            if 'loading_dialog' in locals() and loading_dialog:
+                loading_dialog.close()
+        except:
+            pass
+            
+        print(f"Error loading file: {str(e)}")
+        win.statusbar.set_text(f"Error loading file: {str(e)}")
+        self.show_error_dialog(f"Error loading file: {e}")
+
+def _on_mhtml_content_loaded(self, win, webview, result, filepath, temp_dir):
+    """Handle extracted content from MHTML loading"""
+    try:
+        js_result = webview.evaluate_javascript_finish(result)
+        if js_result:
+            # Get the HTML content
+            if hasattr(js_result, 'get_js_value'):
+                body_content = js_result.get_js_value().to_string()
+            else:
+                body_content = js_result.to_string()
+            
+            # Set the content in the editor
+            if body_content:
+                # Escape for JavaScript
+                content = body_content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+                js_code = f'setContent("{content}");'
+                self.execute_js(win, js_code)
+                
+                # Update status
+                win.statusbar.set_text(f"Opened {os.path.basename(filepath)}")
+        
+        # Clean up temporary directory
+        try:
+            if temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+        except Exception as e:
+            print(f"Error cleaning up temp directory: {e}")
+            
+    except Exception as e:
+        print(f"Error processing MHTML content: {e}")
+        win.statusbar.set_text(f"Error loading MHTML: {e}")
+        
+def load_file(self, win, filepath):
+    """Load file content into editor with enhanced format support and image handling"""
+    try:
+        # Check if file exists
+        if not os.path.exists(filepath):
+            self.show_error_dialog("File not found")
+            return
+            
+        # Store the original file path format for reference
+        win.original_format = os.path.splitext(filepath)[1].lower()
+        win.original_filepath = filepath
+        
+        # Process the file based on its format
+        file_ext = os.path.splitext(filepath)[1].lower()
+        
+        # Show loading dialog for potentially slow operations
+        loading_dialog = None
+        if is_libreoffice_format(filepath) and file_ext not in ['.html', '.htm', '.txt', '.md', '.markdown']:
+            loading_dialog = self.show_loading_dialog(win)
+        
+        # Special handling for HTML and MHTML files - use WebKit directly
+        if file_ext in ['.mht', '.mhtml', '.html', '.htm']:
+            try:
+                if loading_dialog:
+                    loading_dialog.close()
+                    loading_dialog = None
+                    
+                # For HTML and MHTML files, we'll use WebKit's native capabilities
+                self._load_html_or_mhtml_with_webkit(win, filepath)
+                return
+            except Exception as e:
+                print(f"Error using WebKit to load {file_ext}: {e}")
+                # Fall back to regular loading if WebKit approach fails
+        
+        # Function to continue loading after potential conversion for other file types
+        def continue_loading(html_content=None, converted_path=None, image_dir=None):
+            try:
+                # Close loading dialog if it was shown
+                if loading_dialog:
+                    try:
+                        loading_dialog.close()
+                    except Exception as e:
+                        print(f"Warning: Could not close loading dialog: {e}")
+                
+                # Initialize content variable
+                content = ""
+                
+                # If we already have HTML content from conversion, use it
+                if html_content:
+                    content = html_content
+                else:
+                    # Try to detect file encoding
+                    encoding = 'utf-8'  # Default encoding
+                    try:
+                        import chardet
+                        with open(filepath, 'rb') as raw_file:
+                            raw_content = raw_file.read()
+                            detected = chardet.detect(raw_content)
+                            if detected['confidence'] > 0.7:
+                                encoding = detected['encoding']
+                    except ImportError:
+                        pass  # Fallback to utf-8 if chardet not available
+                        
+                    # Now read the file with the detected encoding
+                    try:
+                        with open(filepath, 'r', encoding=encoding) as f:
+                            content = f.read()
+                    except UnicodeDecodeError:
+                        # If there's a decode error, try a fallback encoding
+                        with open(filepath, 'r', encoding='latin-1') as f:
+                            content = f.read()
+                
+                # Process content based on file type
+                if file_ext in ['.md', '.markdown']:
+                    # Convert markdown to HTML
+                    if MARKDOWN_AVAILABLE:
+                        try:
+                            # Get available extensions
+                            available_extensions = []
+                            for ext in ['tables', 'fenced_code', 'codehilite', 'nl2br', 'sane_lists', 'smarty', 'attr_list']:
+                                try:
+                                    # Test if extension can be loaded
+                                    markdown.markdown("test", extensions=[ext])
+                                    available_extensions.append(ext)
+                                except (ImportError, ValueError):
+                                    pass
+                            
+                            # Convert markdown to HTML
+                            content = markdown.markdown(content, extensions=available_extensions)
+                        except Exception as e:
+                            print(f"Error converting markdown: {e}")
+                            # Fallback to simple conversion
+                            content = self._simple_markdown_to_html(content)
+                    else:
+                        # Use simplified markdown conversion
+                        content = self._simple_markdown_to_html(content)
+                elif file_ext == '.txt':
+                    # Convert plain text to HTML
+                    content = content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                    content = f"<div>{content.replace(chr(10), '<br>')}</div>"
+                
+                # Process image references for converted LibreOffice documents
+                if converted_path and image_dir and os.path.exists(image_dir):
+                    # Look for an 'images' subfolder that LibreOffice might have created
+                    images_folder = os.path.join(image_dir, 'images')
+                    if os.path.exists(images_folder) and os.path.isdir(images_folder):
+                        print(f"Found images folder: {images_folder}")
+                        # Store the image directory for reference
+                        win.image_dir = images_folder
+                        
+                        # Process the image references in the content
+                        content = self._process_image_references(content, images_folder)
+                    else:
+                        # Check for any image files in the main output directory
+                        image_files = [f for f in os.listdir(image_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp'))]
+                        if image_files:
+                            print(f"Found {len(image_files)} image files in output directory")
+                            win.image_dir = image_dir
+                            content = self._process_image_references(content, image_dir)
+                        else:
+                            print(f"No images folder or image files found in {image_dir}")
+                
+                # Ensure content is properly wrapped in a div if not already
+                if not (content.strip().startswith('<div') or content.strip().startswith('<p') or 
+                       content.strip().startswith('<h')):
+                    content = f"<div>{content}</div>"
+                
+                # Escape for JavaScript
+                content = content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+                js_code = f'setContent("{content}");'
+                
+                # Check WebView load status and execute JS accordingly
+                def execute_when_ready():
+                    # Get the current load status
+                    load_status = win.webview.get_estimated_load_progress()
+                    
+                    if load_status == 1.0:  # Fully loaded
+                        # Execute directly
+                        self.execute_js(win, js_code)
+                        return False  # Stop the timeout
+                    else:
+                        # Set up a handler for when loading finishes
+                        def on_load_changed(webview, event):
+                            if event == WebKit.LoadEvent.FINISHED:
+                                self.execute_js(win, js_code)
+                                webview.disconnect_by_func(on_load_changed)
+                        
+                        win.webview.connect("load-changed", on_load_changed)
+                        return False  # Stop the timeout
+                
+                # Use GLib timeout to ensure we're not in the middle of another operation
+                GLib.timeout_add(50, execute_when_ready)
+                
+                # Update file information
+                win.current_file = Gio.File.new_for_path(filepath)
+                
+                # Mark as converted document if LibreOffice conversion was used
+                if converted_path and is_libreoffice_format(filepath) and win.original_format not in ['.html', '.htm', '.txt', '.md', '.markdown']:
+                    # Mark as a converted document
+                    win.is_converted_document = True
+                else:
+                    win.is_converted_document = False
+                
+                win.modified = False
+                self.update_window_title(win)
+                win.statusbar.set_text(f"Opened {os.path.basename(filepath)}")
+                        
+            except Exception as e:
+                # Close loading dialog if it was shown
+                if loading_dialog:
+                    try:
+                        loading_dialog.close()
+                    except:
+                        pass
+                print(f"Error processing file content: {str(e)}")
+                win.statusbar.set_text(f"Error processing file: {str(e)}")
+                self.show_error_dialog(f"Error processing file: {e}")
+        
+        # Check if file needs LibreOffice conversion
+        if is_libreoffice_format(filepath) and file_ext not in ['.html', '.htm', '.txt', '.md', '.markdown']:
+            # Start the conversion in a separate thread to keep UI responsive
+            def convert_thread():
+                try:
+                    # Convert the file to HTML using LibreOffice
+                    converted_file, image_dir = self.convert_with_libreoffice(filepath, "html")
+                    
+                    if converted_file:
+                        # Read the converted HTML file
+                        try:
+                            with open(converted_file, 'r', encoding='utf-8') as f:
+                                html_content = f.read()
+                                
+                            # Extract body content
+                            body_match = re.search(r'<body[^>]*>(.*?)</body>', html_content, re.DOTALL | re.IGNORECASE)
+                            if body_match:
+                                html_content = body_match.group(1).strip()
+                            
+                            # Schedule continuing in the main thread with the HTML content
+                            GLib.idle_add(lambda: continue_loading(html_content, converted_file, image_dir))
+                        except Exception as e:
+                            print(f"Error reading converted file: {e}")
+                            GLib.idle_add(lambda: self.show_error_dialog(f"Error reading converted file: {e}"))
+                            GLib.idle_add(lambda: loading_dialog.close() if loading_dialog else None)
+                    else:
+                        # Conversion failed
+                        GLib.idle_add(lambda: self.show_error_dialog("Failed to convert document with LibreOffice. Please check if LibreOffice is installed correctly."))
+                        GLib.idle_add(lambda: loading_dialog.close() if loading_dialog else None)
+                except Exception as e:
+                    print(f"Error in conversion thread: {e}")
+                    GLib.idle_add(lambda: self.show_error_dialog(f"Conversion error: {e}"))
+                    GLib.idle_add(lambda: loading_dialog.close() if loading_dialog else None)
+                
+                return False  # Don't repeat
+            
+            # Start the conversion thread
+            GLib.idle_add(lambda: GLib.Thread.new(None, convert_thread) and False)
+        else:
+            # Continue with normal loading for directly supported formats
+            continue_loading()
+            
+    except Exception as e:
+        # Handle loading dialog error
+        try:
+            # Make sure loading_dialog exists before attempting to close it
+            if 'loading_dialog' in locals() and loading_dialog:
+                loading_dialog.close()
+        except:
+            pass
+            
+        print(f"Error loading file: {str(e)}")
+        win.statusbar.set_text(f"Error loading file: {str(e)}")
+        self.show_error_dialog(f"Error loading file: {e}")
+
+def _load_html_or_mhtml_with_webkit(self, win, filepath):
+    """Load HTML or MHTML files directly with WebKit and make content editable"""
+    try:
+        # Create a temporary HTML file
+        temp_dir = tempfile.mkdtemp()
+        filename = os.path.basename(filepath)
+        temp_html_path = os.path.join(temp_dir, filename)
+        
+        # Copy the file to the temp directory
+        shutil.copy2(filepath, temp_html_path)
+        
+        # Create file URI
+        file_uri = f"file://{temp_html_path}"
+        
+        # Show loading message
+        win.statusbar.set_text(f"Loading file: {filename}")
+        
+        # Set up a handler to extract content after loading
+        def on_file_loaded(webview, event):
+            if event == WebKit.LoadEvent.FINISHED:
+                # Extract the content and make it editable
+                GLib.timeout_add(500, lambda: self._extract_and_make_editable(win, webview, filepath, temp_dir))
+                # Remove the handler
+                webview.disconnect_by_func(on_file_loaded)
+                
+        # Connect the handler
+        win.webview.connect("load-changed", on_file_loaded)
+        
+        # Load the file in WebKit
+        win.webview.load_uri(file_uri)
+        
+        # Update file information
+        win.current_file = Gio.File.new_for_path(filepath)
+        win.is_converted_document = False
+        win.modified = False
+        self.update_window_title(win)
+        
+    except Exception as e:
+        print(f"Error loading HTML/MHTML with WebKit: {e}")
+        win.statusbar.set_text(f"Error loading file: {e}")
+        self.show_error_dialog(f"Error loading file: {e}")
+        
+        # Clean up temp directory on error
+        try:
+            if 'temp_dir' in locals() and temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+        except Exception as cleanup_err:
+            print(f"Error cleaning up temp directory: {cleanup_err}")
+
+def _extract_and_make_editable(self, win, webview, filepath, temp_dir):
+    """Extract content from loaded HTML/MHTML and make it editable"""
+    try:
+        # Get the document body content
+        webview.evaluate_javascript(
+            "document.body.innerHTML",
+            -1, None, None, None,
+            lambda webview, result, data: self._on_html_content_extracted(win, webview, result, filepath, temp_dir),
+            None
+        )
+        return False  # Don't repeat this timeout
+    except Exception as e:
+        print(f"Error making content editable: {e}")
+        win.statusbar.set_text(f"Error loading file: {e}")
+        
+        # Clean up temp directory on error
+        try:
+            if temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+        except Exception as cleanup_err:
+            print(f"Error cleaning up temp directory: {cleanup_err}")
+            
+        return False  # Don't repeat this timeout
+
+def _on_html_content_extracted(self, win, webview, result, filepath, temp_dir):
+    """Handle extracted HTML content and make it editable"""
+    try:
+        js_result = webview.evaluate_javascript_finish(result)
+        body_content = ""
+        
+        if js_result:
+            # Get the HTML content
+            if hasattr(js_result, 'get_js_value'):
+                body_content = js_result.get_js_value().to_string()
+            else:
+                body_content = js_result.to_string()
+        
+        if body_content:
+            # Set the content in the editor to make it editable
+            # Escape for JavaScript
+            content = body_content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+            js_code = f'setContent("{content}");'
+            
+            # Execute the JavaScript to set content
+            webview.evaluate_javascript(
+                js_code,
+                -1, None, None, None,
+                None,
+                None
+            )
+            
+            # Update status
+            win.statusbar.set_text(f"Opened {os.path.basename(filepath)}")
+        else:
+            win.statusbar.set_text("Warning: No content found in file")
+        
+        # Clean up temporary directory
+        try:
+            if temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+        except Exception as e:
+            print(f"Error cleaning up temp directory: {e}")
+            
+    except Exception as e:
+        print(f"Error processing HTML/MHTML content: {e}")
+        win.statusbar.set_text(f"Error loading file: {e}")
+        
+        # Clean up temporary directory
+        try:
+            if temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+        except Exception as cleanup_err:
+            print(f"Error cleaning up temp directory: {cleanup_err}")
+            
+def load_file(self, win, filepath):
+    """Load file content into editor with enhanced format support and image handling"""
+    try:
+        # Check if file exists
+        if not os.path.exists(filepath):
+            self.show_error_dialog("File not found")
+            return
+            
+        # Store the original file path format for reference
+        win.original_format = os.path.splitext(filepath)[1].lower()
+        win.original_filepath = filepath
+        
+        # Process the file based on its format
+        file_ext = os.path.splitext(filepath)[1].lower()
+        
+        # Show loading dialog for potentially slow operations
+        loading_dialog = None
+        if is_libreoffice_format(filepath) and file_ext not in ['.html', '.htm', '.txt', '.md', '.markdown']:
+            loading_dialog = self.show_loading_dialog(win)
+        
+        # Special handling for HTML files
+        if file_ext in ['.html', '.htm']:
+            try:
+                if loading_dialog:
+                    loading_dialog.close()
+                    loading_dialog = None
+                    
+                # For HTML files, we'll use WebKit's native capabilities
+                self._load_html_with_webkit(win, filepath)
+                return
+            except Exception as e:
+                print(f"Error using WebKit to load HTML: {e}")
+                # Fall back to regular loading if WebKit approach fails
+                
+        # Special handling for MHTML files using manual extraction
+        if file_ext in ['.mht', '.mhtml']:
+            try:
+                if loading_dialog:
+                    loading_dialog.close()
+                    loading_dialog = None
+                    
+                # For MHTML files, we need to extract HTML content manually
+                self._load_mhtml_file(win, filepath)
+                return
+            except Exception as e:
+                print(f"Error loading MHTML: {e}")
+                # Fall back to regular loading if MHTML extraction fails
+        
+        # Function to continue loading after potential conversion for other file types
+        def continue_loading(html_content=None, converted_path=None, image_dir=None):
+            try:
+                # Close loading dialog if it was shown
+                if loading_dialog:
+                    try:
+                        loading_dialog.close()
+                    except Exception as e:
+                        print(f"Warning: Could not close loading dialog: {e}")
+                
+                # Initialize content variable
+                content = ""
+                
+                # If we already have HTML content from conversion, use it
+                if html_content:
+                    content = html_content
+                else:
+                    # Try to detect file encoding
+                    encoding = 'utf-8'  # Default encoding
+                    try:
+                        import chardet
+                        with open(filepath, 'rb') as raw_file:
+                            raw_content = raw_file.read()
+                            detected = chardet.detect(raw_content)
+                            if detected['confidence'] > 0.7:
+                                encoding = detected['encoding']
+                    except ImportError:
+                        pass  # Fallback to utf-8 if chardet not available
+                        
+                    # Now read the file with the detected encoding
+                    try:
+                        with open(filepath, 'r', encoding=encoding) as f:
+                            content = f.read()
+                    except UnicodeDecodeError:
+                        # If there's a decode error, try a fallback encoding
+                        with open(filepath, 'r', encoding='latin-1') as f:
+                            content = f.read()
+                
+                # Process content based on file type
+                if file_ext in ['.md', '.markdown']:
+                    # Convert markdown to HTML
+                    if MARKDOWN_AVAILABLE:
+                        try:
+                            # Get available extensions
+                            available_extensions = []
+                            for ext in ['tables', 'fenced_code', 'codehilite', 'nl2br', 'sane_lists', 'smarty', 'attr_list']:
+                                try:
+                                    # Test if extension can be loaded
+                                    markdown.markdown("test", extensions=[ext])
+                                    available_extensions.append(ext)
+                                except (ImportError, ValueError):
+                                    pass
+                            
+                            # Convert markdown to HTML
+                            content = markdown.markdown(content, extensions=available_extensions)
+                        except Exception as e:
+                            print(f"Error converting markdown: {e}")
+                            # Fallback to simple conversion
+                            content = self._simple_markdown_to_html(content)
+                    else:
+                        # Use simplified markdown conversion
+                        content = self._simple_markdown_to_html(content)
+                elif file_ext == '.txt':
+                    # Convert plain text to HTML
+                    content = content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                    content = f"<div>{content.replace(chr(10), '<br>')}</div>"
+                
+                # Process image references for converted LibreOffice documents
+                if converted_path and image_dir and os.path.exists(image_dir):
+                    # Look for an 'images' subfolder that LibreOffice might have created
+                    images_folder = os.path.join(image_dir, 'images')
+                    if os.path.exists(images_folder) and os.path.isdir(images_folder):
+                        print(f"Found images folder: {images_folder}")
+                        # Store the image directory for reference
+                        win.image_dir = images_folder
+                        
+                        # Process the image references in the content
+                        content = self._process_image_references(content, images_folder)
+                    else:
+                        # Check for any image files in the main output directory
+                        image_files = [f for f in os.listdir(image_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp'))]
+                        if image_files:
+                            print(f"Found {len(image_files)} image files in output directory")
+                            win.image_dir = image_dir
+                            content = self._process_image_references(content, image_dir)
+                        else:
+                            print(f"No images folder or image files found in {image_dir}")
+                
+                # Ensure content is properly wrapped in a div if not already
+                if not (content.strip().startswith('<div') or content.strip().startswith('<p') or 
+                       content.strip().startswith('<h')):
+                    content = f"<div>{content}</div>"
+                
+                # Escape for JavaScript
+                content = content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+                js_code = f'setContent("{content}");'
+                
+                # Check WebView load status and execute JS accordingly
+                def execute_when_ready():
+                    # Get the current load status
+                    load_status = win.webview.get_estimated_load_progress()
+                    
+                    if load_status == 1.0:  # Fully loaded
+                        # Execute directly
+                        self.execute_js(win, js_code)
+                        return False  # Stop the timeout
+                    else:
+                        # Set up a handler for when loading finishes
+                        def on_load_changed(webview, event):
+                            if event == WebKit.LoadEvent.FINISHED:
+                                self.execute_js(win, js_code)
+                                webview.disconnect_by_func(on_load_changed)
+                        
+                        win.webview.connect("load-changed", on_load_changed)
+                        return False  # Stop the timeout
+                
+                # Use GLib timeout to ensure we're not in the middle of another operation
+                GLib.timeout_add(50, execute_when_ready)
+                
+                # Update file information
+                win.current_file = Gio.File.new_for_path(filepath)
+                
+                # Mark as converted document if LibreOffice conversion was used
+                if converted_path and is_libreoffice_format(filepath) and win.original_format not in ['.html', '.htm', '.txt', '.md', '.markdown']:
+                    # Mark as a converted document
+                    win.is_converted_document = True
+                else:
+                    win.is_converted_document = False
+                
+                win.modified = False
+                self.update_window_title(win)
+                win.statusbar.set_text(f"Opened {os.path.basename(filepath)}")
+                        
+            except Exception as e:
+                # Close loading dialog if it was shown
+                if loading_dialog:
+                    try:
+                        loading_dialog.close()
+                    except:
+                        pass
+                print(f"Error processing file content: {str(e)}")
+                win.statusbar.set_text(f"Error processing file: {str(e)}")
+                self.show_error_dialog(f"Error processing file: {e}")
+        
+        # Check if file needs LibreOffice conversion
+        if is_libreoffice_format(filepath) and file_ext not in ['.html', '.htm', '.txt', '.md', '.markdown']:
+            # Start the conversion in a separate thread to keep UI responsive
+            def convert_thread():
+                try:
+                    # Convert the file to HTML using LibreOffice
+                    converted_file, image_dir = self.convert_with_libreoffice(filepath, "html")
+                    
+                    if converted_file:
+                        # Read the converted HTML file
+                        try:
+                            with open(converted_file, 'r', encoding='utf-8') as f:
+                                html_content = f.read()
+                                
+                            # Extract body content
+                            body_match = re.search(r'<body[^>]*>(.*?)</body>', html_content, re.DOTALL | re.IGNORECASE)
+                            if body_match:
+                                html_content = body_match.group(1).strip()
+                            
+                            # Schedule continuing in the main thread with the HTML content
+                            GLib.idle_add(lambda: continue_loading(html_content, converted_file, image_dir))
+                        except Exception as e:
+                            print(f"Error reading converted file: {e}")
+                            GLib.idle_add(lambda: self.show_error_dialog(f"Error reading converted file: {e}"))
+                            GLib.idle_add(lambda: loading_dialog.close() if loading_dialog else None)
+                    else:
+                        # Conversion failed
+                        GLib.idle_add(lambda: self.show_error_dialog("Failed to convert document with LibreOffice. Please check if LibreOffice is installed correctly."))
+                        GLib.idle_add(lambda: loading_dialog.close() if loading_dialog else None)
+                except Exception as e:
+                    print(f"Error in conversion thread: {e}")
+                    GLib.idle_add(lambda: self.show_error_dialog(f"Conversion error: {e}"))
+                    GLib.idle_add(lambda: loading_dialog.close() if loading_dialog else None)
+                
+                return False  # Don't repeat
+            
+            # Start the conversion thread
+            GLib.idle_add(lambda: GLib.Thread.new(None, convert_thread) and False)
+        else:
+            # Continue with normal loading for directly supported formats
+            continue_loading()
+            
+    except Exception as e:
+        # Handle loading dialog error
+        try:
+            # Make sure loading_dialog exists before attempting to close it
+            if 'loading_dialog' in locals() and loading_dialog:
+                loading_dialog.close()
+        except:
+            pass
+            
+        print(f"Error loading file: {str(e)}")
+        win.statusbar.set_text(f"Error loading file: {str(e)}")
+        self.show_error_dialog(f"Error loading file: {e}")
+
+def _load_html_with_webkit(self, win, filepath):
+    """Load HTML files directly with WebKit and make content editable"""
+    try:
+        # Create file URI
+        file_uri = f"file://{filepath}"
+        filename = os.path.basename(filepath)
+        
+        # Show loading message
+        win.statusbar.set_text(f"Loading HTML file: {filename}")
+        
+        # Set up a handler to extract content after loading
+        def on_file_loaded(webview, event):
+            if event == WebKit.LoadEvent.FINISHED:
+                # Extract the content and make it editable
+                GLib.timeout_add(300, lambda: self._extract_html_content(win, webview, filepath))
+                # Remove the handler
+                webview.disconnect_by_func(on_file_loaded)
+                
+        # Connect the handler
+        win.webview.connect("load-changed", on_file_loaded)
+        
+        # Load the file in WebKit
+        win.webview.load_uri(file_uri)
+        
+        # Update file information
+        win.current_file = Gio.File.new_for_path(filepath)
+        win.is_converted_document = False
+        win.modified = False
+        self.update_window_title(win)
+        
+    except Exception as e:
+        print(f"Error loading HTML with WebKit: {e}")
+        win.statusbar.set_text(f"Error loading HTML file: {e}")
+        self.show_error_dialog(f"Error loading HTML file: {e}")
+
+def _extract_html_content(self, win, webview, filepath):
+    """Extract content from loaded HTML and make it editable"""
+    try:
+        # Get the document body content
+        webview.evaluate_javascript(
+            "document.body.innerHTML",
+            -1, None, None, None,
+            lambda webview, result, data: self._on_html_content_extracted(win, webview, result, filepath),
+            None
+        )
+        return False  # Don't repeat this timeout
+    except Exception as e:
+        print(f"Error extracting HTML content: {e}")
+        win.statusbar.set_text(f"Error loading HTML file: {e}")
+        return False  # Don't repeat this timeout
+
+def _on_html_content_extracted(self, win, webview, result, filepath):
+    """Handle extracted HTML content and make it editable"""
+    try:
+        js_result = webview.evaluate_javascript_finish(result)
+        body_content = ""
+        
+        if js_result:
+            # Get the HTML content
+            if hasattr(js_result, 'get_js_value'):
+                body_content = js_result.get_js_value().to_string()
+            else:
+                body_content = js_result.to_string()
+        
+        if body_content:
+            # Set the content in the editor to make it editable
+            # Escape for JavaScript
+            content = body_content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+            js_code = f'setContent("{content}");'
+            
+            # Execute the JavaScript to set content
+            webview.evaluate_javascript(
+                js_code,
+                -1, None, None, None,
+                None,
+                None
+            )
+            
+            # Update status
+            win.statusbar.set_text(f"Opened {os.path.basename(filepath)}")
+        else:
+            win.statusbar.set_text("Warning: No content found in HTML file")
+            
+    except Exception as e:
+        print(f"Error processing HTML content: {e}")
+        win.statusbar.set_text(f"Error loading HTML file: {e}")
+
+def _load_mhtml_file(self, win, filepath):
+    """Load MHTML files by extracting their HTML content"""
+    try:
+        # Try to read the file and extract HTML content
+        with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+            content = f.read()
+            
+        # Extract HTML content from MHTML
+        html_content = None
+        
+        try:
+            # Try using email module for proper MHTML parsing
+            import email
+            message = email.message_from_string(content)
+            
+            # Find the HTML part
+            for part in message.walk():
+                if part.get_content_type() == 'text/html':
+                    payload = part.get_payload(decode=True)
+                    if isinstance(payload, bytes):
+                        charset = part.get_content_charset() or 'utf-8'
+                        html_content = payload.decode(charset, errors='replace')
+                    else:
+                        html_content = payload
+                    break
+                    
+            # If we couldn't find an HTML part, look for multipart/related with HTML
+            if not html_content:
+                for part in message.walk():
+                    if part.get_content_type() == 'multipart/related':
+                        # The first part is usually the HTML part
+                        for subpart in part.get_payload():
+                            if subpart.get_content_type() == 'text/html':
+                                payload = subpart.get_payload(decode=True)
+                                if isinstance(payload, bytes):
+                                    charset = subpart.get_content_charset() or 'utf-8'
+                                    html_content = payload.decode(charset, errors='replace')
+                                else:
+                                    html_content = payload
+                                break
+                        break
+                        
+        except Exception as e:
+            print(f"Error parsing MHTML with email module: {e}")
+            
+            # Fallback to regex extraction
+            try:
+                # Look for HTML content part
+                match = re.search(r'Content-Type:\s*text/html.*?(?:\r?\n){2}(.*?)(?:\r?\n--|--)(?:[^\r\n]+)(?:\r?\n|$)',
+                                 content, re.DOTALL | re.IGNORECASE)
+                if match:
+                    html_content = match.group(1)
+                else:
+                    # Try another pattern
+                    match = re.search(r'<html.*?>.*?</html>', content, re.DOTALL | re.IGNORECASE)
+                    if match:
+                        html_content = match.group(0)
+            except Exception as regex_err:
+                print(f"Error with regex fallback: {regex_err}")
+                
+        # If we still don't have HTML content, try one more approach
+        if not html_content:
+            try:
+                # Look for <html> tag and extract everything between <html> and </html>
+                match = re.search(r'<html.*?>(.*?)</html>', content, re.DOTALL | re.IGNORECASE)
+                if match:
+                    html_content = f"<html>{match.group(1)}</html>"
+            except Exception as html_err:
+                print(f"Error with HTML tag extraction: {html_err}")
+                
+        # If we have HTML content, load it
+        if html_content:
+            # Create a temporary file with the extracted HTML
+            temp_dir = tempfile.mkdtemp()
+            temp_html_path = os.path.join(temp_dir, "extracted.html")
+            
+            with open(temp_html_path, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+                
+            # Now process the extracted HTML
+            
+            # Process images and other resources in the HTML content
+            # This will convert image references to data URLs if possible
+            modified_html = self._process_mhtml_resources(html_content, content, temp_dir)
+            
+            with open(temp_html_path, 'w', encoding='utf-8') as f:
+                f.write(modified_html)
+                
+            # Create file URI for the temporary HTML file
+            file_uri = f"file://{temp_html_path}"
+            
+            # Set up a handler to extract content after loading
+            def on_html_loaded(webview, event):
+                if event == WebKit.LoadEvent.FINISHED:
+                    # Extract the content and make it editable
+                    GLib.timeout_add(300, lambda: self._extract_mhtml_content(win, webview, filepath, temp_dir))
+                    # Remove the handler
+                    webview.disconnect_by_func(on_html_loaded)
+                    
+            # Connect the handler
+            win.webview.connect("load-changed", on_html_loaded)
+            
+            # Load the temporary HTML file in WebKit
+            win.webview.load_uri(file_uri)
+            
+            # Update file information
+            win.current_file = Gio.File.new_for_path(filepath)
+            win.is_converted_document = False
+            win.modified = False
+            self.update_window_title(win)
+            win.statusbar.set_text(f"Loading MHTML file: {os.path.basename(filepath)}")
+            
+        else:
+            raise Exception("Could not extract HTML content from MHTML file")
+            
+    except Exception as e:
+        print(f"Error loading MHTML file: {e}")
+        win.statusbar.set_text(f"Error loading MHTML file: {e}")
+        self.show_error_dialog(f"Error loading MHTML file: {e}")
+
+def _process_mhtml_resources(self, html_content, mhtml_content, temp_dir):
+    """Process resources in MHTML file, converting image references to data URLs where possible"""
+    try:
+        # Parse the MHTML content to extract resources
+        resources = {}
+        
+        try:
+            # Get image parts using email module
+            import email
+            import base64
+            
+            message = email.message_from_string(mhtml_content)
+            
+            # Parse Content-Location or Content-ID for resources
+            for part in message.walk():
+                content_type = part.get_content_type()
+                if content_type.startswith('image/'):
+                    # Get the resource ID
+                    resource_id = None
+                    if part.get('Content-Location'):
+                        resource_id = part.get('Content-Location')
+                    elif part.get('Content-ID'):
+                        # Content-ID is usually in <id> format
+                        cid = part.get('Content-ID')
+                        if cid.startswith('<') and cid.endswith('>'):
+                            cid = cid[1:-1]
+                        resource_id = f"cid:{cid}"
+                        
+                    if resource_id:
+                        # Get the content
+                        payload = part.get_payload(decode=True)
+                        if payload:
+                            # Create a data URL
+                            data_url = f"data:{content_type};base64,{base64.b64encode(payload).decode('ascii')}"
+                            resources[resource_id] = data_url
+                            
+                            # Save to temp file as fallback
+                            try:
+                                resource_filename = os.path.basename(resource_id).split('?')[0]
+                                if not resource_filename:
+                                    resource_filename = f"resource_{len(resources)}.{content_type.split('/')[1]}"
+                                
+                                resource_path = os.path.join(temp_dir, resource_filename)
+                                with open(resource_path, 'wb') as f:
+                                    f.write(payload)
+                            except Exception as save_err:
+                                print(f"Error saving resource: {save_err}")
+        except Exception as e:
+            print(f"Error extracting resources with email module: {e}")
+            
+        # Process the HTML to replace resource references
+        processed_html = html_content
+        
+        # Replace image references
+        for resource_id, data_url in resources.items():
+            # Try different patterns for resource references
+            patterns = [
+                f'src=["\']({re.escape(resource_id)})["\']',
+                f'src=["\']({re.escape(resource_id.replace(":", "%3A"))})["\']'
+            ]
+            
+            for pattern in patterns:
+                processed_html = re.sub(pattern, f'src="{data_url}"', processed_html)
+            
+        return processed_html
+        
+    except Exception as e:
+        print(f"Error processing MHTML resources: {e}")
+        return html_content  # Return original content if processing fails
+
+def _extract_mhtml_content(self, win, webview, filepath, temp_dir):
+    """Extract content from loaded MHTML HTML and make it editable"""
+    try:
+        # Get the document body content
+        webview.evaluate_javascript(
+            "document.body.innerHTML",
+            -1, None, None, None,
+            lambda webview, result, data: self._on_mhtml_content_extracted(win, webview, result, filepath, temp_dir),
+            None
+        )
+        return False  # Don't repeat this timeout
+    except Exception as e:
+        print(f"Error extracting MHTML content: {e}")
+        win.statusbar.set_text(f"Error loading MHTML file: {e}")
+        
+        # Clean up temporary directory
+        try:
+            if temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+        except Exception as cleanup_err:
+            print(f"Error cleaning up temp directory: {cleanup_err}")
+            
+        return False  # Don't repeat this timeout
+
+def _on_mhtml_content_extracted(self, win, webview, result, filepath, temp_dir):
+    """Handle extracted MHTML content and make it editable"""
+    try:
+        js_result = webview.evaluate_javascript_finish(result)
+        body_content = ""
+        
+        if js_result:
+            # Get the HTML content
+            if hasattr(js_result, 'get_js_value'):
+                body_content = js_result.get_js_value().to_string()
+            else:
+                body_content = js_result.to_string()
+        
+        if body_content:
+            # Set the content in the editor to make it editable
+            # Escape for JavaScript
+            content = body_content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+            js_code = f'setContent("{content}");'
+            
+            # Execute the JavaScript to set content
+            webview.evaluate_javascript(
+                js_code,
+                -1, None, None, None,
+                None,
+                None
+            )
+            
+            # Update status
+            win.statusbar.set_text(f"Opened {os.path.basename(filepath)}")
+        else:
+            win.statusbar.set_text("Warning: No content found in MHTML file")
+        
+        # Clean up temporary directory
+        try:
+            if temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+        except Exception as e:
+            print(f"Error cleaning up temp directory: {e}")
+            
+    except Exception as e:
+        print(f"Error processing MHTML content: {e}")
+        win.statusbar.set_text(f"Error loading MHTML file: {e}")
+        
+        # Clean up temporary directory
+        try:
+            if temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+        except Exception as cleanup_err:
+            print(f"Error cleaning up temp directory: {cleanup_err}")
+            
+############# the above works but external does not edit; let's try for external
+            
