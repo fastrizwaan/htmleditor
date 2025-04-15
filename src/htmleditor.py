@@ -3286,7 +3286,383 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         
         status_text = "Column layout removed" if columns <= 1 else f"Applied {columns}-column layout"
         win.statusbar.set_text(status_text)
+#####################
+    def paragraph_and_line_spacing_js(self):
+        """JavaScript for paragraph and line spacing functions with improved element handling"""
+        return """
+        // Function to set paragraph spacing
+        function setParagraphSpacing(spacing) {
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return false;
+            
+            // Strategy: Get all block elements in the selection range
+            const range = selection.getRangeAt(0);
+            const startNode = findContainerBlockElement(range.startContainer);
+            const endNode = findContainerBlockElement(range.endContainer);
+            
+            // If we couldn't find containers, try a different approach
+            if (!startNode || !endNode) {
+                return setSimpleElementSpacing(spacing, 'marginBottom');
+            }
+            
+            // Get all block elements in the selection range
+            const elements = getAllBlockElementsInRange(startNode, endNode);
+            
+            // Apply spacing to all found elements
+            elements.forEach(el => {
+                el.style.marginBottom = spacing + 'px';
+            });
+            
+            // Save state for undo/redo AFTER making the change
+            saveState();
+            window.lastContent = document.getElementById('editor').innerHTML;
+            window.redoStack = [];
+            
+            // Notify that content has changed
+            try {
+                window.webkit.messageHandlers.contentChanged.postMessage("changed");
+            } catch(e) {
+                console.log("Could not notify about changes:", e);
+            }
+            
+            return true;
+        }
+        
+        // Function to set line spacing
+        function setLineSpacing(spacing) {
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return false;
+            
+            // Strategy: Get all block elements in the selection range
+            const range = selection.getRangeAt(0);
+            const startNode = findContainerBlockElement(range.startContainer);
+            const endNode = findContainerBlockElement(range.endContainer);
+            
+            // If we couldn't find containers, try a different approach
+            if (!startNode || !endNode) {
+                return setSimpleElementSpacing(spacing, 'lineHeight');
+            }
+            
+            // Get all block elements in the selection range
+            const elements = getAllBlockElementsInRange(startNode, endNode);
+            
+            // Apply spacing to all found elements
+            elements.forEach(el => {
+                el.style.lineHeight = spacing;
+            });
+            
+            // Save state for undo/redo AFTER making the change
+            saveState();
+            window.lastContent = document.getElementById('editor').innerHTML;
+            window.redoStack = [];
+            
+            // Notify that content has changed
+            try {
+                window.webkit.messageHandlers.contentChanged.postMessage("changed");
+            } catch(e) {
+                console.log("Could not notify about changes:", e);
+            }
+            
+            return true;
+        }
+        
+        // Improved helper function to find container block element including list items
+        function findContainerBlockElement(node) {
+            const blockElements = ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'ul', 'ol'];
+            
+            while (node && node.id !== 'editor') {
+                if (node.nodeType === 1 && blockElements.includes(node.nodeName.toLowerCase())) {
+                    return node;
+                }
+                node = node.parentNode;
+            }
+            return null;
+        }
+        
+        // Get all block elements between start and end node (inclusive)
+        function getAllBlockElementsInRange(startNode, endNode) {
+            // If start and end are the same, just return that node
+            if (startNode === endNode) {
+                return [startNode];
+            }
+            
+            // Get all potential block elements in the editor
+            const blockElements = ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'ul', 'ol'];
+            const selector = blockElements.join(',');
+            const allElements = Array.from(document.getElementById('editor').querySelectorAll(selector));
+            
+            // Find the indices of our start and end nodes
+            const startIndex = allElements.indexOf(startNode);
+            const endIndex = allElements.indexOf(endNode);
+            
+            // Handle case where we can't find one of the nodes
+            if (startIndex === -1 || endIndex === -1) {
+                // Fall back to just the nodes we have
+                return [startNode, endNode].filter(node => node !== null);
+            }
+            
+            // Return all elements between start and end (inclusive)
+            return allElements.slice(
+                Math.min(startIndex, endIndex), 
+                Math.max(startIndex, endIndex) + 1
+            );
+        }
+        
+        // Improved method for spacing when selection is unusual
+        function setSimpleElementSpacing(value, property) {
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return false;
+            
+            // Get the current selection and find relevant block elements
+            let node = selection.getRangeAt(0).commonAncestorContainer;
+            
+            // Get all affected elements
+            let elementsToChange = [];
+            
+            // If user selected multiple elements
+            if (selection.rangeCount > 0 && !selection.isCollapsed) {
+                // Check if we have a range that spans multiple nodes
+                const range = selection.getRangeAt(0);
+                const blockElements = ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'ul', 'ol'];
+                
+                // Try to use the selection range to get all affected elements
+                const container = range.commonAncestorContainer;
+                
+                if (container.nodeType === 1) {  // Element node
+                    // Get all block elements within the selection
+                    blockElements.forEach(type => {
+                        const elements = container.querySelectorAll(type);
+                        elements.forEach(el => {
+                            if (range.intersectsNode(el)) {
+                                elementsToChange.push(el);
+                            }
+                        });
+                    });
+                }
+            }
+            
+            // If no elements found, try to get the parent block element
+            if (elementsToChange.length === 0) {
+                // Navigate up to find the closest block element
+                while (node && node.nodeType !== 1 && node.id !== 'editor') {
+                    node = node.parentNode;
+                }
+                
+                // Find the containing block element
+                const blockElements = ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'ul', 'ol'];
+                while (node && node.id !== 'editor') {
+                    if (node.nodeType === 1 && blockElements.includes(node.nodeName.toLowerCase())) {
+                        elementsToChange.push(node);
+                        break;
+                    }
+                    node = node.parentNode;
+                }
+            }
+            
+            // If we still don't have elements to change, use the whole editor
+            if (elementsToChange.length === 0) {
+                // Try adding direct children of the editor that are block elements
+                const editor = document.getElementById('editor');
+                Array.from(editor.children).forEach(child => {
+                    const tagName = child.nodeName.toLowerCase();
+                    if (['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'ul', 'ol'].includes(tagName)) {
+                        elementsToChange.push(child);
+                    }
+                });
+                
+                // If still no elements, add a wrapper div and use that
+                if (elementsToChange.length === 0) {
+                    const newDiv = document.createElement('div');
+                    
+                    // Move all editor content into the new div
+                    while(editor.firstChild) {
+                        newDiv.appendChild(editor.firstChild);
+                    }
+                    editor.appendChild(newDiv);
+                    elementsToChange.push(newDiv);
+                }
+            }
+            
+            // Apply the style to all elements
+            let changed = false;
+            elementsToChange.forEach(el => {
+                el.style[property] = property === 'lineHeight' ? value : value + 'px';
+                changed = true;
+            });
+            
+            if (changed) {
+                // Save state for undo/redo AFTER making the change
+                saveState();
+                window.lastContent = document.getElementById('editor').innerHTML;
+                window.redoStack = [];
+                
+                // Notify that content has changed
+                try {
+                    window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                } catch(e) {
+                    console.log("Could not notify about changes:", e);
+                }
+                
+                return true;
+            }
+            
+            return false;
+        }
+        
+        // Function to wrap unwrapped text
+        function wrapUnwrappedText(container) {
+            let childNodes = Array.from(container.childNodes);
+            for (let i = 0; i < childNodes.length; i++) {
+                let node = childNodes[i];
+                if (node.nodeType === 3 && node.nodeValue.trim() !== '') {
+                    // It's a text node with content, wrap it
+                    let wrapper = document.createElement('div');
+                    node.parentNode.insertBefore(wrapper, node);
+                    wrapper.appendChild(node);
+                }
+            }
+        }
+        
+        // Function to apply column layout to a container
+        function setColumnLayout(container, columns) {
+            if (columns <= 1) {
+                // Remove column styling
+                container.style.columnCount = '';
+                container.style.columnGap = '';
+                container.style.columnRule = '';
+            } else {
+                // Apply column styling
+                container.style.columnCount = columns;
+                container.style.columnGap = '20px';
+                container.style.columnRule = '1px solid #ccc';
+            }
+        }
+        """
 
+    def apply_column_layout(self, win, columns):
+        """Apply column layout to the selected content with improved element handling"""
+        js_code = f"""
+        (function() {{
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return false;
+            
+            // Get the current selection
+            const range = selection.getRangeAt(0);
+            
+            // Handle the case where the selection is within the editor directly
+            if (range.commonAncestorContainer.id === 'editor' || 
+                (range.commonAncestorContainer.nodeType === 3 && 
+                 range.commonAncestorContainer.parentNode.id === 'editor')) {{
+                
+                // Apply column layout to the entire editor
+                const editor = document.getElementById('editor');
+                
+                if ({columns} <= 0) {{
+                    // Remove columns
+                    editor.style.columnCount = '';
+                    editor.style.columnGap = '';
+                    editor.style.columnRule = '';
+                }} else {{
+                    // Apply columns
+                    editor.style.columnCount = {columns};
+                    editor.style.columnGap = '20px';
+                    editor.style.columnRule = '1px solid #ccc';
+                }}
+                
+                // Save state for undo/redo
+                saveState();
+                window.lastContent = editor.innerHTML;
+                window.redoStack = [];
+                
+                try {{
+                    window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                }} catch(e) {{
+                    console.log("Could not notify about changes:", e);
+                }}
+                
+                return true;
+            }}
+            
+            // Try to find a suitable container
+            let container = null;
+            let node = range.commonAncestorContainer;
+            
+            // If text node, get parent
+            if (node.nodeType === 3) {{
+                node = node.parentNode;
+            }}
+            
+            // Block elements that can be containers
+            const blockElements = ['div', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'ul', 'ol'];
+            
+            // Find the closest block element
+            while (node && node.id !== 'editor') {{
+                if (node.nodeType === 1 && blockElements.includes(node.nodeName.toLowerCase())) {{
+                    container = node;
+                    break;
+                }}
+                node = node.parentNode;
+            }}
+            
+            // If no suitable container found, create one
+            if (!container || container.id === 'editor') {{
+                // Try to create a wrapper around selected content
+                document.execCommand('formatBlock', false, 'div');
+                
+                // Check if that worked
+                const newRange = selection.getRangeAt(0);
+                node = newRange.commonAncestorContainer;
+                
+                if (node.nodeType === 3) {{
+                    node = node.parentNode;
+                }}
+                
+                // Find our new container
+                while (node && node.id !== 'editor') {{
+                    if (node.nodeType === 1 && blockElements.includes(node.nodeName.toLowerCase())) {{
+                        container = node;
+                        break;
+                    }}
+                    node = node.parentNode;
+                }}
+                
+                // If still no container, use the editor itself
+                if (!container || container.id === 'editor') {{
+                    container = document.getElementById('editor');
+                }}
+            }}
+            
+            // Apply column layout to the container
+            if ({columns} <= 0) {{
+                // Remove columns
+                container.style.columnCount = '';
+                container.style.columnGap = '';
+                container.style.columnRule = '';
+            }} else {{
+                // Apply columns
+                container.style.columnCount = {columns};
+                container.style.columnGap = '20px';
+                container.style.columnRule = '1px solid #ccc';
+            }}
+            
+            // Save state for undo/redo
+            saveState();
+            window.lastContent = document.getElementById('editor').innerHTML;
+            window.redoStack = [];
+            
+            try {{
+                window.webkit.messageHandlers.contentChanged.postMessage("changed");
+            }} catch(e) {{
+                console.log("Could not notify about changes:", e);
+            }}
+            
+            return true;
+        }})();
+        """
+        self.execute_js(win, js_code)
+        
+        status_text = "Column layout removed" if columns <= 0 else f"Applied {columns}-column layout"
+        win.statusbar.set_text(status_text)
          
 def main():
     app = HTMLEditorApp()
