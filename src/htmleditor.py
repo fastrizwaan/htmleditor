@@ -40,17 +40,25 @@ class HTMLEditorApp(Adw.Application):
             # File opening methods
             'on_open_clicked', 'on_open_new_window_response',
             'on_open_current_window_response', 'load_file',
+            '_process_image_references', '_get_mime_type', 'cleanup_temp_files',
+            'convert_with_libreoffice', 'show_loading_dialog',
             
             # File saving methods
-            'on_save_clicked', 'on_save_as_clicked', 'show_custom_save_dialog',
+            'on_save_clicked', 'show_format_selection_dialog', 'on_save_as_clicked', 'show_custom_save_dialog',
             '_create_custom_save_dialog', '_get_shortened_path',
-            '_on_browse_clicked','_on_dialog_response', '_on_folder_selected',
-            '_get_file_path_from_dialog',
+            '_on_browse_clicked','_on_dialog_response', '_on_format_selection_response',
+            '_on_folder_selected', 'show_save_as_warning_dialog', '_on_save_warning_response',
+            '_get_file_path_from_dialog', 'show_conversion_notification', 
+            'update_save_sensitivity', 
+            
             
             # Format-specific save methods
             'save_as_mhtml', 'save_webkit_callback', 'save_as_html',
             'save_as_text','save_as_markdown', '_simple_markdown_to_html',
-            
+
+            # Save as PDF
+            'save_as_pdf', '_save_pdf_step1', '_save_pdf_step2', '_pdf_save_success',
+            '_pdf_save_cleanup', '_cleanup_temp_dir', 'set_secondary_text'
             # Callback handlers
             'save_html_callback', 'save_text_callback',
             'save_markdown_callback', 'save_completion_callback',
