@@ -2294,17 +2294,25 @@ def on_clear_formatting_clicked(self, win, button):
     """Remove all formatting from selected text"""
     js_code = """
     (function() {
+        // Use the more modern Selection API
         const selection = window.getSelection();
         if (selection.rangeCount > 0) {
             const range = selection.getRangeAt(0);
             
             // Check if there's selected text
             if (!range.collapsed) {
-                // Get the selected text content
-                const selectedText = range.toString();
+                // Get plain text
+                const plainText = range.toString();
                 
-                // Remove the formatting by replacing with plain text
-                document.execCommand('insertText', false, selectedText);
+                // Force removal of all formatting by explicitly using 
+                // removeFormat command which is specifically designed for this
+                document.execCommand('removeFormat');
+                
+                // As a backup, also use the insertText command
+                // which should replace the now-unformatted selection with the same text
+                if (document.queryCommandSupported('insertText')) {
+                    document.execCommand('insertText', false, plainText);
+                }
                 
                 // Record undo state
                 saveState();
@@ -2326,7 +2334,6 @@ def on_clear_formatting_clicked(self, win, button):
     self.execute_js(win, js_code)
     win.statusbar.set_text("Text formatting removed")
     win.webview.grab_focus()
-
 def on_change_case(self, win, case_type):
     """Change the case of selected text"""
     # Define JavaScript function for each case type
