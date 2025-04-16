@@ -1,0 +1,3 @@
+- [ ] Sentence case not working with .
+- [ ] move new, open, save, save as to headerbar
+- [ ] move cut copy paste on the right side of title

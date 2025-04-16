@@ -2334,7 +2334,18 @@ def on_change_case(self, win, case_type):
         "sentence": """
             function transformText(text) {
                 if (!text) return text;
-                return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+                
+                // First convert everything to lowercase
+                text = text.toLowerCase();
+                
+                // Then capitalize the first letter of each sentence
+                // Look for sentence-ending punctuation (., !, ?) followed by space or end of string
+                // Also handle the first character of the entire text
+                return text.replace(/([.!?]\\s+|^)([a-z])/g, function(match, p1, p2) {
+                    return p1 + p2.toUpperCase();
+                }).replace(/^[a-z]/, function(firstChar) {
+                    return firstChar.toUpperCase();
+                });
             }
         """,
         "lower": """
@@ -2419,5 +2430,3 @@ def on_change_case(self, win, case_type):
     
     win.statusbar.set_text(status_messages.get(case_type, "Changed text case"))
     win.webview.grab_focus()
-##################
-
