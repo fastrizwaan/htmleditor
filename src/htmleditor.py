@@ -670,7 +670,45 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         # Add spacing group to toolbar
         file_toolbar.append(spacing_group)        
 
-        
+
+        # --- Insert operations group (Table, Text Box, Image) ---
+        insert_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
+        insert_group.add_css_class("linked")  # Apply linked styling
+        insert_group.set_margin_start(6)
+
+        # Insert table button
+        table_button = Gtk.Button(icon_name="table-symbolic")  # Use a standard table icon
+        table_button.set_size_request(40, 36)
+        table_button.set_tooltip_text("Insert Table")
+        table_button.connect("clicked", lambda btn: self.on_insert_table_clicked(win, btn))
+
+        # Insert text box button
+        text_box_button = Gtk.Button(icon_name="insert-text-symbolic")
+        text_box_button.set_size_request(40, 36)
+        text_box_button.set_tooltip_text("Insert Text Box")
+        text_box_button.connect("clicked", lambda btn: self.on_insert_text_box_clicked(win, btn))
+
+        # Insert image button
+        image_button = Gtk.Button(icon_name="insert-image-symbolic")
+        image_button.set_size_request(40, 36)
+        image_button.set_tooltip_text("Insert Image")
+        image_button.connect("clicked", lambda btn: self.on_insert_image_clicked(win, btn))
+
+        # Insert link button
+        link_button = Gtk.Button(icon_name="insert-link-symbolic")
+        link_button.set_size_request(40, 36)
+        link_button.set_tooltip_text("Insert link")
+        link_button.connect("clicked", lambda btn: self.on_insert_link_clicked(win, btn))
+
+        # Add buttons to insert group
+        insert_group.append(table_button)
+        insert_group.append(text_box_button)
+        insert_group.append(image_button)
+        insert_group.append(link_button)
+        # Add insert group to toolbar
+        file_toolbar.append(insert_group)
+
+
         # Add spacer (expanding box) at the end
         spacer = Gtk.Box()
         spacer.set_hexpand(True)
@@ -678,6 +716,218 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         
         return file_toolbar
 
+## Insert related code
+    def insert_table_js(self):
+        """JavaScript for insert table and related functionality"""
+        return """ """
+
+    def insert_text_box_js(self):
+        """JavaScript for insert text box and related functionality"""
+        return """ """
+
+    def insert_image_js(self):
+        """JavaScript for insert image and related functionality"""
+        return """ """
+
+    def insert_link_js(self):
+        """JavaScript for insert link and related functionality"""
+        return """ """
+
+    # Python handler for table insertion
+    def on_insert_table_clicked(self, win, btn):
+        """Handle table insertion button click"""
+        win.statusbar.set_text("Inserting table...")
+        
+        # Create a dialog to configure the table
+        dialog = Adw.Dialog()
+        dialog.set_title("Insert Table")
+        dialog.set_content_width(350)
+        
+        # Create layout for dialog content
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        content_box.set_margin_top(24)
+        content_box.set_margin_bottom(24)
+        content_box.set_margin_start(24)
+        content_box.set_margin_end(24)
+        
+        # Rows input
+        rows_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        rows_label = Gtk.Label(label="Rows:")
+        rows_label.set_halign(Gtk.Align.START)
+        rows_label.set_hexpand(True)
+        
+        rows_adjustment = Gtk.Adjustment(value=3, lower=1, upper=20, step_increment=1)
+        rows_spin = Gtk.SpinButton()
+        rows_spin.set_adjustment(rows_adjustment)
+        
+        rows_box.append(rows_label)
+        rows_box.append(rows_spin)
+        content_box.append(rows_box)
+        
+        # Columns input
+        cols_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        cols_label = Gtk.Label(label="Columns:")
+        cols_label.set_halign(Gtk.Align.START)
+        cols_label.set_hexpand(True)
+        
+        cols_adjustment = Gtk.Adjustment(value=3, lower=1, upper=10, step_increment=1)
+        cols_spin = Gtk.SpinButton()
+        cols_spin.set_adjustment(cols_adjustment)
+        
+        cols_box.append(cols_label)
+        cols_box.append(cols_spin)
+        content_box.append(cols_box)
+        
+        # Header row checkbox
+        header_check = Gtk.CheckButton(label="Include header row")
+        header_check.set_active(True)
+        content_box.append(header_check)
+        
+        # Border options
+        border_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        border_label = Gtk.Label(label="Border width:")
+        border_label.set_halign(Gtk.Align.START)
+        border_label.set_hexpand(True)
+        
+        border_adjustment = Gtk.Adjustment(value=1, lower=0, upper=5, step_increment=1)
+        border_spin = Gtk.SpinButton()
+        border_spin.set_adjustment(border_adjustment)
+        
+        border_box.append(border_label)
+        border_box.append(border_spin)
+        content_box.append(border_box)
+        
+        # Table width options
+        width_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        width_label = Gtk.Label(label="Table width:")
+        width_label.set_halign(Gtk.Align.START)
+        width_label.set_hexpand(True)
+        
+        width_combo = Gtk.DropDown()
+        width_options = Gtk.StringList()
+        width_options.append("Auto")
+        width_options.append("100%")
+        width_options.append("75%")
+        width_options.append("50%")
+        width_combo.set_model(width_options)
+        width_combo.set_selected(1)  # Default to 100%
+        
+        width_box.append(width_label)
+        width_box.append(width_combo)
+        content_box.append(width_box)
+        
+        # Button box
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        button_box.set_halign(Gtk.Align.END)
+        button_box.set_margin_top(16)
+        
+        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button.connect("clicked", lambda btn: dialog.close())
+        
+        insert_button = Gtk.Button(label="Insert")
+        insert_button.add_css_class("suggested-action")
+        insert_button.connect("clicked", lambda btn: self.on_table_dialog_response(
+            win, dialog, 
+            rows_spin.get_value_as_int(), 
+            cols_spin.get_value_as_int(),
+            header_check.get_active(),
+            border_spin.get_value_as_int(),
+            width_options.get_string(width_combo.get_selected())
+        ))
+        
+        button_box.append(cancel_button)
+        button_box.append(insert_button)
+        content_box.append(button_box)
+        
+        # Set dialog content and present
+        dialog.set_child(content_box)
+        dialog.present(win)
+        
+    def on_table_dialog_response(self, win, dialog, rows, cols, has_header, border_width, width_option):
+        """Handle response from the table dialog"""
+        dialog.close()
+        
+        # Prepare the width value
+        width_value = "auto"
+        if width_option != "Auto":
+            width_value = width_option
+        
+        # Execute JavaScript to insert the table
+        js_code = f"""
+        (function() {{
+            insertTable({rows}, {cols}, {str(has_header).lower()}, {border_width}, "{width_value}");
+            return true;
+        }})();
+        """
+        self.execute_js(win, js_code)
+        win.statusbar.set_text("Table inserted")
+
+    def on_insert_text_box_clicked(self, win, btn):
+        """Handle text box insertion button click, textbox is basically 1x1 table"""
+        win.statusbar.set_text("Inserting text box...")
+        
+        # Execute JavaScript to insert a text box at the cursor position
+        js_code = """
+        (function() {
+            insertTextBox();
+            return true;
+        })();
+        """
+        self.execute_js(win, js_code)
+        
+    def on_insert_image_clicked(self, win, btn):
+        """Handle image insertion button click"""
+        win.statusbar.set_text("Inserting image...")
+
+        # Create a file chooser dialog using Gtk.FileChooserNative
+        dialog = Gtk.FileChooserNative(
+            title="Select an Image",
+            transient_for=win,  # Set the transient parent correctly
+            action=Gtk.FileChooserAction.OPEN,
+            accept_label="_Open",
+            cancel_label="_Cancel"
+        )
+
+        # Add image file filters
+        filter_image = Gtk.FileFilter()
+        filter_image.set_name("Image files")
+        filter_image.add_mime_type("image/png")
+        filter_image.add_mime_type("image/jpeg")
+        filter_image.add_mime_type("image/gif")
+        dialog.set_filter(filter_image)
+
+        dialog.connect("response", lambda dlg, response: self.on_image_dialog_response(dlg, response, win))
+        dialog.show()
+
+    def on_image_dialog_response(self, dialog, response, win):
+        """Handle the response from the image file chooser dialog"""
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file and (file_path := file.get_path()):
+                # Convert file path to a data URL for JavaScript
+                import base64
+                with open(file_path, "rb") as image_file:
+                    encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+                    mime_type = "image/png" if file_path.endswith(".png") else "image/jpeg"
+                    data_url = f"data:{mime_type};base64,{encoded_string}"
+
+                # Execute JavaScript to insert the image
+                js_code = f"""
+                (function() {{
+                    insertImage('{data_url}');
+                    return true;
+                }})();
+                """
+                self.execute_js(win, js_code)
+            else:
+                win.statusbar.set_text("Failed to select a valid image file.")
+        dialog.destroy() 
+
+    def on_insert_link_clicked(self, win, btn):
+      """show a dialog with URL and Text """
+      return
+      
+## /Insert related code
 
     def on_cut_clicked(self, win, btn):
         """Handle cut button click"""
