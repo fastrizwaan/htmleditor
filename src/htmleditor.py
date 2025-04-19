@@ -722,8 +722,29 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         return """ """
 
     def insert_text_box_js(self):
-        """JavaScript for insert text box and related functionality"""
-        return """ """
+        return """
+    // Function to insert a text box as a 1x1 table
+    function insertTextBox() {
+        // Create a styled 1x1 table to serve as a text box
+        let textBox = '<table border="1" cellspacing="0" cellpadding="10" class="text-box-table" ' +
+                     'style="border-collapse: collapse; min-height: 80px; width: 100%; max-width: 500px; ' +
+                     'border: 1px solid #ccc; resize: both; overflow: auto; margin: 10px 0;">' +
+                     '<tr><td style="padding: 10px;">Type text here...</td></tr>' +
+                     '</table><p></p>';
+                     
+        document.execCommand('insertHTML', false, textBox);
+        
+        // Activate the newly inserted table/text box - this uses your existing table activation code
+        setTimeout(() => {
+            const tables = document.querySelectorAll('table.text-box-table');
+            const newTable = tables[tables.length - 1];
+            if (newTable) {
+                activateTable(newTable);
+                window.webkit.messageHandlers.tableClicked.postMessage('table-clicked');
+            }
+        }, 10);
+    }
+"""
 
     def insert_image_js(self):
         """JavaScript for insert image and related functionality"""
@@ -1277,6 +1298,11 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         {self.set_content_js()}
         {self.selection_change_js()}
         {self.search_functions_js()}
+        {self.paragraph_and_line_spacing_js()}
+        {self.insert_table_js()}
+        {self.insert_text_box_js()}
+        {self.insert_image_js()}
+        {self.insert_link_js()}
         {self.init_editor_js()}
         """
 
