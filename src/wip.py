@@ -159,10 +159,6 @@ class HTMLEditorApp(Adw.Application):
         return file_toolbar
 
 ## Insert related code
-
-    def insert_text_box_js(self):
-        return """ """
-
     def insert_image_js(self):
         """JavaScript for insert image and related functionality"""
         return """ """
@@ -597,7 +593,11 @@ class HTMLEditorApp(Adw.Application):
                 const newTable = tables[tables.length - 1];
                 if (newTable) {
                     activateTable(newTable);
-                    window.webkit.messageHandlers.tableClicked.postMessage('table-clicked');
+                    try {
+                        window.webkit.messageHandlers.tableClicked.postMessage('table-clicked');
+                    } catch(e) {
+                        console.log("Could not notify about table click:", e);
+                    }
                 }
             }, 10);
         }
@@ -647,6 +647,23 @@ class HTMLEditorApp(Adw.Application):
             if (!tableElement.querySelector('.table-handle')) {
                 const resizeHandle = document.createElement('div');
                 resizeHandle.className = 'table-handle';
+                
+                // Make handle non-selectable and prevent focus
+                resizeHandle.setAttribute('contenteditable', 'false');
+                resizeHandle.setAttribute('unselectable', 'on');
+                resizeHandle.setAttribute('tabindex', '-1');
+                resizeHandle.style.userSelect = 'none';
+                resizeHandle.style.webkitUserSelect = 'none';
+                resizeHandle.style.MozUserSelect = 'none';
+                resizeHandle.style.msUserSelect = 'none';
+                
+                // Add event listener to prevent propagation of mousedown events
+                resizeHandle.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    startTableResize(e, tableElement);
+                }, true);
+                
                 tableElement.appendChild(resizeHandle);
             }
             
@@ -656,6 +673,23 @@ class HTMLEditorApp(Adw.Application):
                 dragHandle.className = 'table-drag-handle';
                 dragHandle.innerHTML = '↕';
                 dragHandle.title = 'Drag to reposition table between paragraphs';
+                
+                // Make handle non-selectable and prevent focus
+                dragHandle.setAttribute('contenteditable', 'false');
+                dragHandle.setAttribute('unselectable', 'on');
+                dragHandle.setAttribute('tabindex', '-1');
+                dragHandle.style.userSelect = 'none';
+                dragHandle.style.webkitUserSelect = 'none';
+                dragHandle.style.MozUserSelect = 'none';
+                dragHandle.style.msUserSelect = 'none';
+                
+                // Add event listener to prevent propagation of mousedown events
+                dragHandle.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    startTableDrag(e, tableElement);
+                }, true);
+                
                 tableElement.appendChild(dragHandle);
             }
         }
@@ -948,6 +982,14 @@ class HTMLEditorApp(Adw.Application):
             
             // Handle mouse down events
             editor.addEventListener('mousedown', function(e) {
+                // Prevent selection of table handles
+                if (e.target.classList.contains('table-handle') || 
+                    e.target.classList.contains('table-drag-handle')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+                
                 let tableElement = findParentTable(e.target);
                 
                 if (e.target.classList.contains('table-drag-handle')) {
@@ -1762,6 +1804,255 @@ class HTMLEditorApp(Adw.Application):
             <div id="editor" contenteditable="true"></div>
         </body>
         </html>
+        """
+############### Text box using frame
+
+    def insert_text_box_js(self):
+        """JavaScript for inserting a text frame and related functionality"""
+        return """
+        // Function to insert a styled text frame
+        function insertTextBox() {
+            // Create a styled div to serve as a text frame with surrounding paragraphs
+            let textBox = '<p><br></p>' +  // Paragraph before for cursor placement
+                         '<div contenteditable="true" class="text-frame" ' +
+                         'style="border: 1px solid #ccc; border-radius: 4px; ' +
+                         'padding: 10px; margin: 10px 0; min-height: 80px; ' +
+                         'width: 100%; max-width: 500px; background-color: rgba(240, 240, 240, 0.3); ' +
+                         'box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); ' +
+                         'resize: both; overflow: auto;">' +
+                         '<p>Type text here...</p>' +
+                         '</div>' +
+                         '<p><br></p>';  // Paragraph after for cursor placement
+            
+            // Get current selection
+            const selection = window.getSelection();
+            if (selection.rangeCount === 0) {
+                // No selection, place at the end
+                const editor = document.getElementById('editor');
+                const range = document.createRange();
+                if (editor.lastChild) {
+                    range.setEndAfter(editor.lastChild);
+                } else {
+                    range.setStart(editor, 0);
+                }
+                range.collapse(false);
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+            
+            const range = selection.getRangeAt(0);
+            
+            // Standard insertion with execCommand
+            document.execCommand('insertHTML', false, textBox);
+            
+            // Notify content change
+            try {
+                window.webkit.messageHandlers.contentChanged.postMessage('text-frame-added');
+            } catch(e) {
+                console.log("Message handler for text frame not available");
+            }
+            
+            // Focus the new text frame
+            focusNewTextFrame();
+        }
+        
+        // Function to focus the most recently inserted text frame
+        function focusNewTextFrame() {
+            setTimeout(() => {
+                const frames = document.querySelectorAll('div.text-frame');
+                const newFrame = frames[frames.length - 1];
+                if (newFrame) {
+                    // Select all the placeholder text
+                    const range = document.createRange();
+                    const sel = window.getSelection();
+                    const p = newFrame.querySelector('p');
+                    if (p && p.firstChild) {
+                        range.selectNodeContents(p);
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                        
+                        // Focus the frame
+                        newFrame.focus();
+                    }
+                }
+            }, 10);
+        }
+        
+        // Function to check and repair editor structure
+        function ensureEditorStructure() {
+            const editor = document.getElementById('editor');
+            if (!editor) return;
+            
+            // If editor is completely empty, add a starting paragraph
+            if (editor.childNodes.length === 0) {
+                const p = document.createElement('p');
+                p.innerHTML = '<br>';
+                editor.appendChild(p);
+            }
+            
+            // Check for text frames without surrounding paragraphs
+            const frames = Array.from(editor.querySelectorAll('.text-frame'));
+            
+            frames.forEach(frame => {
+                // Check for paragraph before
+                if (!frame.previousSibling || frame.previousSibling.nodeName !== 'P') {
+                    const p = document.createElement('p');
+                    p.innerHTML = '<br>';
+                    editor.insertBefore(p, frame);
+                }
+                
+                // Check for paragraph after
+                if (!frame.nextSibling || frame.nextSibling.nodeName !== 'P') {
+                    const p = document.createElement('p');
+                    p.innerHTML = '<br>';
+                    if (frame.nextSibling) {
+                        editor.insertBefore(p, frame.nextSibling);
+                    } else {
+                        editor.appendChild(p);
+                    }
+                }
+            });
+            
+            // Ensure consecutive text frames have paragraphs between them
+            for (let i = 0; i < frames.length - 1; i++) {
+                const currentFrame = frames[i];
+                const nextFrame = frames[i + 1];
+                
+                // If frames are adjacent or separated only by text nodes
+                if (currentFrame.nextSibling === nextFrame || 
+                    (currentFrame.nextSibling && 
+                     currentFrame.nextSibling.nodeName !== 'P' && 
+                     currentFrame.nextSibling.nextSibling === nextFrame)) {
+                    
+                    const p = document.createElement('p');
+                    p.innerHTML = '<br>';
+                    editor.insertBefore(p, nextFrame);
+                }
+            }
+        }
+        
+        // Event listeners for the editor - these are added when the document loads
+        document.addEventListener('DOMContentLoaded', function() {
+            const editor = document.getElementById('editor');
+            if (!editor) return;
+            
+            // Add styles for text frames to the document
+            const style = document.createElement('style');
+            style.textContent = `
+                .text-frame {
+                    position: relative;
+                    transition: box-shadow 0.2s ease;
+                    z-index: 1;
+                    margin: 10px 0;
+                    clear: both;
+                }
+                .text-frame:hover {
+                    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+                }
+                .text-frame.frame-selected {
+                    outline: 2px solid #4a90d9;
+                    box-shadow: 0 2px 8px rgba(74, 144, 217, 0.3);
+                }
+                /* Style paragraphs around text frames */
+                .text-frame + p {
+                    margin-top: 8px;
+                    min-height: 18px;
+                }
+                p + .text-frame {
+                    margin-top: 8px;
+                }
+                /* Make empty paragraphs visible for cursor placement */
+                p:empty, p:has(br:only-child) {
+                    min-height: 18px;
+                    position: relative;
+                }
+                /* Make sure the editor can receive focus when clicking in empty areas */
+                #editor {
+                    min-height: 100%;
+                    padding: 10px;
+                    cursor: text;
+                }
+                /* Style to show where cursor can be placed */
+                p:empty:hover, p:has(br:only-child):hover {
+                    background-color: rgba(200, 200, 200, 0.1);
+                }
+            `;
+            document.head.appendChild(style);
+            
+            // Use event delegation for editor clicks
+            editor.addEventListener('mousedown', function(e) {
+                // Find if we're clicking in a text frame
+                let frameElement = null;
+                let target = e.target;
+                
+                // Check if the click is on a text frame or inside one
+                while (target && target !== editor) {
+                    if (target.classList && target.classList.contains('text-frame')) {
+                        frameElement = target;
+                        break;
+                    }
+                    target = target.parentNode;
+                }
+                
+                // Deselect all frames first
+                document.querySelectorAll('.text-frame.frame-selected').forEach(frame => {
+                    frame.classList.remove('frame-selected');
+                });
+                
+                // If clicking on a frame, add selection and check for border clicks
+                if (frameElement) {
+                    frameElement.classList.add('frame-selected');
+                    
+                    // Check if the click is near the border (within 5px)
+                    const rect = frameElement.getBoundingClientRect();
+                    const isNearBorder = 
+                        e.clientX - rect.left < 5 || 
+                        rect.right - e.clientX < 5 ||
+                        e.clientY - rect.top < 5 || 
+                        rect.bottom - e.clientY < 5;
+                        
+                    if (isNearBorder) {
+                        e.preventDefault();
+                        
+                        // Select the entire frame
+                        const range = document.createRange();
+                        range.selectNode(frameElement);
+                        const sel = window.getSelection();
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                    }
+                }
+            });
+            
+            // Ensure proper editor structure after any changes
+            editor.addEventListener('input', function() {
+                // Use setTimeout to let the current operation complete
+                setTimeout(ensureEditorStructure, 0);
+            });
+            
+            // Initialize the editor structure
+            ensureEditorStructure();
+            
+            // Additional click handling specifically for empty paragraphs
+            editor.addEventListener('click', function(e) {
+                // If we clicked directly on an empty paragraph
+                if ((e.target.nodeName === 'P' && 
+                    (e.target.innerHTML === '' || e.target.innerHTML === '<br>')) ||
+                    e.target === editor) {
+                    
+                    // Make sure it gets focus and a cursor
+                    const range = document.caretRangeFromPoint(e.clientX, e.clientY);
+                    if (range) {
+                        const sel = window.getSelection();
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                        
+                        // Focus the editor
+                        editor.focus();
+                    }
+                }
+            });
+        });
         """
          
 def main():
