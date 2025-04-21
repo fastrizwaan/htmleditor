@@ -161,7 +161,34 @@ class HTMLEditorApp(Adw.Application):
 ## Insert related code
 
     def insert_text_box_js(self):
-        return """ """
+        """JavaScript for insert text box and related functionality"""
+        return """
+        // Function to insert a text box at the current cursor position
+        function insertTextBox() {
+            // Create a text box as a specialized table
+            let textBoxHTML = '<table class="text-box-table" style="width: 200px; height: 100px;">';
+            textBoxHTML += '<tr><td style="border: none; padding: 8px;">Text box content</td></tr>';
+            textBoxHTML += '</table><p></p>';
+            
+            // Insert the text box at the current cursor position
+            document.execCommand('insertHTML', false, textBoxHTML);
+            
+            // Activate the newly inserted text box
+            setTimeout(() => {
+                const tables = document.querySelectorAll('table.text-box-table');
+                const newTextBox = tables[tables.length - 1];
+                if (newTextBox) {
+                    activateTextBox(newTextBox);
+                }
+            }, 10);
+        }
+        
+        // Function to activate a text box for editing (similar to table activation)
+        function activateTextBox(textBoxElement) {
+            // We can reuse the activateTable function since text boxes are specialized tables
+            activateTable(textBoxElement);
+        }
+        """
 
     def insert_image_js(self):
         """JavaScript for insert image and related functionality"""
@@ -556,502 +583,7 @@ class HTMLEditorApp(Adw.Application):
 ##################
 
 ################
-    def insert_table_js(self):
-        """JavaScript for insert table and related functionality"""
-        return """
-        // Function to insert a table at the current cursor position
-        function insertTable(rows, cols, hasHeader, borderWidth, tableWidth) {
-            // Create table HTML
-            let tableHTML = '<table border="' + borderWidth + '" cellspacing="0" cellpadding="5" ';
-            
-            // Add class and style attributes
-            tableHTML += 'class="no-wrap" style="border-collapse: collapse; width: ' + tableWidth + ';">';
-            
-            // Create header row if requested
-            if (hasHeader) {
-                tableHTML += '<tr>';
-                for (let j = 0; j < cols; j++) {
-                    tableHTML += '<th style="border: ' + borderWidth + 'px solid #ccc; padding: 5px; background-color: #f0f0f0;">Header ' + (j+1) + '</th>';
-                }
-                tableHTML += '</tr>';
-                rows--; // Reduce regular rows by one since we added a header
-            }
-            
-            // Create regular rows and cells
-            for (let i = 0; i < rows; i++) {
-                tableHTML += '<tr>';
-                for (let j = 0; j < cols; j++) {
-                    tableHTML += '<td style="border: ' + borderWidth + 'px solid #ccc; padding: 5px; min-width: 30px;">Cell</td>';
-                }
-                tableHTML += '</tr>';
-            }
-            
-            tableHTML += '</table><p></p>';
-            
-            // Insert the table at the current cursor position
-            document.execCommand('insertHTML', false, tableHTML);
-            
-            // Activate the newly inserted table
-            setTimeout(() => {
-                const tables = document.querySelectorAll('table');
-                const newTable = tables[tables.length - 1];
-                if (newTable) {
-                    activateTable(newTable);
-                    try {
-                        window.webkit.messageHandlers.tableClicked.postMessage('table-clicked');
-                    } catch(e) {
-                        console.log("Could not notify about table click:", e);
-                    }
-                }
-            }, 10);
-        }
-        
-        // Variables for table handling
-        var activeTable = null;
-        var isDragging = false;
-        var isResizing = false;
-        var dragStartX = 0;
-        var dragStartY = 0;
-        var tableStartX = 0;
-        var tableStartY = 0;
-        
-        // Function to find parent table element
-        function findParentTable(element) {
-            while (element && element !== document.body) {
-                if (element.tagName === 'TABLE') {
-                    return element;
-                }
-                element = element.parentNode;
-            }
-            return null;
-        }
-        
-        // Function to activate a table (add handles)
-        function activateTable(tableElement) {
-            activeTable = tableElement;
-            tableElement.style.marginLeft = '';
-            tableElement.style.marginTop = '';
-            
-            // Determine current table alignment class
-            const currentClasses = tableElement.className;
-            const alignmentClasses = ['left-align', 'right-align', 'center-align', 'no-wrap'];
-            let currentAlignment = 'no-wrap';
-            
-            alignmentClasses.forEach(cls => {
-                if (currentClasses.includes(cls)) {
-                    currentAlignment = cls;
-                }
-            });
-            
-            // Reset and apply the appropriate alignment class
-            alignmentClasses.forEach(cls => tableElement.classList.remove(cls));
-            tableElement.classList.add(currentAlignment);
-            
-            // Add resize handle if needed
-            if (!tableElement.querySelector('.table-handle')) {
-                const resizeHandle = document.createElement('div');
-                resizeHandle.className = 'table-handle';
-                
-                // Make handle non-selectable and prevent focus
-                resizeHandle.setAttribute('contenteditable', 'false');
-                resizeHandle.setAttribute('unselectable', 'on');
-                resizeHandle.setAttribute('tabindex', '-1');
-                resizeHandle.style.userSelect = 'none';
-                resizeHandle.style.webkitUserSelect = 'none';
-                resizeHandle.style.MozUserSelect = 'none';
-                resizeHandle.style.msUserSelect = 'none';
-                
-                // Add event listener to prevent propagation of mousedown events
-                resizeHandle.addEventListener('mousedown', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    startTableResize(e, tableElement);
-                }, true);
-                
-                tableElement.appendChild(resizeHandle);
-            }
-            
-            // Add drag handle if needed
-            if (!tableElement.querySelector('.table-drag-handle')) {
-                const dragHandle = document.createElement('div');
-                dragHandle.className = 'table-drag-handle';
-                dragHandle.innerHTML = '↕';
-                dragHandle.title = 'Drag to reposition table between paragraphs';
-                
-                // Make handle non-selectable and prevent focus
-                dragHandle.setAttribute('contenteditable', 'false');
-                dragHandle.setAttribute('unselectable', 'on');
-                dragHandle.setAttribute('tabindex', '-1');
-                dragHandle.style.userSelect = 'none';
-                dragHandle.style.webkitUserSelect = 'none';
-                dragHandle.style.MozUserSelect = 'none';
-                dragHandle.style.msUserSelect = 'none';
-                
-                // Add event listener to prevent propagation of mousedown events
-                dragHandle.addEventListener('mousedown', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    startTableDrag(e, tableElement);
-                }, true);
-                
-                tableElement.appendChild(dragHandle);
-            }
-        }
-        
-        // Function to deactivate all tables
-        function deactivateAllTables() {
-            const tables = document.querySelectorAll('table');
-            
-            tables.forEach(table => {
-                const resizeHandle = table.querySelector('.table-handle');
-                if (resizeHandle) resizeHandle.remove();
-                
-                const dragHandle = table.querySelector('.table-drag-handle');
-                if (dragHandle) dragHandle.remove();
-            });
-            
-            if (activeTable) {
-                activeTable = null;
-                try {
-                    window.webkit.messageHandlers.tablesDeactivated.postMessage('tables-deactivated');
-                } catch(e) {
-                    console.log("Could not notify about table deactivation:", e);
-                }
-            }
-        }
-        
-        // Function to start table drag
-        function startTableDrag(e, tableElement) {
-            e.preventDefault();
-            if (!tableElement) return;
-            
-            isDragging = true;
-            activeTable = tableElement;
-            dragStartX = e.clientX;
-            dragStartY = e.clientY;
-            document.body.style.cursor = 'move';
-        }
-        
-        // Function to move table
-        function moveTable(e) {
-            if (!isDragging || !activeTable) return;
-            
-            const currentY = e.clientY;
-            const deltaY = currentY - dragStartY;
-            
-            if (Math.abs(deltaY) > 30) {
-                const editor = document.getElementById('editor');
-                const blocks = Array.from(editor.children).filter(node => {
-                    const style = window.getComputedStyle(node);
-                    return style.display.includes('block') || node.tagName === 'TABLE';
-                });
-                
-                const tableIndex = blocks.indexOf(activeTable);
-                
-                if (deltaY < 0 && tableIndex > 0) {
-                    const targetElement = blocks[tableIndex - 1];
-                    editor.insertBefore(activeTable, targetElement);
-                    dragStartY = currentY;
-                    try {
-                        window.webkit.messageHandlers.contentChanged.postMessage('changed');
-                    } catch(e) {
-                        console.log("Could not notify about content change:", e);
-                    }
-                } 
-                else if (deltaY > 0 && tableIndex < blocks.length - 1) {
-                    const targetElement = blocks[tableIndex + 1];
-                    if (targetElement.nextSibling) {
-                        editor.insertBefore(activeTable, targetElement.nextSibling);
-                    } else {
-                        editor.appendChild(activeTable);
-                    }
-                    dragStartY = currentY;
-                    try {
-                        window.webkit.messageHandlers.contentChanged.postMessage('changed');
-                    } catch(e) {
-                        console.log("Could not notify about content change:", e);
-                    }
-                }
-            }
-        }
-        
-        // Function to start table resize
-        function startTableResize(e, tableElement) {
-            e.preventDefault();
-            isResizing = true;
-            activeTable = tableElement;
-            dragStartX = e.clientX;
-            dragStartY = e.clientY;
-            const style = window.getComputedStyle(tableElement);
-            tableStartX = parseInt(style.width) || tableElement.offsetWidth;
-            tableStartY = parseInt(style.height) || tableElement.offsetHeight;
-        }
-        
-        // Function to resize table
-        function resizeTable(e) {
-            if (!isResizing || !activeTable) return;
-            
-            const deltaX = e.clientX - dragStartX;
-            const deltaY = e.clientY - dragStartY;
-            
-            activeTable.style.width = (tableStartX + deltaX) + 'px';
-            activeTable.style.height = (tableStartY + deltaY) + 'px';
-        }
-        
-        // Function to add a row to the table
-        function addTableRow(tableElement, position) {
-            if (!tableElement && activeTable) {
-                tableElement = activeTable;
-            }
-            
-            if (!tableElement) return;
-            
-            const rows = tableElement.rows;
-            if (rows.length > 0) {
-                // If position is provided, use it, otherwise append at the end
-                const rowIndex = (position !== undefined) ? position : rows.length;
-                const newRow = tableElement.insertRow(rowIndex);
-                
-                for (let i = 0; i < rows[0].cells.length; i++) {
-                    const cell = newRow.insertCell(i);
-                    cell.innerHTML = ' ';
-                    // Copy border style from other cells
-                    if (rows[0].cells[i].style.border) {
-                        cell.style.border = rows[0].cells[i].style.border;
-                    }
-                    // Copy padding style from other cells
-                    if (rows[0].cells[i].style.padding) {
-                        cell.style.padding = rows[0].cells[i].style.padding;
-                    }
-                }
-            }
-            
-            try {
-                window.webkit.messageHandlers.contentChanged.postMessage('changed');
-            } catch(e) {
-                console.log("Could not notify about content change:", e);
-            }
-        }
-        
-        // Function to add a column to the table
-        function addTableColumn(tableElement, position) {
-            if (!tableElement && activeTable) {
-                tableElement = activeTable;
-            }
-            
-            if (!tableElement) return;
-            
-            const rows = tableElement.rows;
-            for (let i = 0; i < rows.length; i++) {
-                // If position is provided, use it, otherwise append at the end
-                const cellIndex = (position !== undefined) ? position : rows[i].cells.length;
-                const cell = rows[i].insertCell(cellIndex);
-                cell.innerHTML = ' ';
-                
-                // Copy styles from adjacent cells if available
-                if (rows[i].cells.length > 1) {
-                    const refCell = cellIndex > 0 ? 
-                                    rows[i].cells[cellIndex - 1] : 
-                                    rows[i].cells[cellIndex + 1];
-                                    
-                    if (refCell) {
-                        if (refCell.style.border) {
-                            cell.style.border = refCell.style.border;
-                        }
-                        if (refCell.style.padding) {
-                            cell.style.padding = refCell.style.padding;
-                        }
-                        // If it's a header cell, make new cell a header too
-                        if (refCell.tagName === 'TH' && cell.tagName === 'TD') {
-                            const headerCell = document.createElement('th');
-                            headerCell.innerHTML = cell.innerHTML;
-                            headerCell.style.cssText = cell.style.cssText;
-                            if (refCell.style.backgroundColor) {
-                                headerCell.style.backgroundColor = refCell.style.backgroundColor;
-                            }
-                            cell.parentNode.replaceChild(headerCell, cell);
-                        }
-                    }
-                }
-            }
-            
-            try {
-                window.webkit.messageHandlers.contentChanged.postMessage('changed');
-            } catch(e) {
-                console.log("Could not notify about content change:", e);
-            }
-        }
-        
-        // Function to delete a row from the table
-        function deleteTableRow(tableElement, rowIndex) {
-            if (!tableElement && activeTable) {
-                tableElement = activeTable;
-            }
-            
-            if (!tableElement) return;
-            
-            const rows = tableElement.rows;
-            if (rows.length > 1) {
-                // If rowIndex is provided, delete that row, otherwise delete the last row
-                const indexToDelete = (rowIndex !== undefined) ? rowIndex : rows.length - 1;
-                if (indexToDelete >= 0 && indexToDelete < rows.length) {
-                    tableElement.deleteRow(indexToDelete);
-                }
-            }
-            
-            try {
-                window.webkit.messageHandlers.contentChanged.postMessage('changed');
-            } catch(e) {
-                console.log("Could not notify about content change:", e);
-            }
-        }
-        
-        // Function to delete a column from the table
-        function deleteTableColumn(tableElement, colIndex) {
-            if (!tableElement && activeTable) {
-                tableElement = activeTable;
-            }
-            
-            if (!tableElement) return;
-            
-            const rows = tableElement.rows;
-            if (rows.length > 0 && rows[0].cells.length > 1) {
-                // If colIndex is provided, delete that column, otherwise delete the last column
-                const indexToDelete = (colIndex !== undefined) ? colIndex : rows[0].cells.length - 1;
-                
-                for (let i = 0; i < rows.length; i++) {
-                    if (indexToDelete >= 0 && indexToDelete < rows[i].cells.length) {
-                        rows[i].deleteCell(indexToDelete);
-                    }
-                }
-            }
-            
-            try {
-                window.webkit.messageHandlers.contentChanged.postMessage('changed');
-            } catch(e) {
-                console.log("Could not notify about content change:", e);
-            }
-        }
-        
-        // Function to delete a table
-        function deleteTable(tableElement) {
-            if (!tableElement && activeTable) {
-                tableElement = activeTable;
-            }
-            
-            if (!tableElement) return;
-            
-            // Remove the table from the DOM
-            tableElement.parentNode.removeChild(tableElement);
-            
-            // Reset activeTable reference
-            activeTable = null;
-            
-            // Notify the app
-            try {
-                window.webkit.messageHandlers.tableDeleted.postMessage('table-deleted');
-                window.webkit.messageHandlers.contentChanged.postMessage('changed');
-            } catch(e) {
-                console.log("Could not notify about table deletion:", e);
-            }
-        }
-        
-        // Function to set table alignment
-        function setTableAlignment(alignClass) {
-            if (!activeTable) return;
-            
-            // Remove all alignment classes
-            activeTable.classList.remove('left-align', 'right-align', 'center-align', 'no-wrap');
-            
-            // Add the requested alignment class
-            activeTable.classList.add(alignClass);
-            
-            // Set width to auto except for full-width
-            if (alignClass === 'no-wrap') {
-                activeTable.style.width = '100%';
-            } else {
-                activeTable.style.width = 'auto';
-            }
-            
-            try {
-                window.webkit.messageHandlers.contentChanged.postMessage('changed');
-            } catch(e) {
-                console.log("Could not notify about content change:", e);
-            }
-        }
-        
-        // Add event handlers for table interactions
-        document.addEventListener('DOMContentLoaded', function() {
-            const editor = document.getElementById('editor');
-            
-            // Handle mouse down events
-            editor.addEventListener('mousedown', function(e) {
-                // Prevent selection of table handles
-                if (e.target.classList.contains('table-handle') || 
-                    e.target.classList.contains('table-drag-handle')) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    return;
-                }
-                
-                let tableElement = findParentTable(e.target);
-                
-                if (e.target.classList.contains('table-drag-handle')) {
-                    if (e.button === 0) { // Left mouse button
-                        startTableDrag(e, findParentTable(e.target));
-                    }
-                }
-                
-                if (e.target.classList.contains('table-handle')) {
-                    startTableResize(e, findParentTable(e.target));
-                }
-            });
-            
-            // Handle mouse move events
-            document.addEventListener('mousemove', function(e) {
-                if (isDragging && activeTable) {
-                    moveTable(e);
-                }
-                if (isResizing && activeTable) {
-                    resizeTable(e);
-                }
-            });
-            
-            // Handle mouse up events
-            document.addEventListener('mouseup', function() {
-                if (isDragging || isResizing) {
-                    isDragging = false;
-                    isResizing = false;
-                    document.body.style.cursor = '';
-                    
-                    if (activeTable) {
-                        try {
-                            window.webkit.messageHandlers.contentChanged.postMessage('changed');
-                        } catch(e) {
-                            console.log("Could not notify about content change:", e);
-                        }
-                    }
-                }
-            });
-            
-            // Handle click events for table selection
-            editor.addEventListener('click', function(e) {
-                let tableElement = findParentTable(e.target);
-                
-                if (!tableElement && activeTable) {
-                    deactivateAllTables();
-                } else if (tableElement && tableElement !== activeTable) {
-                    deactivateAllTables();
-                    activateTable(tableElement);
-                    try {
-                        window.webkit.messageHandlers.tableClicked.postMessage('table-clicked');
-                    } catch(e) {
-                        console.log("Could not notify about table click:", e);
-                    }
-                }
-            });
-        });
-        """
+
         
 
     def create_window(self):
@@ -1316,7 +848,13 @@ class HTMLEditorApp(Adw.Application):
         align_right_button.set_tooltip_text("Align Right (text wraps around left)")
         align_right_button.connect("clicked", lambda btn: self.on_table_align_right(win))
         align_group.append(align_right_button)
-        
+
+        # Floating option (NEW)
+        float_button = Gtk.Button(icon_name="object-float-symbolic")
+        float_button.set_tooltip_text("Float (freely movable)")
+        float_button.connect("clicked", lambda btn: self.on_table_float(win))
+        align_group.append(float_button)
+            
         # Full width (no wrap)
         full_width_button = Gtk.Button(icon_name="format-justify-fill-symbolic")
         full_width_button.set_tooltip_text("Full Width (no text wrap)")
@@ -1369,7 +907,13 @@ class HTMLEditorApp(Adw.Application):
         """Handle event when all tables are deactivated"""
         win.table_toolbar_revealer.set_reveal_child(False)
         win.statusbar.set_text("No table selected")
-
+        
+    def on_table_float(self, win):
+        """Make table floating and freely movable"""
+        js_code = "setTableAlignment('float-mode');"
+        self.execute_js(win, js_code)
+        win.statusbar.set_text("Table set to floating mode")
+        
     def execute_js(self, win, script):
         """Execute JavaScript in the WebView"""
         win.webview.evaluate_javascript(script, -1, None, None, None, None, None)
@@ -1634,6 +1178,8 @@ class HTMLEditorApp(Adw.Application):
     def get_editor_html(self, content=""):
         """Return HTML for the editor with improved table and text box styles"""
         content = content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+        
+        # Using triple quotes to ensure CSS is properly handled as a string
         return f"""
         <!DOCTYPE html>
         <html style="height: 100%;">
@@ -1695,6 +1241,14 @@ class HTMLEditorApp(Adw.Application):
                     float: none;
                     clear: both;
                     width: 100%;
+                }}
+                /* Floating table style */
+                table.float-mode {{
+                    position: absolute;
+                    z-index: 100;
+                    border: 1px solid #ccc;
+                    margin: 0;
+                    float: none;
                 }}
                 table td {{
                     border: 1px solid #ccc;
@@ -1787,6 +1341,9 @@ class HTMLEditorApp(Adw.Application):
                         background-color: #2d2d2d;
                         box-shadow: 0 2px 4px rgba(0,0,0,0.3);
                     }}
+                    table.float-mode {{
+                        border-color: #444;
+                    }}
                     #editor ::selection {{
                         background-color: #264f78;
                         color: inherit;
@@ -1809,7 +1366,1011 @@ class HTMLEditorApp(Adw.Application):
         </body>
         </html>
         """
-         
+#
+    def insert_table_js(self):
+        """JavaScript for insert table and related functionality"""
+        return """
+            // Function to insert a table at the current cursor position
+            function insertTable(rows, cols, hasHeader, borderWidth, tableWidth) {
+                // Create table HTML
+                let tableHTML = '<table border="' + borderWidth + '" cellspacing="0" cellpadding="5" ';
+                
+                // Add class and style attributes
+                tableHTML += 'class="no-wrap" style="border-collapse: collapse; width: ' + tableWidth + ';">';
+                
+                // Create header row if requested
+                if (hasHeader) {
+                    tableHTML += '<tr>';
+                    for (let j = 0; j < cols; j++) {
+                        tableHTML += '<th style="border: ' + borderWidth + 'px solid #ccc; padding: 5px; background-color: #f0f0f0;">Header ' + (j+1) + '</th>';
+                    }
+                    tableHTML += '</tr>';
+                    rows--; // Reduce regular rows by one since we added a header
+                }
+                
+                // Create regular rows and cells
+                for (let i = 0; i < rows; i++) {
+                    tableHTML += '<tr>';
+                    for (let j = 0; j < cols; j++) {
+                        tableHTML += '<td style="border: ' + borderWidth + 'px solid #ccc; padding: 5px; min-width: 30px;">Cell</td>';
+                    }
+                    tableHTML += '</tr>';
+                }
+                
+                tableHTML += '</table><p></p>';
+                
+                // Insert the table at the current cursor position
+                document.execCommand('insertHTML', false, tableHTML);
+                
+                // Activate the newly inserted table
+                setTimeout(() => {
+                    const tables = document.querySelectorAll('table');
+                    const newTable = tables[tables.length - 1];
+                    if (newTable) {
+                        activateTable(newTable);
+                        try {
+                            window.webkit.messageHandlers.tableClicked.postMessage('table-clicked');
+                        } catch(e) {
+                            console.log("Could not notify about table click:", e);
+                        }
+                    }
+                }, 10);
+            }
+            
+            // Variables for table handling
+            var activeTable = null;
+            var isDragging = false;
+            var isResizing = false;
+            var isFloatingDrag = false;
+            var dragStartX = 0;
+            var dragStartY = 0;
+            var tableStartX = 0;
+            var tableStartY = 0;
+            var floatDragStartX = 0;
+            var floatDragStartY = 0;
+            var tablePosX = 0;
+            var tablePosY = 0;
+            
+            // Function to find parent table element
+            function findParentTable(element) {
+                while (element && element !== document.body) {
+                    if (element.tagName === 'TABLE') {
+                        return element;
+                    }
+                    element = element.parentNode;
+                }
+                return null;
+            }
+            
+            // Function to activate a table (add handles)
+            function activateTable(tableElement) {
+                activeTable = tableElement;
+                
+                // Only clear margins if not in float mode
+                if (!tableElement.classList.contains('float-mode')) {
+                    tableElement.style.marginLeft = '';
+                    tableElement.style.marginTop = '';
+                }
+                
+                // Determine current table alignment class
+                const currentClasses = tableElement.className;
+                const alignmentClasses = ['left-align', 'right-align', 'center-align', 'no-wrap', 'float-mode'];
+                let currentAlignment = 'no-wrap';
+                
+                alignmentClasses.forEach(cls => {
+                    if (currentClasses.includes(cls)) {
+                        currentAlignment = cls;
+                    }
+                });
+                
+                // Reset and apply the appropriate alignment class
+                alignmentClasses.forEach(cls => tableElement.classList.remove(cls));
+                tableElement.classList.add(currentAlignment);
+                
+                // Add resize handle if needed
+                if (!tableElement.querySelector('.table-handle')) {
+                    const resizeHandle = document.createElement('div');
+                    resizeHandle.className = 'table-handle';
+                    
+                    // Make handle non-selectable and prevent focus
+                    resizeHandle.setAttribute('contenteditable', 'false');
+                    resizeHandle.setAttribute('unselectable', 'on');
+                    resizeHandle.setAttribute('tabindex', '-1');
+                    resizeHandle.style.userSelect = 'none';
+                    resizeHandle.style.webkitUserSelect = 'none';
+                    resizeHandle.style.MozUserSelect = 'none';
+                    resizeHandle.style.msUserSelect = 'none';
+                    
+                    // Add event listener to prevent propagation of mousedown events
+                    resizeHandle.addEventListener('mousedown', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        startTableResize(e, tableElement);
+                    }, true);
+                    
+                    tableElement.appendChild(resizeHandle);
+                }
+                
+                // Add drag handle if needed
+                if (!tableElement.querySelector('.table-drag-handle')) {
+                    const dragHandle = document.createElement('div');
+                    dragHandle.className = 'table-drag-handle';
+                    
+                    if (currentAlignment === 'float-mode') {
+                        dragHandle.innerHTML = '✥';
+                        dragHandle.title = 'Drag to freely position table';
+                    } else {
+                        dragHandle.innerHTML = '↕';
+                        dragHandle.title = 'Drag to reposition table between paragraphs';
+                    }
+                    
+                    // Make handle non-selectable and prevent focus
+                    dragHandle.setAttribute('contenteditable', 'false');
+                    dragHandle.setAttribute('unselectable', 'on');
+                    dragHandle.setAttribute('tabindex', '-1');
+                    dragHandle.style.userSelect = 'none';
+                    dragHandle.style.webkitUserSelect = 'none';
+                    dragHandle.style.MozUserSelect = 'none';
+                    dragHandle.style.msUserSelect = 'none';
+                    
+                    // Add event listener to prevent propagation of mousedown events
+                    dragHandle.addEventListener('mousedown', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        if (tableElement.classList.contains('float-mode')) {
+                            startFloatDrag(e, tableElement);
+                        } else {
+                            startTableDrag(e, tableElement);
+                        }
+                    }, true);
+                    
+                    tableElement.appendChild(dragHandle);
+                } else {
+                    // Update existing handle based on mode
+                    const dragHandle = tableElement.querySelector('.table-drag-handle');
+                    
+                    if (currentAlignment === 'float-mode') {
+                        dragHandle.innerHTML = '✥';
+                        dragHandle.title = 'Drag to freely position table';
+                        
+                        // Clear existing listeners by cloning and replacing
+                        const newDragHandle = dragHandle.cloneNode(true);
+                        dragHandle.parentNode.replaceChild(newDragHandle, dragHandle);
+                        
+                        // Add event listener for float drag
+                        newDragHandle.addEventListener('mousedown', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            startFloatDrag(e, tableElement);
+                        }, true);
+                    } else {
+                        dragHandle.innerHTML = '↕';
+                        dragHandle.title = 'Drag to reposition table between paragraphs';
+                        
+                        // Clear existing listeners by cloning and replacing
+                        const newDragHandle = dragHandle.cloneNode(true);
+                        dragHandle.parentNode.replaceChild(newDragHandle, dragHandle);
+                        
+                        // Add event listener for regular drag
+                        newDragHandle.addEventListener('mousedown', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            startTableDrag(e, tableElement);
+                        }, true);
+                    }
+                }
+            }
+            
+            // Function to deactivate all tables
+            function deactivateAllTables() {
+                const tables = document.querySelectorAll('table');
+                
+                tables.forEach(table => {
+                    const resizeHandle = table.querySelector('.table-handle');
+                    if (resizeHandle) resizeHandle.remove();
+                    
+                    const dragHandle = table.querySelector('.table-drag-handle');
+                    if (dragHandle) dragHandle.remove();
+                });
+                
+                if (activeTable) {
+                    activeTable = null;
+                    try {
+                        window.webkit.messageHandlers.tablesDeactivated.postMessage('tables-deactivated');
+                    } catch(e) {
+                        console.log("Could not notify about table deactivation:", e);
+                    }
+                }
+            }
+            
+            // Function to start table drag
+            function startTableDrag(e, tableElement) {
+                e.preventDefault();
+                if (!tableElement) return;
+                
+                isDragging = true;
+                activeTable = tableElement;
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                document.body.style.cursor = 'move';
+            }
+            
+            // Function to start floating drag
+            function startFloatDrag(e, tableElement) {
+                e.preventDefault();
+                if (!tableElement) return;
+                
+                isFloatingDrag = true;
+                activeTable = tableElement;
+                
+                floatDragStartX = e.clientX;
+                floatDragStartY = e.clientY;
+                
+                // Get current table position
+                tablePosX = parseInt(tableElement.style.left) || 0;
+                tablePosY = parseInt(tableElement.style.top) || 0;
+                
+                document.body.style.cursor = 'move';
+            }
+            
+            // Function to move table
+            function moveTable(e) {
+                if (!isDragging || !activeTable) return;
+                
+                const currentY = e.clientY;
+                const deltaY = currentY - dragStartY;
+                
+                if (Math.abs(deltaY) > 30) {
+                    const editor = document.getElementById('editor');
+                    const blocks = Array.from(editor.children).filter(node => {
+                        const style = window.getComputedStyle(node);
+                        return style.display.includes('block') || node.tagName === 'TABLE';
+                    });
+                    
+                    const tableIndex = blocks.indexOf(activeTable);
+                    
+                    if (deltaY < 0 && tableIndex > 0) {
+                        const targetElement = blocks[tableIndex - 1];
+                        editor.insertBefore(activeTable, targetElement);
+                        dragStartY = currentY;
+                        try {
+                            window.webkit.messageHandlers.contentChanged.postMessage('changed');
+                        } catch(e) {
+                            console.log("Could not notify about content change:", e);
+                        }
+                    } 
+                    else if (deltaY > 0 && tableIndex < blocks.length - 1) {
+                        const targetElement = blocks[tableIndex + 1];
+                        if (targetElement.nextSibling) {
+                            editor.insertBefore(activeTable, targetElement.nextSibling);
+                        } else {
+                            editor.appendChild(activeTable);
+                        }
+                        dragStartY = currentY;
+                        try {
+                            window.webkit.messageHandlers.contentChanged.postMessage('changed');
+                        } catch(e) {
+                            console.log("Could not notify about content change:", e);
+                        }
+                    }
+                }
+            }
+            
+            // Function to move floating table
+            function moveFloatingTable(e) {
+                if (!isFloatingDrag || !activeTable) return;
+                
+                const deltaX = e.clientX - floatDragStartX;
+                const deltaY = e.clientY - floatDragStartY;
+                
+                // Update table position
+                activeTable.style.left = (tablePosX + deltaX) + 'px';
+                activeTable.style.top = (tablePosY + deltaY) + 'px';
+            }
+            
+            // Function to start table resize
+            function startTableResize(e, tableElement) {
+                e.preventDefault();
+                isResizing = true;
+                activeTable = tableElement;
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                const style = window.getComputedStyle(tableElement);
+                tableStartX = parseInt(style.width) || tableElement.offsetWidth;
+                tableStartY = parseInt(style.height) || tableElement.offsetHeight;
+            }
+            
+            // Function to resize table
+            function resizeTable(e) {
+                if (!isResizing || !activeTable) return;
+                
+                const deltaX = e.clientX - dragStartX;
+                const deltaY = e.clientY - dragStartY;
+                
+                activeTable.style.width = (tableStartX + deltaX) + 'px';
+                activeTable.style.height = (tableStartY + deltaY) + 'px';
+            }
+            
+            // Function to add a row to the table
+            function addTableRow(tableElement, position) {
+                if (!tableElement && activeTable) {
+                    tableElement = activeTable;
+                }
+                
+                if (!tableElement) return;
+                
+                const rows = tableElement.rows;
+                if (rows.length > 0) {
+                    // If position is provided, use it, otherwise append at the end
+                    const rowIndex = (position !== undefined) ? position : rows.length;
+                    const newRow = tableElement.insertRow(rowIndex);
+                    
+                    for (let i = 0; i < rows[0].cells.length; i++) {
+                        const cell = newRow.insertCell(i);
+                        cell.innerHTML = ' ';
+                        // Copy border style from other cells
+                        if (rows[0].cells[i].style.border) {
+                            cell.style.border = rows[0].cells[i].style.border;
+                        }
+                        // Copy padding style from other cells
+                        if (rows[0].cells[i].style.padding) {
+                            cell.style.padding = rows[0].cells[i].style.padding;
+                        }
+                    }
+                }
+                
+                try {
+                    window.webkit.messageHandlers.contentChanged.postMessage('changed');
+                } catch(e) {
+                    console.log("Could not notify about content change:", e);
+                }
+            }
+            
+            // Function to add a column to the table
+            function addTableColumn(tableElement, position) {
+                if (!tableElement && activeTable) {
+                    tableElement = activeTable;
+                }
+                
+                if (!tableElement) return;
+                
+                const rows = tableElement.rows;
+                for (let i = 0; i < rows.length; i++) {
+                    // If position is provided, use it, otherwise append at the end
+                    const cellIndex = (position !== undefined) ? position : rows[i].cells.length;
+                    const cell = rows[i].insertCell(cellIndex);
+                    cell.innerHTML = ' ';
+                    
+                    // Copy styles from adjacent cells if available
+                    if (rows[i].cells.length > 1) {
+                        const refCell = cellIndex > 0 ? 
+                                        rows[i].cells[cellIndex - 1] : 
+                                        rows[i].cells[cellIndex + 1];
+                                        
+                        if (refCell) {
+                            if (refCell.style.border) {
+                                cell.style.border = refCell.style.border;
+                            }
+                            if (refCell.style.padding) {
+                                cell.style.padding = refCell.style.padding;
+                            }
+                            // If it's a header cell, make new cell a header too
+                            if (refCell.tagName === 'TH' && cell.tagName === 'TD') {
+                                const headerCell = document.createElement('th');
+                                headerCell.innerHTML = cell.innerHTML;
+                                headerCell.style.cssText = cell.style.cssText;
+                                if (refCell.style.backgroundColor) {
+                                    headerCell.style.backgroundColor = refCell.style.backgroundColor;
+                                }
+                                cell.parentNode.replaceChild(headerCell, cell);
+                            }
+                        }
+                    }
+                }
+                
+                try {
+                    window.webkit.messageHandlers.contentChanged.postMessage('changed');
+                } catch(e) {
+                    console.log("Could not notify about content change:", e);
+                }
+            }
+            
+            // Function to delete a row from the table
+            function deleteTableRow(tableElement, rowIndex) {
+                if (!tableElement && activeTable) {
+                    tableElement = activeTable;
+                }
+                
+                if (!tableElement) return;
+                
+                const rows = tableElement.rows;
+                if (rows.length > 1) {
+                    // If rowIndex is provided, delete that row, otherwise delete the last row
+                    const indexToDelete = (rowIndex !== undefined) ? rowIndex : rows.length - 1;
+                    if (indexToDelete >= 0 && indexToDelete < rows.length) {
+                        tableElement.deleteRow(indexToDelete);
+                    }
+                }
+                
+                try {
+                    window.webkit.messageHandlers.contentChanged.postMessage('changed');
+                } catch(e) {
+                    console.log("Could not notify about content change:", e);
+                }
+            }
+            
+            // Function to delete a column from the table
+            function deleteTableColumn(tableElement, colIndex) {
+                if (!tableElement && activeTable) {
+                    tableElement = activeTable;
+                }
+                
+                if (!tableElement) return;
+                
+                const rows = tableElement.rows;
+                if (rows.length > 0 && rows[0].cells.length > 1) {
+                    // If colIndex is provided, delete that column, otherwise delete the last column
+                    const indexToDelete = (colIndex !== undefined) ? colIndex : rows[0].cells.length - 1;
+                    
+                    for (let i = 0; i < rows.length; i++) {
+                        if (indexToDelete >= 0 && indexToDelete < rows[i].cells.length) {
+                            rows[i].deleteCell(indexToDelete);
+                        }
+                    }
+                }
+                
+                try {
+                    window.webkit.messageHandlers.contentChanged.postMessage('changed');
+                } catch(e) {
+                    console.log("Could not notify about content change:", e);
+                }
+            }
+            
+            // Function to delete a table
+            function deleteTable(tableElement) {
+                if (!tableElement && activeTable) {
+                    tableElement = activeTable;
+                }
+                
+                if (!tableElement) return;
+                
+                // Remove the table from the DOM
+                tableElement.parentNode.removeChild(tableElement);
+                
+                // Reset activeTable reference
+                activeTable = null;
+                
+                // Notify the app
+                try {
+                    window.webkit.messageHandlers.tableDeleted.postMessage('table-deleted');
+                    window.webkit.messageHandlers.contentChanged.postMessage('changed');
+                } catch(e) {
+                    console.log("Could not notify about table deletion:", e);
+                }
+            }
+            
+            // Function to set table alignment
+            function setTableAlignment(alignClass) {
+                if (!activeTable) return;
+                
+                // Remove all alignment classes
+                activeTable.classList.remove('left-align', 'right-align', 'center-align', 'no-wrap', 'float-mode');
+                
+                // Add the requested alignment class
+                activeTable.classList.add(alignClass);
+                
+                // Set width based on alignment mode
+                if (alignClass === 'no-wrap') {
+                    activeTable.style.width = '100%';
+                } else {
+                    activeTable.style.width = 'auto';
+                }
+                
+                // For floating tables, enable positioning
+                if (alignClass === 'float-mode') {
+                    // Set positioning styles
+                    activeTable.style.position = 'absolute';
+                    
+                    // If the table doesn't have a position yet, set a default position
+                    if (!activeTable.style.top && !activeTable.style.left) {
+                        const editorRect = document.getElementById('editor').getBoundingClientRect();
+                        activeTable.style.top = '100px';
+                        activeTable.style.left = '100px';
+                    }
+                    
+                    // Update the drag handle for floating mode
+                    const dragHandle = activeTable.querySelector('.table-drag-handle');
+                    if (dragHandle) {
+                        dragHandle.innerHTML = '✥';
+                        dragHandle.title = 'Drag to freely position table';
+                        
+                        // Clear existing listeners by cloning and replacing
+                        const newDragHandle = dragHandle.cloneNode(true);
+                        dragHandle.parentNode.replaceChild(newDragHandle, dragHandle);
+                        
+                        // Add event listener for float drag
+                        newDragHandle.addEventListener('mousedown', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            startFloatDrag(e, activeTable);
+                        }, true);
+                    }
+                } else {
+                    // Remove positioning for non-floating tables
+                    activeTable.style.position = '';
+                    activeTable.style.top = '';
+                    activeTable.style.left = '';
+                    
+                    // Update the drag handle for normal mode
+                    const dragHandle = activeTable.querySelector('.table-drag-handle');
+                    if (dragHandle) {
+                        dragHandle.innerHTML = '↕';
+                        dragHandle.title = 'Drag to reposition table between paragraphs';
+                        
+                        // Clear existing listeners by cloning and replacing
+                        const newDragHandle = dragHandle.cloneNode(true);
+                        dragHandle.parentNode.replaceChild(newDragHandle, dragHandle);
+                        
+                        // Add event listener for regular drag
+                        newDragHandle.addEventListener('mousedown', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            startTableDrag(e, activeTable);
+                        }, true);
+                    }
+                }
+                
+                try {
+                    window.webkit.messageHandlers.contentChanged.postMessage('changed');
+                } catch(e) {
+                    console.log("Could not notify about content change:", e);
+                }
+            }
+            
+            // Add event handlers for table interactions
+            document.addEventListener('DOMContentLoaded', function() {
+                const editor = document.getElementById('editor');
+                
+                // Handle mouse down events
+                editor.addEventListener('mousedown', function(e) {
+                    // Prevent selection of table handles
+                    if (e.target.classList.contains('table-handle') || 
+                        e.target.classList.contains('table-drag-handle')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                    }
+                    
+                    let tableElement = findParentTable(e.target);
+                    
+                    if (e.target.classList.contains('table-drag-handle')) {
+                        if (e.button === 0) { // Left mouse button
+                            const parentTable = findParentTable(e.target);
+                            if (parentTable && parentTable.classList.contains('float-mode')) {
+                                startFloatDrag(e, parentTable);
+                            } else {
+                                startTableDrag(e, findParentTable(e.target));
+                            }
+                        }
+                    }
+                    
+                    if (e.target.classList.contains('table-handle')) {
+                        startTableResize(e, findParentTable(e.target));
+                    }
+                });
+                
+                // Handle mouse move events
+                document.addEventListener('mousemove', function(e) {
+                    if (isDragging && activeTable) {
+                        moveTable(e);
+                    }
+                    if (isResizing && activeTable) {
+                        resizeTable(e);
+                    }
+                    if (isFloatingDrag && activeTable) {
+                        moveFloatingTable(e);
+                    }
+                });
+                
+                // Handle mouse up events
+                document.addEventListener('mouseup', function() {
+                    if (isDragging || isResizing || isFloatingDrag) {
+                        isDragging = false;
+                        isResizing = false;
+                        isFloatingDrag = false;
+                        document.body.style.cursor = '';
+                        
+                        if (activeTable) {
+                            try {
+                                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+                            } catch(e) {
+                                console.log("Could not notify about content change:", e);
+                            }
+                        }
+                    }
+                });
+                
+                // Handle click events for table selection
+                editor.addEventListener('click', function(e) {
+                    let tableElement = findParentTable(e.target);
+                    
+                    if (!tableElement && activeTable) {
+                        deactivateAllTables();
+                    } else if (tableElement && tableElement !== activeTable) {
+                        deactivateAllTables();
+                        activateTable(tableElement);
+                        try {
+                            window.webkit.messageHandlers.tableClicked.postMessage('table-clicked');
+                        } catch(e) {
+                            console.log("Could not notify about table click:", e);
+                        }
+                    }
+                });
+            });
+            """
+            
+#
+    def create_table_toolbar(self, win):
+        """Create a toolbar for table editing with border styling options"""
+        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        toolbar.set_margin_start(10)
+        toolbar.set_margin_end(10)
+        toolbar.set_margin_top(5)
+        toolbar.set_margin_bottom(5)
+        
+        # Table operations label
+        table_label = Gtk.Label(label="Table:")
+        table_label.set_margin_end(10)
+        toolbar.append(table_label)
+        
+        # Create a group for row operations
+        row_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
+        row_group.add_css_class("linked")
+        
+        # Add Row Above button
+        add_row_above_button = Gtk.Button(icon_name="list-add-symbolic")
+        add_row_above_button.set_tooltip_text("Add row above")
+        add_row_above_button.connect("clicked", lambda btn: self.on_add_row_above_clicked(win))
+        row_group.append(add_row_above_button)
+        
+        # Add Row Below button
+        add_row_below_button = Gtk.Button(icon_name="list-add-symbolic")
+        add_row_below_button.set_tooltip_text("Add row below")
+        add_row_below_button.connect("clicked", lambda btn: self.on_add_row_below_clicked(win))
+        row_group.append(add_row_below_button)
+        
+        # Add row group to toolbar
+        toolbar.append(row_group)
+        
+        # Create a group for column operations
+        col_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
+        col_group.add_css_class("linked")
+        col_group.set_margin_start(5)
+        
+        # Add Column Before button
+        add_col_before_button = Gtk.Button(icon_name="list-add-symbolic")
+        add_col_before_button.set_tooltip_text("Add column before")
+        add_col_before_button.connect("clicked", lambda btn: self.on_add_column_before_clicked(win))
+        col_group.append(add_col_before_button)
+        
+        # Add Column After button
+        add_col_after_button = Gtk.Button(icon_name="list-add-symbolic")
+        add_col_after_button.set_tooltip_text("Add column after")
+        add_col_after_button.connect("clicked", lambda btn: self.on_add_column_after_clicked(win))
+        col_group.append(add_col_after_button)
+        
+        # Add column group to toolbar
+        toolbar.append(col_group)
+        
+        # Small separator
+        separator1 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        separator1.set_margin_start(5)
+        separator1.set_margin_end(5)
+        toolbar.append(separator1)
+        
+        # Create a group for delete operations
+        delete_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
+        delete_group.add_css_class("linked")
+        
+        # Delete Row button
+        del_row_button = Gtk.Button(icon_name="list-remove-symbolic")
+        del_row_button.set_tooltip_text("Delete row")
+        del_row_button.connect("clicked", lambda btn: self.on_delete_row_clicked(win))
+        delete_group.append(del_row_button)
+        
+        # Delete Column button
+        del_col_button = Gtk.Button(icon_name="list-remove-symbolic")
+        del_col_button.set_tooltip_text("Delete column")
+        del_col_button.connect("clicked", lambda btn: self.on_delete_column_clicked(win))
+        delete_group.append(del_col_button)
+        
+        # Delete Table button
+        del_table_button = Gtk.Button(icon_name="edit-delete-symbolic")
+        del_table_button.set_tooltip_text("Delete table")
+        del_table_button.connect("clicked", lambda btn: self.on_delete_table_clicked(win))
+        delete_group.append(del_table_button)
+        
+        # Add delete group to toolbar
+        toolbar.append(delete_group)
+        
+        # Separator
+        separator2 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        separator2.set_margin_start(10)
+        separator2.set_margin_end(10)
+        toolbar.append(separator2)
+        
+        # Create a border styling button with popover menu
+        border_button = Gtk.MenuButton()
+        border_button.set_icon_name("format-border-set-symbolic")
+        border_button.set_tooltip_text("Border styles")
+        
+        # Create popover for border options
+        border_popover = Gtk.Popover()
+        border_popover.set_autohide(True)
+        
+        # Create box for border popover content
+        border_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        border_box.set_margin_start(12)
+        border_box.set_margin_end(12)
+        border_box.set_margin_top(12)
+        border_box.set_margin_bottom(12)
+        
+        # Border style section
+        style_label = Gtk.Label(label="Border Style")
+        style_label.set_halign(Gtk.Align.START)
+        style_label.add_css_class("heading")
+        border_box.append(style_label)
+        
+        # Border style buttons
+        style_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+        style_group.add_css_class("linked")
+        
+        # Solid border
+        solid_btn = Gtk.Button(label="Solid")
+        solid_btn.connect("clicked", lambda btn: self.set_table_border_style(win, "solid"))
+        style_group.append(solid_btn)
+        
+        # Dashed border
+        dashed_btn = Gtk.Button(label="Dashed")
+        dashed_btn.connect("clicked", lambda btn: self.set_table_border_style(win, "dashed"))
+        style_group.append(dashed_btn)
+        
+        # Dotted border
+        dotted_btn = Gtk.Button(label="Dotted")
+        dotted_btn.connect("clicked", lambda btn: self.set_table_border_style(win, "dotted"))
+        style_group.append(dotted_btn)
+        
+        # Double border
+        double_btn = Gtk.Button(label="Double")
+        double_btn.connect("clicked", lambda btn: self.set_table_border_style(win, "double"))
+        style_group.append(double_btn)
+        
+        border_box.append(style_group)
+        
+        # Border width section
+        width_label = Gtk.Label(label="Border Width")
+        width_label.set_halign(Gtk.Align.START)
+        width_label.add_css_class("heading")
+        width_label.set_margin_top(8)
+        border_box.append(width_label)
+        
+        # Border width slider
+        width_adjustment = Gtk.Adjustment(value=1, lower=0, upper=5, step_increment=1)
+        width_scale = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, adjustment=width_adjustment)
+        width_scale.set_digits(0)
+        width_scale.set_draw_value(True)
+        width_scale.set_value_pos(Gtk.PositionType.RIGHT)
+        width_scale.connect("value-changed", lambda scale: self.set_table_border_width(win, scale.get_value()))
+        border_box.append(width_scale)
+        
+        # Border color section
+        color_label = Gtk.Label(label="Border Color")
+        color_label.set_halign(Gtk.Align.START)
+        color_label.add_css_class("heading")
+        color_label.set_margin_top(8)
+        border_box.append(color_label)
+        
+        # Color picker button
+        color_button = Gtk.ColorButton()
+        color_button.set_rgba(Gdk.RGBA(0.8, 0.8, 0.8, 1.0))  # Default to light gray
+        color_button.set_halign(Gtk.Align.START)
+        color_button.connect("color-set", lambda btn: self.set_table_border_color(win, btn.get_rgba()))
+        border_box.append(color_button)
+        
+        # Shadow effect
+        shadow_check = Gtk.CheckButton(label="Add drop shadow")
+        shadow_check.set_margin_top(8)
+        shadow_check.connect("toggled", lambda btn: self.toggle_table_shadow(win, btn.get_active()))
+        border_box.append(shadow_check)
+        
+        # Attach the box to the popover
+        border_popover.set_child(border_box)
+        
+        # Connect the popover to the button
+        border_button.set_popover(border_popover)
+        
+        # Add border button to toolbar
+        toolbar.append(border_button)
+        
+        # Alignment options
+        align_label = Gtk.Label(label="Align:")
+        align_label.set_margin_start(10)
+        align_label.set_margin_end(5)
+        toolbar.append(align_label)
+        
+        # Create a group for alignment buttons
+        align_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
+        align_group.add_css_class("linked")
+        
+        # Left alignment
+        align_left_button = Gtk.Button(icon_name="format-justify-left-symbolic")
+        align_left_button.set_tooltip_text("Align Left (text wraps around right)")
+        align_left_button.connect("clicked", lambda btn: self.on_table_align_left(win))
+        align_group.append(align_left_button)
+        
+        # Center alignment
+        align_center_button = Gtk.Button(icon_name="format-justify-center-symbolic")
+        align_center_button.set_tooltip_text("Center (no text wrap)")
+        align_center_button.connect("clicked", lambda btn: self.on_table_align_center(win))
+        align_group.append(align_center_button)
+        
+        # Right alignment
+        align_right_button = Gtk.Button(icon_name="format-justify-right-symbolic")
+        align_right_button.set_tooltip_text("Align Right (text wraps around left)")
+        align_right_button.connect("clicked", lambda btn: self.on_table_align_right(win))
+        align_group.append(align_right_button)
+
+        # Floating option
+        float_button = Gtk.Button(icon_name="object-float-symbolic")
+        float_button.set_tooltip_text("Float (freely movable)")
+        float_button.connect("clicked", lambda btn: self.on_table_float(win))
+        align_group.append(float_button)
+            
+        # Full width (no wrap)
+        full_width_button = Gtk.Button(icon_name="format-justify-fill-symbolic")
+        full_width_button.set_tooltip_text("Full Width (no text wrap)")
+        full_width_button.connect("clicked", lambda btn: self.on_table_full_width(win))
+        align_group.append(full_width_button)
+        
+        # Add alignment group to toolbar
+        toolbar.append(align_group)
+        
+        # Spacer
+        spacer = Gtk.Box()
+        spacer.set_hexpand(True)
+        toolbar.append(spacer)
+        
+        # Close button
+        close_button = Gtk.Button(icon_name="window-close-symbolic")
+        close_button.set_tooltip_text("Close table toolbar")
+        close_button.connect("clicked", lambda btn: self.on_close_table_toolbar_clicked(win))
+        toolbar.append(close_button)
+        
+        return toolbar
+
+    # New methods for border styling
+
+    def set_table_border_style(self, win, style):
+        """Set the border style for the active table"""
+        js_code = f"""
+        (function() {{
+            if (!activeTable) return false;
+            
+            const cells = activeTable.querySelectorAll('td, th');
+            for (let cell of cells) {{
+                // Keep the current border width and color, just change the style
+                const currentStyle = window.getComputedStyle(cell);
+                const borderWidth = currentStyle.borderWidth || '1px';
+                const borderColor = currentStyle.borderColor || '#cccccc';
+                
+                cell.style.borderStyle = '{style}';
+                cell.style.borderWidth = borderWidth;
+                cell.style.borderColor = borderColor;
+            }}
+            
+            try {{
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            }} catch(e) {{
+                console.log("Could not notify about border style change:", e);
+            }}
+            
+            return true;
+        }})();
+        """
+        self.execute_js(win, js_code)
+        win.statusbar.set_text(f"Table border style set to {style}")
+
+    def set_table_border_width(self, win, width):
+        """Set the border width for the active table"""
+        js_code = f"""
+        (function() {{
+            if (!activeTable) return false;
+            
+            const cells = activeTable.querySelectorAll('td, th');
+            for (let cell of cells) {{
+                // Keep the current border style and color, just change the width
+                const currentStyle = window.getComputedStyle(cell);
+                const borderStyle = currentStyle.borderStyle || 'solid';
+                const borderColor = currentStyle.borderColor || '#cccccc';
+                
+                cell.style.borderStyle = borderStyle;
+                cell.style.borderWidth = '{int(width)}px';
+                cell.style.borderColor = borderColor;
+            }}
+            
+            try {{
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            }} catch(e) {{
+                console.log("Could not notify about border width change:", e);
+            }}
+            
+            return true;
+        }})();
+        """
+        self.execute_js(win, js_code)
+        win.statusbar.set_text(f"Table border width set to {int(width)}px")
+
+    def set_table_border_color(self, win, rgba):
+        """Set the border color for the active table"""
+        # Convert RGBA to hex
+        color_hex = "#{:02x}{:02x}{:02x}".format(
+            int(rgba.red * 255),
+            int(rgba.green * 255),
+            int(rgba.blue * 255)
+        )
+        
+        js_code = f"""
+        (function() {{
+            if (!activeTable) return false;
+            
+            const cells = activeTable.querySelectorAll('td, th');
+            for (let cell of cells) {{
+                // Keep the current border style and width, just change the color
+                const currentStyle = window.getComputedStyle(cell);
+                const borderStyle = currentStyle.borderStyle || 'solid';
+                const borderWidth = currentStyle.borderWidth || '1px';
+                
+                cell.style.borderStyle = borderStyle;
+                cell.style.borderWidth = borderWidth;
+                cell.style.borderColor = '{color_hex}';
+            }}
+            
+            try {{
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            }} catch(e) {{
+                console.log("Could not notify about border color change:", e);
+            }}
+            
+            return true;
+        }})();
+        """
+        self.execute_js(win, js_code)
+        win.statusbar.set_text(f"Table border color set to {color_hex}")
+
+    def toggle_table_shadow(self, win, enable):
+        """Toggle drop shadow effect for the active table"""
+        shadow_value = "2px 2px 4px rgba(0,0,0,0.2)" if enable else "none"
+        
+        js_code = f"""
+        (function() {{
+            if (!activeTable) return false;
+            
+            activeTable.style.boxShadow = '{shadow_value}';
+            
+            try {{
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            }} catch(e) {{
+                console.log("Could not notify about shadow change:", e);
+            }}
+            
+            return true;
+        }})();
+        """
+        self.execute_js(win, js_code)
+        win.statusbar.set_text(f"Table shadow {('enabled' if enable else 'disabled')}")
+                        
+            
 def main():
     app = HTMLEditorApp()
     return app.run(sys.argv)
