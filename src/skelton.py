@@ -559,19 +559,107 @@ class HTMLEditorApp(Adw.Application):
     def insert_table_js(self):
         """JavaScript for insert table and related functionality"""
         return """
+        // Function to check if we're in dark mode
+        function isDarkMode() {
+            return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+        
+        // Function to get appropriate border color based on current theme
+        function getBorderColor() {
+            return isDarkMode() ? '#444' : '#ccc';
+        }
+        
+        // Function to get appropriate header background color based on current theme
+        function getHeaderBgColor() {
+            return isDarkMode() ? '#2a2a2a' : '#f0f0f0';
+        }
+        
+        // CSS for table handles
+        const tableHandlesCSS = `
+        /* Table drag handle - positioned inside the table */
+        .table-drag-handle {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 16px;
+            height: 16px;
+            background-color: #4e9eff;
+            cursor: move;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 10px;
+            pointer-events: all;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        /* Table resize handle - triangular shape in bottom right */
+        .table-handle {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 0 0 16px 16px;
+            border-color: transparent transparent #4e9eff transparent;
+            cursor: nwse-resize;
+            z-index: 1000;
+            pointer-events: all;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .table-drag-handle {
+                background-color: #0078d7;
+            }
+            .table-handle {
+                border-color: transparent transparent #0078d7 transparent;
+            }
+        }`;
+        
+        // Function to add the table handle styles to the document
+        function addTableHandleStyles() {
+            // Check if our style element already exists
+            let styleElement = document.getElementById('table-handle-styles');
+            
+            // If not, create and append it
+            if (!styleElement) {
+                styleElement = document.createElement('style');
+                styleElement.id = 'table-handle-styles';
+                styleElement.textContent = tableHandlesCSS;
+                document.head.appendChild(styleElement);
+            } else {
+                // If it exists, update the content
+                styleElement.textContent = tableHandlesCSS;
+            }
+        }
+        
         // Function to insert a table at the current cursor position
         function insertTable(rows, cols, hasHeader, borderWidth, tableWidth) {
+            // Get theme-appropriate colors
+            const borderColor = getBorderColor();
+            const headerBgColor = getHeaderBgColor();
+            
             // Create table HTML
-            let tableHTML = '<table border="' + borderWidth + '" cellspacing="0" cellpadding="5" ';
+            let tableHTML = '<table cellspacing="0" cellpadding="5" ';
             
             // Add class and style attributes
-            tableHTML += 'class="no-wrap" style="border-collapse: collapse; width: ' + tableWidth + ';">';
+            tableHTML += 'class="editor-table no-wrap" style="border-collapse: collapse; width: ' + tableWidth + ';">';
             
             // Create header row if requested
             if (hasHeader) {
                 tableHTML += '<tr>';
                 for (let j = 0; j < cols; j++) {
-                    tableHTML += '<th style="border: ' + borderWidth + 'px solid #ccc; padding: 5px; background-color: #f0f0f0;">Header ' + (j+1) + '</th>';
+                    tableHTML += '<th style="border: ' + borderWidth + 'px solid ' + borderColor + '; padding: 5px; background-color: ' + headerBgColor + ';">Header ' + (j+1) + '</th>';
                 }
                 tableHTML += '</tr>';
                 rows--; // Reduce regular rows by one since we added a header
@@ -581,7 +669,7 @@ class HTMLEditorApp(Adw.Application):
             for (let i = 0; i < rows; i++) {
                 tableHTML += '<tr>';
                 for (let j = 0; j < cols; j++) {
-                    tableHTML += '<td style="border: ' + borderWidth + 'px solid #ccc; padding: 5px; min-width: 30px;">Cell</td>';
+                    tableHTML += '<td style="border: ' + borderWidth + 'px solid ' + borderColor + '; padding: 5px; min-width: 30px;">Cell</td>';
                 }
                 tableHTML += '</tr>';
             }
@@ -593,9 +681,13 @@ class HTMLEditorApp(Adw.Application):
             
             // Activate the newly inserted table
             setTimeout(() => {
-                const tables = document.querySelectorAll('table');
-                const newTable = tables[tables.length - 1];
+                const tables = document.querySelectorAll('table.editor-table');
+                const newTable = tables[tables.length - 1] || document.querySelector('table:last-of-type');
                 if (newTable) {
+                    // Ensure the editor-table class is present
+                    if (!newTable.classList.contains('editor-table')) {
+                        newTable.classList.add('editor-table');
+                    }
                     activateTable(newTable);
                     try {
                         window.webkit.messageHandlers.tableClicked.postMessage('table-clicked');
@@ -628,9 +720,17 @@ class HTMLEditorApp(Adw.Application):
         
         // Function to activate a table (add handles)
         function activateTable(tableElement) {
+            if (activeTable === tableElement) return; // Already active
+            
+            // Deactivate any previously active tables
+            if (activeTable && activeTable !== tableElement) {
+                deactivateTable(activeTable);
+            }
+            
             activeTable = tableElement;
-            tableElement.style.marginLeft = '';
-            tableElement.style.marginTop = '';
+            
+            // Store original styles and apply selection styling
+            storeAndApplyTableStyles(tableElement);
             
             // Determine current table alignment class
             const currentClasses = tableElement.className;
@@ -656,10 +756,6 @@ class HTMLEditorApp(Adw.Application):
                 resizeHandle.setAttribute('contenteditable', 'false');
                 resizeHandle.setAttribute('unselectable', 'on');
                 resizeHandle.setAttribute('tabindex', '-1');
-                resizeHandle.style.userSelect = 'none';
-                resizeHandle.style.webkitUserSelect = 'none';
-                resizeHandle.style.MozUserSelect = 'none';
-                resizeHandle.style.msUserSelect = 'none';
                 
                 // Add event listener to prevent propagation of mousedown events
                 resizeHandle.addEventListener('mousedown', function(e) {
@@ -682,10 +778,6 @@ class HTMLEditorApp(Adw.Application):
                 dragHandle.setAttribute('contenteditable', 'false');
                 dragHandle.setAttribute('unselectable', 'on');
                 dragHandle.setAttribute('tabindex', '-1');
-                dragHandle.style.userSelect = 'none';
-                dragHandle.style.webkitUserSelect = 'none';
-                dragHandle.style.MozUserSelect = 'none';
-                dragHandle.style.msUserSelect = 'none';
                 
                 // Add event listener to prevent propagation of mousedown events
                 dragHandle.addEventListener('mousedown', function(e) {
@@ -698,26 +790,75 @@ class HTMLEditorApp(Adw.Application):
             }
         }
         
+        // Store original table styles and apply selection styling
+        function storeAndApplyTableStyles(tableElement) {
+            // Add selected class for CSS styling
+            tableElement.classList.add('table-selected');
+            
+            // Ensure table has editor-table class
+            if (!tableElement.classList.contains('editor-table')) {
+                tableElement.classList.add('editor-table');
+            }
+            
+            // Ensure the table has position: relative for proper handle positioning
+            tableElement.style.position = 'relative';
+        }
+        
+        // Function to deactivate a specific table
+        function deactivateTable(tableElement) {
+            if (!tableElement) return;
+            
+            // Remove selected class
+            tableElement.classList.remove('table-selected');
+            
+            // Remove handles
+            const resizeHandle = tableElement.querySelector('.table-handle');
+            if (resizeHandle) resizeHandle.remove();
+            
+            const dragHandle = tableElement.querySelector('.table-drag-handle');
+            if (dragHandle) dragHandle.remove();
+            
+            if (tableElement === activeTable) {
+                activeTable = null;
+            }
+        }
+        
         // Function to deactivate all tables
         function deactivateAllTables() {
             const tables = document.querySelectorAll('table');
             
             tables.forEach(table => {
-                const resizeHandle = table.querySelector('.table-handle');
-                if (resizeHandle) resizeHandle.remove();
-                
-                const dragHandle = table.querySelector('.table-drag-handle');
-                if (dragHandle) dragHandle.remove();
+                deactivateTable(table);
             });
             
-            if (activeTable) {
-                activeTable = null;
-                try {
-                    window.webkit.messageHandlers.tablesDeactivated.postMessage('tables-deactivated');
-                } catch(e) {
-                    console.log("Could not notify about table deactivation:", e);
-                }
+            // Always notify that tables are deactivated, regardless of whether activeTable was set
+            activeTable = null;
+            try {
+                window.webkit.messageHandlers.tablesDeactivated.postMessage('tables-deactivated');
+            } catch(e) {
+                console.log("Could not notify about table deactivation:", e);
             }
+        }
+        
+        // Function to update table colors based on current theme
+        function updateTableThemeColors(tableElement) {
+            if (!tableElement) return;
+            
+            const borderColor = getBorderColor();
+            const headerBgColor = getHeaderBgColor();
+            
+            // Update all headers
+            const headers = tableElement.querySelectorAll('th');
+            headers.forEach(header => {
+                header.style.backgroundColor = headerBgColor;
+                header.style.borderColor = borderColor;
+            });
+            
+            // Update all cells
+            const cells = tableElement.querySelectorAll('td');
+            cells.forEach(cell => {
+                cell.style.borderColor = borderColor;
+            });
         }
         
         // Function to start table drag
@@ -792,10 +933,9 @@ class HTMLEditorApp(Adw.Application):
             if (!isResizing || !activeTable) return;
             
             const deltaX = e.clientX - dragStartX;
-            const deltaY = e.clientY - dragStartY;
             
+            // Only adjust width, not height - this prevents the horizontal line artifact
             activeTable.style.width = (tableStartX + deltaX) + 'px';
-            activeTable.style.height = (tableStartY + deltaY) + 'px';
         }
         
         // Function to add a row to the table
@@ -806,6 +946,7 @@ class HTMLEditorApp(Adw.Application):
             
             if (!tableElement) return;
             
+            const borderColor = getBorderColor();
             const rows = tableElement.rows;
             if (rows.length > 0) {
                 // If position is provided, use it, otherwise append at the end
@@ -814,14 +955,18 @@ class HTMLEditorApp(Adw.Application):
                 
                 for (let i = 0; i < rows[0].cells.length; i++) {
                     const cell = newRow.insertCell(i);
-                    cell.innerHTML = ' ';
+                    cell.innerHTML = '&nbsp;';
                     // Copy border style from other cells
                     if (rows[0].cells[i].style.border) {
                         cell.style.border = rows[0].cells[i].style.border;
+                    } else {
+                        cell.style.border = '1px solid ' + borderColor;
                     }
                     // Copy padding style from other cells
                     if (rows[0].cells[i].style.padding) {
                         cell.style.padding = rows[0].cells[i].style.padding;
+                    } else {
+                        cell.style.padding = '5px';
                     }
                 }
             }
@@ -841,12 +986,20 @@ class HTMLEditorApp(Adw.Application):
             
             if (!tableElement) return;
             
+            const borderColor = getBorderColor();
+            const headerBgColor = getHeaderBgColor();
             const rows = tableElement.rows;
             for (let i = 0; i < rows.length; i++) {
                 // If position is provided, use it, otherwise append at the end
                 const cellIndex = (position !== undefined) ? position : rows[i].cells.length;
                 const cell = rows[i].insertCell(cellIndex);
-                cell.innerHTML = ' ';
+                cell.innerHTML = '&nbsp;';
+                
+                // Default styles based on theme
+                let cellStyle = {
+                    border: '1px solid ' + borderColor,
+                    padding: '5px'
+                };
                 
                 // Copy styles from adjacent cells if available
                 if (rows[i].cells.length > 1) {
@@ -856,21 +1009,38 @@ class HTMLEditorApp(Adw.Application):
                                     
                     if (refCell) {
                         if (refCell.style.border) {
-                            cell.style.border = refCell.style.border;
+                            cellStyle.border = refCell.style.border;
                         }
                         if (refCell.style.padding) {
-                            cell.style.padding = refCell.style.padding;
+                            cellStyle.padding = refCell.style.padding;
                         }
+                        
                         // If it's a header cell, make new cell a header too
                         if (refCell.tagName === 'TH' && cell.tagName === 'TD') {
                             const headerCell = document.createElement('th');
                             headerCell.innerHTML = cell.innerHTML;
-                            headerCell.style.cssText = cell.style.cssText;
-                            if (refCell.style.backgroundColor) {
-                                headerCell.style.backgroundColor = refCell.style.backgroundColor;
-                            }
+                            
+                            // Apply all styles
+                            Object.assign(headerCell.style, cellStyle);
+                            headerCell.style.backgroundColor = headerBgColor;
+                            
                             cell.parentNode.replaceChild(headerCell, cell);
+                        } else {
+                            // Apply styles to normal cell
+                            Object.assign(cell.style, cellStyle);
                         }
+                    }
+                } else {
+                    // Apply default styles if no reference cells
+                    Object.assign(cell.style, cellStyle);
+                    
+                    // If this is the first row, it might be a header
+                    if (i === 0 && rows[0].cells[0].tagName === 'TH') {
+                        const headerCell = document.createElement('th');
+                        headerCell.innerHTML = cell.innerHTML;
+                        Object.assign(headerCell.style, cellStyle);
+                        headerCell.style.backgroundColor = headerBgColor;
+                        cell.parentNode.replaceChild(headerCell, cell);
                     }
                 }
             }
@@ -980,9 +1150,29 @@ class HTMLEditorApp(Adw.Application):
             }
         }
         
+        // Function to save editor state
+        function saveState() {
+            const editor = document.getElementById('editor');
+            if (!editor) return;
+            
+            window.undoStack.push(editor.innerHTML);
+            if (window.undoStack.length > 100) {
+                window.undoStack.shift();
+            }
+        }
+        
+        // Function to handle dark mode changes
+        function handleColorSchemeChange(e) {
+            const tables = document.querySelectorAll('table');
+            tables.forEach(updateTableThemeColors);
+        }
+        
         // Add event handlers for table interactions
         document.addEventListener('DOMContentLoaded', function() {
             const editor = document.getElementById('editor');
+            
+            // Add the custom style for table handles
+            addTableHandleStyles();
             
             // Handle mouse down events
             editor.addEventListener('mousedown', function(e) {
@@ -1038,9 +1228,22 @@ class HTMLEditorApp(Adw.Application):
             editor.addEventListener('click', function(e) {
                 let tableElement = findParentTable(e.target);
                 
-                if (!tableElement && activeTable) {
-                    deactivateAllTables();
-                } else if (tableElement && tableElement !== activeTable) {
+                if (!tableElement) {
+                    // We clicked outside any table
+                    if (activeTable) {
+                        // If there was a previously active table, deactivate it
+                        deactivateAllTables();
+                    } else {
+                        // Even if there was no active table, still send the deactivation message
+                        // This ensures the toolbar is hidden even if the activeTable reference was lost
+                        try {
+                            window.webkit.messageHandlers.tablesDeactivated.postMessage('tables-deactivated');
+                        } catch(e) {
+                            console.log("Could not notify about table deactivation:", e);
+                        }
+                    }
+                } else if (tableElement !== activeTable) {
+                    // We clicked on a different table than the currently active one
                     deactivateAllTables();
                     activateTable(tableElement);
                     try {
@@ -1050,10 +1253,38 @@ class HTMLEditorApp(Adw.Application):
                     }
                 }
             });
-        });
-        """
-        
 
+            // Add a document-level click handler that will deactivate tables when clicking outside the editor
+            document.addEventListener('click', function(e) {
+                // Check if the click is outside the editor
+                if (!editor.contains(e.target) && activeTable) {
+                    deactivateAllTables();
+                }
+            });
+
+            // Listen for color scheme changes
+            if (window.matchMedia) {
+                const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                // Modern approach (newer browsers)
+                if (colorSchemeQuery.addEventListener) {
+                    colorSchemeQuery.addEventListener('change', handleColorSchemeChange);
+                } 
+                // Legacy approach (older browsers)
+                else if (colorSchemeQuery.addListener) {
+                    colorSchemeQuery.addListener(handleColorSchemeChange);
+                }
+            }
+        });
+
+        // Add function to add table handle styles
+        function addTableHandleStyles() {
+            const styleElement = document.createElement('style');
+            styleElement.id = 'table-handle-styles';
+            styleElement.textContent = tableHandlesCSS;
+            document.head.appendChild(styleElement);
+        }
+        """    
+        
     def create_window(self):
         """Create a new window with all initialization (former HTMLEditorWindow.__init__)"""
         win = Adw.ApplicationWindow(application=self)
@@ -1669,9 +1900,9 @@ class HTMLEditorApp(Adw.Application):
                 table {{
                     border-collapse: collapse;
                     margin: 10px 0;
-                    position: relative;
+                    position: relative;  /* Important for internal handles */
                     resize: both;
-                    overflow: auto;
+                    overflow: visible;   /* Changed from auto to visible to ensure handles are not clipped */
                     min-width: 30px;
                     min-height: 30px;
                 }}
@@ -1708,43 +1939,8 @@ class HTMLEditorApp(Adw.Application):
                     min-width: 30px;
                     background-color: #f0f0f0;
                 }}
-                .table-drag-handle {{
-                    position: absolute;
-                    top: -16px;
-                    left: -1px;
-                    width: 16px;
-                    height: 16px;
-                    background-color: #4e9eff;
-                    border-radius: 2px;
-                    cursor: ns-resize;
-                    z-index: 1000;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: white;
-                    font-size: 10px;
-                    pointer-events: all;
-                    user-select: none;
-                    -webkit-user-select: none;
-                    -moz-user-select: none;
-                    -ms-user-select: none;
-                }}
-                .table-handle {{
-                    position: absolute;
-                    bottom: -10px;
-                    right: -10px;
-                    width: 16px;
-                    height: 16px;
-                    background-color: #4e9eff;
-                    border-radius: 8px;
-                    cursor: nwse-resize;
-                    z-index: 1000;
-                    pointer-events: all;
-                    user-select: none;
-                    -webkit-user-select: none;
-                    -moz-user-select: none;
-                    -ms-user-select: none;
-                }}
+                /* Table handles are now defined in JavaScript for better control */
+                
                 /* Text box styles (enhanced table) */
                 table.text-box-table {{
                     border: 1px solid #ccc !important;
@@ -1779,9 +1975,6 @@ class HTMLEditorApp(Adw.Application):
                     table td, table th {{
                         border-color: #444;
                     }}
-                    .table-drag-handle, .table-handle {{
-                        background-color: #0078d7;
-                    }}
                     table.text-box-table {{
                         border-color: #444 !important;
                         background-color: #2d2d2d;
@@ -1808,7 +2001,8 @@ class HTMLEditorApp(Adw.Application):
             <div id="editor" contenteditable="true"></div>
         </body>
         </html>
-        """
+        """##################
+
          
 def main():
     app = HTMLEditorApp()
