@@ -171,134 +171,6 @@ class HTMLEditorApp(Adw.Application):
         """JavaScript for insert link and related functionality"""
         return """ """
 
-    # Python handler for table insertion
-    def on_insert_table_clicked(self, win, btn):
-        """Handle table insertion button click"""
-        win.statusbar.set_text("Inserting table...")
-        
-        # Create a dialog to configure the table
-        dialog = Adw.Dialog()
-        dialog.set_title("Insert Table")
-        dialog.set_content_width(350)
-        
-        # Create layout for dialog content
-        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-        content_box.set_margin_top(24)
-        content_box.set_margin_bottom(24)
-        content_box.set_margin_start(24)
-        content_box.set_margin_end(24)
-        
-        # Rows input
-        rows_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        rows_label = Gtk.Label(label="Rows:")
-        rows_label.set_halign(Gtk.Align.START)
-        rows_label.set_hexpand(True)
-        
-        rows_adjustment = Gtk.Adjustment(value=3, lower=1, upper=20, step_increment=1)
-        rows_spin = Gtk.SpinButton()
-        rows_spin.set_adjustment(rows_adjustment)
-        
-        rows_box.append(rows_label)
-        rows_box.append(rows_spin)
-        content_box.append(rows_box)
-        
-        # Columns input
-        cols_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        cols_label = Gtk.Label(label="Columns:")
-        cols_label.set_halign(Gtk.Align.START)
-        cols_label.set_hexpand(True)
-        
-        cols_adjustment = Gtk.Adjustment(value=3, lower=1, upper=10, step_increment=1)
-        cols_spin = Gtk.SpinButton()
-        cols_spin.set_adjustment(cols_adjustment)
-        
-        cols_box.append(cols_label)
-        cols_box.append(cols_spin)
-        content_box.append(cols_box)
-        
-        # Header row checkbox
-        header_check = Gtk.CheckButton(label="Include header row")
-        header_check.set_active(True)
-        content_box.append(header_check)
-        
-        # Border options
-        border_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        border_label = Gtk.Label(label="Border width:")
-        border_label.set_halign(Gtk.Align.START)
-        border_label.set_hexpand(True)
-        
-        border_adjustment = Gtk.Adjustment(value=1, lower=0, upper=5, step_increment=1)
-        border_spin = Gtk.SpinButton()
-        border_spin.set_adjustment(border_adjustment)
-        
-        border_box.append(border_label)
-        border_box.append(border_spin)
-        content_box.append(border_box)
-        
-        # Table width options
-        width_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        width_label = Gtk.Label(label="Table width:")
-        width_label.set_halign(Gtk.Align.START)
-        width_label.set_hexpand(True)
-        
-        width_combo = Gtk.DropDown()
-        width_options = Gtk.StringList()
-        width_options.append("Auto")
-        width_options.append("100%")
-        width_options.append("75%")
-        width_options.append("50%")
-        width_combo.set_model(width_options)
-        width_combo.set_selected(1)  # Default to 100%
-        
-        width_box.append(width_label)
-        width_box.append(width_combo)
-        content_box.append(width_box)
-        
-        # Button box
-        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        button_box.set_halign(Gtk.Align.END)
-        button_box.set_margin_top(16)
-        
-        cancel_button = Gtk.Button(label="Cancel")
-        cancel_button.connect("clicked", lambda btn: dialog.close())
-        
-        insert_button = Gtk.Button(label="Insert")
-        insert_button.add_css_class("suggested-action")
-        insert_button.connect("clicked", lambda btn: self.on_table_dialog_response(
-            win, dialog, 
-            rows_spin.get_value_as_int(), 
-            cols_spin.get_value_as_int(),
-            header_check.get_active(),
-            border_spin.get_value_as_int(),
-            width_options.get_string(width_combo.get_selected())
-        ))
-        
-        button_box.append(cancel_button)
-        button_box.append(insert_button)
-        content_box.append(button_box)
-        
-        # Set dialog content and present
-        dialog.set_child(content_box)
-        dialog.present(win)
-        
-    def on_table_dialog_response(self, win, dialog, rows, cols, has_header, border_width, width_option):
-        """Handle response from the table dialog"""
-        dialog.close()
-        
-        # Prepare the width value
-        width_value = "auto"
-        if width_option != "Auto":
-            width_value = width_option
-        
-        # Execute JavaScript to insert the table
-        js_code = f"""
-        (function() {{
-            insertTable({rows}, {cols}, {str(has_header).lower()}, {border_width}, "{width_value}");
-            return true;
-        }})();
-        """
-        self.execute_js(win, js_code)
-        win.statusbar.set_text("Table inserted")
 
     def on_insert_text_box_clicked(self, win, btn):
         """Handle text box insertion button click, textbox is basically 1x1 table"""
@@ -2095,6 +1967,133 @@ class HTMLEditorApp(Adw.Application):
         self.execute_js(win, js_code)
         win.statusbar.set_text("Table toolbar closed")
 
+    # Python handler for table insertion
+    def on_insert_table_clicked(self, win, btn):
+        """Handle table insertion button click"""
+        win.statusbar.set_text("Inserting table...")
+        
+        # Create a dialog to configure the table
+        dialog = Adw.Dialog()
+        dialog.set_title("Insert Table")
+        dialog.set_content_width(350)
+        
+        # Create layout for dialog content
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        content_box.set_margin_top(24)
+        content_box.set_margin_bottom(24)
+        content_box.set_margin_start(24)
+        content_box.set_margin_end(24)
+        
+        # Rows input
+        rows_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        rows_label = Gtk.Label(label="Rows:")
+        rows_label.set_halign(Gtk.Align.START)
+        rows_label.set_hexpand(True)
+        
+        rows_adjustment = Gtk.Adjustment(value=3, lower=1, upper=20, step_increment=1)
+        rows_spin = Gtk.SpinButton()
+        rows_spin.set_adjustment(rows_adjustment)
+        
+        rows_box.append(rows_label)
+        rows_box.append(rows_spin)
+        content_box.append(rows_box)
+        
+        # Columns input
+        cols_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        cols_label = Gtk.Label(label="Columns:")
+        cols_label.set_halign(Gtk.Align.START)
+        cols_label.set_hexpand(True)
+        
+        cols_adjustment = Gtk.Adjustment(value=3, lower=1, upper=10, step_increment=1)
+        cols_spin = Gtk.SpinButton()
+        cols_spin.set_adjustment(cols_adjustment)
+        
+        cols_box.append(cols_label)
+        cols_box.append(cols_spin)
+        content_box.append(cols_box)
+        
+        # Header row checkbox
+        header_check = Gtk.CheckButton(label="Include header row")
+        header_check.set_active(True)
+        content_box.append(header_check)
+        
+        # Border options
+        border_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        border_label = Gtk.Label(label="Border width:")
+        border_label.set_halign(Gtk.Align.START)
+        border_label.set_hexpand(True)
+        
+        border_adjustment = Gtk.Adjustment(value=1, lower=0, upper=5, step_increment=1)
+        border_spin = Gtk.SpinButton()
+        border_spin.set_adjustment(border_adjustment)
+        
+        border_box.append(border_label)
+        border_box.append(border_spin)
+        content_box.append(border_box)
+        
+        # Table width options
+        width_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        width_label = Gtk.Label(label="Table width:")
+        width_label.set_halign(Gtk.Align.START)
+        width_label.set_hexpand(True)
+        
+        width_combo = Gtk.DropDown()
+        width_options = Gtk.StringList()
+        width_options.append("Auto")
+        width_options.append("100%")
+        width_options.append("75%")
+        width_options.append("50%")
+        width_combo.set_model(width_options)
+        width_combo.set_selected(1)  # Default to 100% (index 1)
+        
+        width_box.append(width_label)
+        width_box.append(width_combo)
+        content_box.append(width_box)
+        
+        # ADDED: Floating option checkbox
+        float_check = Gtk.CheckButton(label="Free-floating (text wraps around)")
+        float_check.set_active(True)  # Enabled by default
+        content_box.append(float_check)
+        
+        # Set initial width based on floating setting (Auto for floating tables)
+        width_combo.set_selected(0)  # Start with Auto since floating is active by default
+        
+        # Connect change handler for float check to update width combo
+        def on_float_check_toggled(check_button):
+            if check_button.get_active():  # If float is enabled
+                width_combo.set_selected(0)  # Set to "Auto"
+            else:  # If float is disabled
+                width_combo.set_selected(1)  # Set to "100%"
+        
+        float_check.connect("toggled", on_float_check_toggled)
+        
+        # Button box
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        button_box.set_halign(Gtk.Align.END)
+        button_box.set_margin_top(16)
+        
+        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button.connect("clicked", lambda btn: dialog.close())
+        
+        insert_button = Gtk.Button(label="Insert")
+        insert_button.add_css_class("suggested-action")
+        insert_button.connect("clicked", lambda btn: self.on_table_dialog_response(
+            win, dialog, 
+            rows_spin.get_value_as_int(), 
+            cols_spin.get_value_as_int(),
+            header_check.get_active(),
+            border_spin.get_value_as_int(),
+            width_options.get_string(width_combo.get_selected()),
+            float_check.get_active()  # Pass floating state
+        ))
+        
+        button_box.append(cancel_button)
+        button_box.append(insert_button)
+        content_box.append(button_box)
+        
+        # Set dialog content and present
+        dialog.set_child(content_box)
+        dialog.present(win)
 
     #####################
 
@@ -2262,121 +2261,7 @@ class HTMLEditorApp(Adw.Application):
         """        
         
 ###############
-    def on_insert_table_clicked(self, win, btn):
-        """Handle table insertion button click"""
-        win.statusbar.set_text("Inserting table...")
-        
-        # Create a dialog to configure the table
-        dialog = Adw.Dialog()
-        dialog.set_title("Insert Table")
-        dialog.set_content_width(350)
-        
-        # Create layout for dialog content
-        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-        content_box.set_margin_top(24)
-        content_box.set_margin_bottom(24)
-        content_box.set_margin_start(24)
-        content_box.set_margin_end(24)
-        
-        # Rows input
-        rows_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        rows_label = Gtk.Label(label="Rows:")
-        rows_label.set_halign(Gtk.Align.START)
-        rows_label.set_hexpand(True)
-        
-        rows_adjustment = Gtk.Adjustment(value=3, lower=1, upper=20, step_increment=1)
-        rows_spin = Gtk.SpinButton()
-        rows_spin.set_adjustment(rows_adjustment)
-        
-        rows_box.append(rows_label)
-        rows_box.append(rows_spin)
-        content_box.append(rows_box)
-        
-        # Columns input
-        cols_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        cols_label = Gtk.Label(label="Columns:")
-        cols_label.set_halign(Gtk.Align.START)
-        cols_label.set_hexpand(True)
-        
-        cols_adjustment = Gtk.Adjustment(value=3, lower=1, upper=10, step_increment=1)
-        cols_spin = Gtk.SpinButton()
-        cols_spin.set_adjustment(cols_adjustment)
-        
-        cols_box.append(cols_label)
-        cols_box.append(cols_spin)
-        content_box.append(cols_box)
-        
-        # Header row checkbox
-        header_check = Gtk.CheckButton(label="Include header row")
-        header_check.set_active(True)
-        content_box.append(header_check)
-        
-        # Border options
-        border_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        border_label = Gtk.Label(label="Border width:")
-        border_label.set_halign(Gtk.Align.START)
-        border_label.set_hexpand(True)
-        
-        border_adjustment = Gtk.Adjustment(value=1, lower=0, upper=5, step_increment=1)
-        border_spin = Gtk.SpinButton()
-        border_spin.set_adjustment(border_adjustment)
-        
-        border_box.append(border_label)
-        border_box.append(border_spin)
-        content_box.append(border_box)
-        
-        # Table width options
-        width_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        width_label = Gtk.Label(label="Table width:")
-        width_label.set_halign(Gtk.Align.START)
-        width_label.set_hexpand(True)
-        
-        width_combo = Gtk.DropDown()
-        width_options = Gtk.StringList()
-        width_options.append("Auto")
-        width_options.append("100%")
-        width_options.append("75%")
-        width_options.append("50%")
-        width_combo.set_model(width_options)
-        # CHANGED: Default to "Auto" width for free-floating behavior
-        width_combo.set_selected(0)  # Default to Auto (index 0)
-        
-        width_box.append(width_label)
-        width_box.append(width_combo)
-        content_box.append(width_box)
-        
-        # ADDED: Floating option checkbox
-        float_check = Gtk.CheckButton(label="Free-floating (text wraps around)")
-        float_check.set_active(True)  # Enabled by default
-        content_box.append(float_check)
-        
-        # Button box
-        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        button_box.set_halign(Gtk.Align.END)
-        button_box.set_margin_top(16)
-        
-        cancel_button = Gtk.Button(label="Cancel")
-        cancel_button.connect("clicked", lambda btn: dialog.close())
-        
-        insert_button = Gtk.Button(label="Insert")
-        insert_button.add_css_class("suggested-action")
-        insert_button.connect("clicked", lambda btn: self.on_table_dialog_response(
-            win, dialog, 
-            rows_spin.get_value_as_int(), 
-            cols_spin.get_value_as_int(),
-            header_check.get_active(),
-            border_spin.get_value_as_int(),
-            width_options.get_string(width_combo.get_selected()),
-            float_check.get_active()  # Pass floating state
-        ))
-        
-        button_box.append(cancel_button)
-        button_box.append(insert_button)
-        content_box.append(button_box)
-        
-        # Set dialog content and present
-        dialog.set_child(content_box)
-        dialog.present(win)
+
         
         
 def main():
