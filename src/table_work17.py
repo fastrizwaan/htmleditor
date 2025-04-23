@@ -2662,6 +2662,13 @@ class HTMLEditorApp(Adw.Application):
         style_combo.set_model(style_model)
         style_combo.set_selected(0)  # Default to solid
         
+        # Connect dropdown to instantly apply style when changed
+        style_combo.connect("notify::selected", lambda combo, param: self.on_border_style_changed(
+            win, 
+            style_model.get_string(combo.get_selected()),
+            width_spin.get_value_as_int()
+        ))
+        
         style_box.append(style_label)
         style_box.append(style_combo)
         content_box.append(style_box)
@@ -2674,6 +2681,13 @@ class HTMLEditorApp(Adw.Application):
         width_adjustment = Gtk.Adjustment(value=1, lower=0, upper=10, step_increment=1)
         width_spin = Gtk.SpinButton()
         width_spin.set_adjustment(width_adjustment)
+        
+        # Connect spinner to instantly apply width when changed
+        width_spin.connect("value-changed", lambda spin: self.on_border_width_changed(
+            win,
+            style_model.get_string(style_combo.get_selected()),
+            spin.get_value_as_int()
+        ))
         
         width_box.append(width_label)
         width_box.append(width_spin)
@@ -2725,8 +2739,9 @@ class HTMLEditorApp(Adw.Application):
             button_box.append(button_label)
             button.set_child(button_box)
             
-            # Connect the click signal
-            button.connect("clicked", lambda btn, val=option["value"]: self.on_border_display_option_clicked(win, popover, style_combo, width_spin, val))
+            # Connect the click signal - instant apply without closing popup
+            button.connect("clicked", lambda btn, val=option["value"]: self.on_border_display_option_clicked(
+                win, None, style_combo, width_spin, val))
             
             display_grid.attach(button, col, row, 1, 1)
         
@@ -2735,24 +2750,44 @@ class HTMLEditorApp(Adw.Application):
         # Add a separator
         content_box.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
         
-        # Add apply button
-        apply_button = Gtk.Button(label="Apply Style")
-        apply_button.add_css_class("suggested-action")
-        apply_button.set_margin_top(8)
+        # Add close button
+        close_button = Gtk.Button(label="Close")
+        close_button.set_margin_top(8)
+        close_button.connect("clicked", lambda btn: popover.popdown())
         
-        # Connect apply button to apply the selected style
-        apply_button.connect("clicked", lambda btn: self.on_border_style_apply_clicked(
-            win, 
-            popover,
-            style_model.get_string(style_combo.get_selected()),
-            width_spin.get_value_as_int()
-        ))
-        
-        content_box.append(apply_button)
+        content_box.append(close_button)
         
         # Set the content and show the popover
         popover.set_child(content_box)
         popover.popup()
+
+    def on_border_style_changed(self, win, style, width):
+        """Apply border style change immediately"""
+        # Execute JavaScript to apply the border style
+        js_code = f"""
+        (function() {{
+            setTableBorderStyle('{style}', {width}, null);
+            return true;
+        }})();
+        """
+        self.execute_js(win, js_code)
+        
+        # Update status message
+        win.statusbar.set_text(f"Applied {style} border style")
+
+    def on_border_width_changed(self, win, style, width):
+        """Apply border width change immediately"""
+        # Execute JavaScript to apply the border width
+        js_code = f"""
+        (function() {{
+            setTableBorderWidth({width});
+            return true;
+        }})();
+        """
+        self.execute_js(win, js_code)
+        
+        # Update status message
+        win.statusbar.set_text(f"Applied {width}px border width")
 
     def on_border_display_option_clicked(self, win, popover, style_combo, width_spin, option):
         """Apply the selected border display option"""
@@ -2771,8 +2806,9 @@ class HTMLEditorApp(Adw.Application):
         # Update status message
         win.statusbar.set_text(f"Applied {option} borders")
         
-        # Close the popover
-        popover.popdown()
+        # Close the popover if provided (but for instant apply we pass None)
+        if popover:
+            popover.popdown()
 
     def on_border_style_apply_clicked(self, win, popover, style, width):
         """Apply the selected border style to the table"""
@@ -2793,27 +2829,186 @@ class HTMLEditorApp(Adw.Application):
 
     def on_border_color_button_clicked(self, win, button):
         """Show the border color picker dialog"""
-        # Create a color chooser dialog
-        color_dialog = Gtk.ColorDialog()
-        color_dialog.set_title("Choose Border Color")
+        try:
+            # Different GTK versions may use different color dialog widgets
+            # Try different approaches based on the GTK version
+            
+            # Method 1: Modern Gtk.ColorDialog (GTK4)
+            try:
+                color_dialog = Gtk.ColorDialog()
+                color_dialog.set_title("Choose Border Color")
+                
+                # Set initial color from the current border
+                # First get the current border color from JavaScript
+                win.webview.evaluate_javascript(
+                    """(function() { 
+                        const style = getTableBorderStyle(); 
+                        return style ? style.color : '#000000';
+                    })();""", 
+                    -1,  # Length
+                    None,  # Source URI
+                    None,  # Cancellable
+                    None,  # Callback
+                    self._on_get_current_border_color,  # User data
+                    win  # Additional user data
+                )
+                
+                # Show the color dialog in a deferred way
+                GLib.timeout_add(100, self._show_color_dialog, win, color_dialog, button)
+                return
+            except (AttributeError, TypeError):
+                # ColorDialog not available, try alternative
+                pass
+                
+            # Method 2: ColorChooserDialog (GTK3+)
+            try:
+                # Create a color chooser dialog
+                color_dialog = Gtk.ColorChooserDialog(
+                    title="Choose Border Color",
+                    parent=win
+                )
+                
+                # Set up dialog buttons
+                color_dialog.add_button("_Cancel", Gtk.ResponseType.CANCEL)
+                color_dialog.add_button("_Select", Gtk.ResponseType.OK)
+                color_dialog.set_default_response(Gtk.ResponseType.OK)
+                
+                # Set initial color (black as default)
+                try:
+                    # Using RGBA to set color
+                    rgba = Gdk.RGBA()
+                    rgba.parse("#000000")
+                    color_dialog.set_rgba(rgba)
+                except:
+                    # Older method
+                    try:
+                        color = Gdk.Color.parse("#000000")
+                        color_dialog.set_current_color(color)
+                    except:
+                        pass  # If both methods fail, accept default
+                
+                # Connect the response signal
+                color_dialog.connect("response", self._on_color_dialog_response, win)
+                
+                # Show the dialog
+                color_dialog.show()
+                return
+            except (AttributeError, TypeError):
+                # ColorChooserDialog not available, try fallback
+                pass
+                
+            # Method 3: Ultimate fallback - simple popover with preset colors
+            self._show_color_preset_popover(win, button)
+                
+        except Exception as e:
+            print(f"Error showing color dialog: {e}")
+            win.statusbar.set_text("Could not open color picker")
+
+    def _show_color_preset_popover(self, win, button):
+        """Create a simple color picker popover with preset colors"""
+        popover = Gtk.Popover()
+        popover.set_parent(button)
         
-        # Set initial color from the current border
-        # First get the current border color from JavaScript
-        win.webview.evaluate_javascript(
-            """(function() { 
-                const style = getTableBorderStyle(); 
-                return style ? style.color : '#000000';
-            })();""", 
-            -1,  # Length
-            None,  # Source URI
-            None,  # Cancellable
-            None,  # Callback
-            self._on_get_current_border_color,  # User data
-            win  # Additional user data
-        )
+        # Create grid layout for color swatches
+        grid = Gtk.Grid()
+        grid.set_column_spacing(5)
+        grid.set_row_spacing(5)
+        grid.set_margin_start(10)
+        grid.set_margin_end(10)
+        grid.set_margin_top(10)
+        grid.set_margin_bottom(10)
         
-        # Show the color dialog in a deferred way
-        GLib.timeout_add(100, self._show_color_dialog, win, color_dialog, button)
+        # Define preset colors
+        preset_colors = [
+            "#000000", "#333333", "#666666", "#999999", "#CCCCCC",
+            "#FFFFFF", "#FF0000", "#00FF00", "#0000FF", "#FFFF00",
+            "#FF00FF", "#00FFFF", "#800000", "#008000", "#000080",
+            "#808000", "#800080", "#008080", "#FFA500", "#A52A2A"
+        ]
+        
+        # Create color buttons
+        for i, color in enumerate(preset_colors):
+            row = i // 5
+            col = i % 5
+            
+            # Create a button with color style
+            button = Gtk.Button()
+            button.set_size_request(24, 24)
+            
+            # Apply color to button using CSS
+            css_provider = Gtk.CssProvider()
+            css_data = f"button {{ background-color: {color}; }}".encode('utf8')
+            css_provider.load_from_data(css_data)
+            
+            ctx = button.get_style_context()
+            ctx.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+            
+            # Connect click handler to apply the color
+            button.connect("clicked", lambda btn, c=color: self._apply_preset_color(win, popover, c))
+            
+            # Add to grid
+            grid.attach(button, col, row, 1, 1)
+        
+        popover.set_child(grid)
+        popover.popup()
+
+    def _apply_preset_color(self, win, popover, color):
+        """Apply a preset color to the table border"""
+        # Execute JavaScript to apply the color
+        js_code = f"""
+        (function() {{
+            setTableBorderColor('{color}');
+            return true;
+        }})();
+        """
+        self.execute_js(win, js_code)
+        
+        # Update status message
+        win.statusbar.set_text(f"Applied border color: {color}")
+        
+        # Close the popover
+        popover.popdown()
+
+    def _on_color_dialog_response(self, dialog, response_id, win):
+        """Handle response from color dialog"""
+        if response_id == Gtk.ResponseType.OK:
+            try:
+                # Try to get the selected color using different methods
+                # Method 1: get_rgba (GTK3+)
+                try:
+                    rgba = dialog.get_rgba()
+                    # Convert RGBA to hex
+                    red = int(rgba.red * 255)
+                    green = int(rgba.green * 255)
+                    blue = int(rgba.blue * 255)
+                    hex_color = f"#{red:02x}{green:02x}{blue:02x}"
+                except:
+                    # Method 2: get_current_color (older GTK)
+                    try:
+                        color = dialog.get_current_color()
+                        red = color.red >> 8
+                        green = color.green >> 8
+                        blue = color.blue >> 8
+                        hex_color = f"#{red:02x}{green:02x}{blue:02x}"
+                    except:
+                        # Default if all methods fail
+                        hex_color = "#000000"
+                
+                # Apply the color to the table borders
+                js_code = f"""
+                (function() {{
+                    setTableBorderColor('{hex_color}');
+                    return true;
+                }})();
+                """
+                self.execute_js(win, js_code)
+                
+                win.statusbar.set_text(f"Applied border color: {hex_color}")
+            except Exception as e:
+                print(f"Error getting color: {e}")
+        
+        # Close the dialog
+        dialog.destroy()
 
     def _show_color_dialog(self, win, color_dialog, button):
         """Show the color dialog with deferred timing"""
@@ -2826,9 +3021,38 @@ class HTMLEditorApp(Adw.Application):
     def _on_get_current_border_color(self, webview, result, win):
         """Handle getting the current border color from JavaScript"""
         try:
-            color_value = webview.evaluate_javascript_finish(result).get_js_value().to_string()
-            # Store the color value for later use
-            win.current_border_color = color_value
+            # Different WebKit versions return different result types
+            # Try the most common methods to extract the value
+            js_result = webview.evaluate_javascript_finish(result)
+            
+            # Method 1: Direct string conversion (newer WebKit)
+            try:
+                color_value = str(js_result)
+                if color_value.startswith('#') or color_value.startswith('rgb'):
+                    win.current_border_color = color_value
+                    return
+            except:
+                pass
+                
+            # Method 2: get_js_value (some WebKit versions)
+            try:
+                color_value = js_result.get_js_value().to_string()
+                win.current_border_color = color_value
+                return
+            except:
+                pass
+                
+            # Method 3: to_string (some WebKit versions)
+            try:
+                color_value = js_result.to_string()
+                win.current_border_color = color_value
+                return
+            except:
+                pass
+                
+            # Default if all methods fail
+            win.current_border_color = "#000000"
+                
         except Exception as e:
             print(f"Error getting current border color: {e}")
             win.current_border_color = "#000000"  # Default to black
@@ -2837,13 +3061,40 @@ class HTMLEditorApp(Adw.Application):
         """Handle color selection result"""
         try:
             # Get the selected color
-            color = dialog.choose_rgba_finish(result)
-            if color:
-                # Convert RGBA to hex
-                red = int(color.get_red() * 255)
-                green = int(color.get_green() * 255)
-                blue = int(color.get_blue() * 255)
-                hex_color = f"#{red:02x}{green:02x}{blue:02x}"
+            rgba = dialog.choose_rgba_finish(result)
+            if rgba:
+                # Different versions of GTK have different color APIs
+                # Try multiple methods to extract the color components
+                
+                # Method 1: Standard RGBA methods
+                try:
+                    red = int(rgba.get_red() * 255)
+                    green = int(rgba.get_green() * 255)
+                    blue = int(rgba.get_blue() * 255)
+                    hex_color = f"#{red:02x}{green:02x}{blue:02x}"
+                except:
+                    # Method 2: GdkRGBA direct properties
+                    try:
+                        red = int(rgba.red * 255)
+                        green = int(rgba.green * 255)
+                        blue = int(rgba.blue * 255)
+                        hex_color = f"#{red:02x}{green:02x}{blue:02x}"
+                    except:
+                        # Method 3: Parse to_string format "rgb(r,g,b)"
+                        try:
+                            rgba_str = str(rgba)
+                            # Parse "rgb(r,g,b)" format
+                            import re
+                            rgb_match = re.search(r'rgb\((\d+),\s*(\d+),\s*(\d+)', rgba_str)
+                            if rgb_match:
+                                red = int(rgb_match.group(1))
+                                green = int(rgb_match.group(2))
+                                blue = int(rgb_match.group(3))
+                                hex_color = f"#{red:02x}{green:02x}{blue:02x}"
+                            else:
+                                hex_color = "#000000"  # Default
+                        except:
+                            hex_color = "#000000"  # Default if all methods fail
                 
                 # Apply the color to the table borders
                 js_code = f"""
