@@ -2289,34 +2289,102 @@ def set_box_color(self, box, color):
     # Apply to the box
     style_context = box.get_style_context()
     style_context.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-    
+
 def on_clear_formatting_clicked(self, win, button):
-    """Remove all formatting from selected text"""
+    """Remove all formatting from selected text while preserving selection"""
     js_code = """
     (function() {
-        // Use the more modern Selection API
+        // Use the modern Selection API
         const selection = window.getSelection();
         if (selection.rangeCount > 0) {
             const range = selection.getRangeAt(0);
             
             // Check if there's selected text
             if (!range.collapsed) {
+                // Store the selection boundaries before modification
+                const startContainer = range.startContainer;
+                const startOffset = range.startOffset;
+                const endContainer = range.endContainer;
+                const endOffset = range.endOffset;
+                
                 // Get plain text
                 const plainText = range.toString();
                 
-                // Force removal of all formatting by explicitly using 
-                // removeFormat command which is specifically designed for this
+                // Force removal of all formatting
                 document.execCommand('removeFormat');
                 
                 // As a backup, also use the insertText command
-                // which should replace the now-unformatted selection with the same text
                 if (document.queryCommandSupported('insertText')) {
                     document.execCommand('insertText', false, plainText);
                 }
                 
+                // Now try to restore the selection
+                try {
+                    // Create a new range
+                    const newRange = document.createRange();
+                    
+                    // If text was inserted, the containers may have changed
+                    // Try to get the containers at the proper offsets
+                    const editor = document.getElementById('editor');
+                    
+                    // Perform a fallback selection method - select the same text by content
+                    const textNodes = [];
+                    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+                    let node;
+                    while (node = walker.nextNode()) {
+                        textNodes.push(node);
+                    }
+                    
+                    // Try to find the nearest text node that contains the same text
+                    if (textNodes.length > 0) {
+                        // Create a selection that spans the same length as the original
+                        const plainTextLength = plainText.length;
+                        
+                        // Simple approach: Find nodes containing parts of the text and select from
+                        // the start of the first to the end of the last matching node
+                        let foundStart = false;
+                        let startNode = null, startNodeOffset = 0;
+                        let endNode = null, endNodeOffset = 0;
+                        
+                        for (const node of textNodes) {
+                            if (!foundStart && node.textContent.includes(plainText.substring(0, Math.min(plainText.length, 10)))) {
+                                // Found likely start node
+                                startNode = node;
+                                startNodeOffset = node.textContent.indexOf(plainText.substring(0, Math.min(plainText.length, 10)));
+                                foundStart = true;
+                            }
+                            
+                            if (foundStart && node.textContent.includes(plainText.substring(Math.max(0, plainText.length - 10)))) {
+                                // Found likely end node
+                                endNode = node;
+                                const endSubstring = plainText.substring(Math.max(0, plainText.length - 10));
+                                const endSubstringPos = node.textContent.indexOf(endSubstring);
+                                endNodeOffset = endSubstringPos + endSubstring.length;
+                                break;
+                            }
+                        }
+                        
+                        if (startNode && endNode) {
+                            // We have start and end nodes, set the range
+                            newRange.setStart(startNode, startNodeOffset);
+                            newRange.setEnd(endNode, endNodeOffset);
+                        } else if (startNode) {
+                            // We only have start node, try to approximate the selection
+                            newRange.setStart(startNode, startNodeOffset);
+                            newRange.setEnd(startNode, startNodeOffset + plainText.length);
+                        }
+                    }
+                    
+                    // Apply the new range to the selection
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+                } catch (e) {
+                    console.error("Error restoring selection:", e);
+                }
+                
                 // Record undo state
                 saveState();
-                window.lastContent = document.getElementById('editor').innerHTML;
+                window.lastContent = editor.innerHTML;
                 window.redoStack = [];
                 try {
                     window.webkit.messageHandlers.contentChanged.postMessage("changed");
@@ -2334,8 +2402,9 @@ def on_clear_formatting_clicked(self, win, button):
     self.execute_js(win, js_code)
     win.statusbar.set_text("Text formatting removed")
     win.webview.grab_focus()
+
 def on_change_case(self, win, case_type):
-    """Change the case of selected text"""
+    """Change the case of selected text while preserving selection"""
     # Define JavaScript function for each case type
     js_transformations = {
         "sentence": """
@@ -2399,6 +2468,10 @@ def on_change_case(self, win, case_type):
             if (!range.collapsed) {{
                 // Get the selected text content
                 const selectedText = range.toString();
+                const textLength = selectedText.length;
+                
+                // Store information to help us restore selection
+                const editor = document.getElementById('editor');
                 
                 // Transform the text according to the selected case
                 {transform_function}
@@ -2407,9 +2480,82 @@ def on_change_case(self, win, case_type):
                 // Replace the selected text with the transformed text
                 document.execCommand('insertText', false, transformedText);
                 
+                // Now try to restore the selection
+                try {{
+                    // The transformed text has the same length as the original in most cases
+                    // (except title case might change), so we can try to find it
+                    const currentPos = selection.getRangeAt(0).startContainer;
+                    const currentOffset = selection.getRangeAt(0).startOffset;
+                    
+                    // Perform a new selection
+                    const textNodes = [];
+                    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+                    let node;
+                    while (node = walker.nextNode()) {{
+                        textNodes.push(node);
+                    }}
+                    
+                    if (textNodes.length > 0) {{
+                        // Find nodes containing our transformed text and select it
+                        let foundStart = false;
+                        let startNode = null, startNodeOffset = 0;
+                        let endNode = null, endNodeOffset = 0;
+                        
+                        // Look for transformed text in nearby nodes
+                        for (const node of textNodes) {{
+                            // Check if this node might contain our text or parts of it
+                            // For case changes, the text might be broken up into multiple nodes
+                            
+                            if (!foundStart) {{
+                                // Look for the start of the transformed text
+                                const startCheck = transformedText.substring(0, Math.min(20, transformedText.length));
+                                if (node.textContent.includes(startCheck)) {{
+                                    startNode = node;
+                                    startNodeOffset = node.textContent.indexOf(startCheck);
+                                    foundStart = true;
+                                    
+                                    // If the entire transformed text fits in this node, we can also set the end
+                                    if (node.textContent.includes(transformedText)) {{
+                                        endNode = node;
+                                        endNodeOffset = startNodeOffset + transformedText.length;
+                                        break;
+                                    }}
+                                }}
+                            }} else if (foundStart) {{
+                                // Already found start, now look for the end
+                                const endCheck = transformedText.substring(Math.max(0, transformedText.length - 20));
+                                if (node.textContent.includes(endCheck)) {{
+                                    endNode = node;
+                                    const endPos = node.textContent.indexOf(endCheck) + endCheck.length;
+                                    endNodeOffset = endPos;
+                                    break;
+                                }}
+                            }}
+                        }}
+                        
+                        if (startNode && endNode) {{
+                            // Create and apply the new range
+                            const newRange = document.createRange();
+                            newRange.setStart(startNode, startNodeOffset);
+                            newRange.setEnd(endNode, endNodeOffset);
+                            selection.removeAllRanges();
+                            selection.addRange(newRange);
+                        }} else if (startNode) {{
+                            // Only found start node, try to approximate
+                            const newRange = document.createRange();
+                            newRange.setStart(startNode, startNodeOffset);
+                            newRange.setEnd(startNode, startNodeOffset + transformedText.length);
+                            selection.removeAllRanges();
+                            selection.addRange(newRange);
+                        }}
+                    }}
+                }} catch (e) {{
+                    console.error("Error restoring selection:", e);
+                }}
+                
                 // Record undo state
                 saveState();
-                window.lastContent = document.getElementById('editor').innerHTML;
+                window.lastContent = editor.innerHTML;
                 window.redoStack = [];
                 try {{
                     window.webkit.messageHandlers.contentChanged.postMessage("changed");
@@ -2436,4 +2582,4 @@ def on_change_case(self, win, case_type):
     }
     
     win.statusbar.set_text(status_messages.get(case_type, "Changed text case"))
-    win.webview.grab_focus()
+    win.webview.grab_focus()    
