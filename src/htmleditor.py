@@ -3184,7 +3184,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         win.current_file = None
         win.auto_save_source_id = None
         
-        win.set_default_size(800, 600)
+        win.set_default_size(676, 480)
         win.set_title("Untitled - HTML Editor")
         
         # Create main box to contain all UI elements
@@ -3452,45 +3452,155 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
             
 
 
-        # --- Insert operations group (Table, Text Box, Image) ---
-        insert_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        insert_group.add_css_class("linked")  # Apply linked styling
-        insert_group.set_margin_start(0)
-
-        # Insert table button
-        table_button = Gtk.Button(icon_name="table-symbolic")  # Use a standard table icon
-        table_button.set_size_request(40, 36)
-        table_button.set_tooltip_text("Insert Table")
-        table_button.connect("clicked", lambda btn: self.on_insert_table_clicked(win, btn))
-
-        # Insert text box button
-        text_box_button = Gtk.Button(icon_name="insert-text-symbolic")
-        text_box_button.set_size_request(40, 36)
-        text_box_button.set_tooltip_text("Insert Text Box")
-        text_box_button.connect("clicked", lambda btn: self.on_insert_text_box_clicked(win, btn))
-
-        # Insert image button
-        image_button = Gtk.Button(icon_name="insert-image-symbolic")
-        image_button.set_size_request(40, 36)
-        image_button.set_tooltip_text("Insert Image")
-        image_button.connect("clicked", lambda btn: self.on_insert_image_clicked(win, btn))
-
-        # Insert link button
-        link_button = Gtk.Button(icon_name="insert-link-symbolic")
-        link_button.set_size_request(40, 36)
-        link_button.set_tooltip_text("Insert link")
-        link_button.connect("clicked", lambda btn: self.on_insert_link_clicked(win, btn))
-
-        # Add buttons to insert group
-        insert_group.append(table_button)
-        insert_group.append(text_box_button)
-        insert_group.append(image_button)
-        insert_group.append(link_button)
-        # Add insert group to toolbar
-        win.toolbars_wrapbox.append(insert_group)
 
 
+
+        # Create formatting toolbar
+        # Paragraph, font family, font size box        
+        para_font_size_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        para_font_size_box.add_css_class("linked")
+        #pfs_box.set_margin_start(2)
+        #pfs_box.set_margin_end(6)
         
+        # Store the handlers for blocking
+        win.bold_handler_id = None
+        win.italic_handler_id = None
+        win.underline_handler_id = None
+        win.strikeout_handler_id = None
+        win.subscript_handler_id = None
+        win.superscript_handler_id = None
+        win.paragraph_style_handler_id = None
+        win.font_handler_id = None
+        win.font_size_handler_id = None
+
+        # ---- PARAGRAPH STYLES DROPDOWN ----
+        # Create paragraph styles dropdown
+        win.paragraph_style_dropdown = Gtk.DropDown()
+        win.paragraph_style_dropdown.set_tooltip_text("Paragraph Style")
+        win.paragraph_style_dropdown.set_focus_on_click(False)
+        
+        # Create string list for paragraph styles
+        paragraph_styles = Gtk.StringList()
+        paragraph_styles.append("Normal")
+        paragraph_styles.append("Heading 1")
+        paragraph_styles.append("Heading 2")
+        paragraph_styles.append("Heading 3")
+        paragraph_styles.append("Heading 4")
+        paragraph_styles.append("Heading 5")
+        paragraph_styles.append("Heading 6")
+        win.paragraph_style_dropdown.set_model(paragraph_styles)
+        win.paragraph_style_dropdown.set_selected(0)  # Default to Normal
+        
+        # Connect signal handler
+        win.paragraph_style_handler_id = win.paragraph_style_dropdown.connect(
+            "notify::selected", lambda dd, param: self.on_paragraph_style_changed(win, dd))
+        win.paragraph_style_dropdown.set_size_request(64, -1)
+        
+        # ---- FONT FAMILY DROPDOWN ----
+        # Get available fonts from Pango
+        font_map = PangoCairo.FontMap.get_default()
+        font_families = font_map.list_families()
+        
+        # Create string list and sort alphabetically
+        font_names = Gtk.StringList()
+        sorted_families = sorted([family.get_name() for family in font_families])
+        
+        # Add all fonts in alphabetical order
+        for family in sorted_families:
+            font_names.append(family)
+        
+        # Create dropdown with fixed width
+        win.font_dropdown = Gtk.DropDown()
+        win.font_dropdown.set_tooltip_text("Font Family")
+        win.font_dropdown.set_focus_on_click(False)
+        win.font_dropdown.set_model(font_names)
+
+        # Set fixed width and prevent expansion
+        win.font_dropdown.set_size_request(163, -1)  # Reduced width in flat layout
+        win.font_dropdown.set_hexpand(False)
+        
+        # Create a factory only for the BUTTON part of the dropdown
+        button_factory = Gtk.SignalListItemFactory()
+        
+        def setup_button_label(factory, list_item):
+            label = Gtk.Label()
+            label.set_ellipsize(Pango.EllipsizeMode.END)  # Ellipsize button text
+            label.set_xalign(0)
+            label.set_margin_start(0)
+            label.set_margin_end(0)
+            # Set maximum width for the text
+            label.set_max_width_chars(10)  # Limit to approximately 10 characters
+            label.set_width_chars(10)      # Try to keep consistent width
+            list_item.set_child(label)
+        
+        def bind_button_label(factory, list_item):
+            position = list_item.get_position()
+            label = list_item.get_child()
+            label.set_text(font_names.get_string(position))
+        
+        button_factory.connect("setup", setup_button_label)
+        button_factory.connect("bind", bind_button_label)
+        
+        # Apply the factory only to the dropdown display (not the list)
+        win.font_dropdown.set_factory(button_factory)
+        
+        # For the popup list, create a standard factory without ellipsization
+        list_factory = Gtk.SignalListItemFactory()
+        
+        def setup_list_label(factory, list_item):
+            label = Gtk.Label()
+            label.set_xalign(0)
+            label.set_margin_start(2)
+            label.set_margin_end(2)
+            list_item.set_child(label)
+        
+        def bind_list_label(factory, list_item):
+            position = list_item.get_position()
+            label = list_item.get_child()
+            label.set_text(font_names.get_string(position))
+        
+        list_factory.connect("setup", setup_list_label)
+        list_factory.connect("bind", bind_list_label)
+        
+        # Apply the list factory to the dropdown list only
+        win.font_dropdown.set_list_factory(list_factory)
+        
+        # Set initial font (first in list)
+        win.font_dropdown.set_selected(0)
+        
+        # Connect signal handler
+        win.font_handler_id = win.font_dropdown.connect(
+            "notify::selected", lambda dd, param: self.on_font_changed(win, dd))
+        
+        # ---- FONT SIZE DROPDOWN ----
+        # Create string list for font sizes
+        font_sizes = Gtk.StringList()
+        for size in [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 21, 22, 24, 26, 28, 32, 36, 40, 42, 44, 48, 54, 60, 66, 72, 80, 88, 96]:
+            font_sizes.append(str(size))
+        
+        # Create dropdown
+        win.font_size_dropdown = Gtk.DropDown()
+        win.font_size_dropdown.set_tooltip_text("Font Size")
+        win.font_size_dropdown.set_focus_on_click(False)
+        win.font_size_dropdown.set_model(font_sizes)
+        
+        # Set a reasonable width
+        win.font_size_dropdown.set_size_request(65, -1)
+        
+        # Set initial size (12pt)
+        initial_size = 6  # Index of size 12 in our list
+        win.font_size_dropdown.set_selected(initial_size)
+        
+        # Connect signal handler
+        win.font_size_handler_id = win.font_size_dropdown.connect(
+            "notify::selected", lambda dd, param: self.on_font_size_changed(win, dd))
+        
+        # Add Paragraph, font, size linked button group
+        para_font_size_box.append(win.paragraph_style_dropdown)
+        para_font_size_box.append(win.font_dropdown)
+        para_font_size_box.append(win.font_size_dropdown)    
+                    
+        win.toolbars_wrapbox.append(para_font_size_box)        
 
         
         # Create first button group (basic formatting - Bold, Italics, Underline, Strikethrough)
@@ -3885,152 +3995,51 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         win.toolbars_wrapbox.append(alignment_group)
 
 
-        # Create formatting toolbar
-        # Paragraph, font family, font size box        
-        para_font_size_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        para_font_size_box.add_css_class("linked")
-        #pfs_box.set_margin_start(2)
-        #pfs_box.set_margin_end(6)
-        
-        # Store the handlers for blocking
-        win.bold_handler_id = None
-        win.italic_handler_id = None
-        win.underline_handler_id = None
-        win.strikeout_handler_id = None
-        win.subscript_handler_id = None
-        win.superscript_handler_id = None
-        win.paragraph_style_handler_id = None
-        win.font_handler_id = None
-        win.font_size_handler_id = None
+        # --- Insert operations group (Table, Text Box, Image) ---
+        insert_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        insert_group.add_css_class("linked")  # Apply linked styling
+        insert_group.set_margin_start(0)
 
-        # ---- PARAGRAPH STYLES DROPDOWN ----
-        # Create paragraph styles dropdown
-        win.paragraph_style_dropdown = Gtk.DropDown()
-        win.paragraph_style_dropdown.set_tooltip_text("Paragraph Style")
-        win.paragraph_style_dropdown.set_focus_on_click(False)
-        
-        # Create string list for paragraph styles
-        paragraph_styles = Gtk.StringList()
-        paragraph_styles.append("Normal")
-        paragraph_styles.append("Heading 1")
-        paragraph_styles.append("Heading 2")
-        paragraph_styles.append("Heading 3")
-        paragraph_styles.append("Heading 4")
-        paragraph_styles.append("Heading 5")
-        paragraph_styles.append("Heading 6")
-        win.paragraph_style_dropdown.set_model(paragraph_styles)
-        win.paragraph_style_dropdown.set_selected(0)  # Default to Normal
-        
-        # Connect signal handler
-        win.paragraph_style_handler_id = win.paragraph_style_dropdown.connect(
-            "notify::selected", lambda dd, param: self.on_paragraph_style_changed(win, dd))
-        win.paragraph_style_dropdown.set_size_request(64, -1)
-        
-        # ---- FONT FAMILY DROPDOWN ----
-        # Get available fonts from Pango
-        font_map = PangoCairo.FontMap.get_default()
-        font_families = font_map.list_families()
-        
-        # Create string list and sort alphabetically
-        font_names = Gtk.StringList()
-        sorted_families = sorted([family.get_name() for family in font_families])
-        
-        # Add all fonts in alphabetical order
-        for family in sorted_families:
-            font_names.append(family)
-        
-        # Create dropdown with fixed width
-        win.font_dropdown = Gtk.DropDown()
-        win.font_dropdown.set_tooltip_text("Font Family")
-        win.font_dropdown.set_focus_on_click(False)
-        win.font_dropdown.set_model(font_names)
+        # Insert table button
+        table_button = Gtk.Button(icon_name="table-symbolic")  # Use a standard table icon
+        table_button.set_size_request(40, 36)
+        table_button.set_tooltip_text("Insert Table")
+        table_button.connect("clicked", lambda btn: self.on_insert_table_clicked(win, btn))
 
-        # Set fixed width and prevent expansion
-        win.font_dropdown.set_size_request(163, -1)  # Reduced width in flat layout
-        win.font_dropdown.set_hexpand(False)
-        
-        # Create a factory only for the BUTTON part of the dropdown
-        button_factory = Gtk.SignalListItemFactory()
-        
-        def setup_button_label(factory, list_item):
-            label = Gtk.Label()
-            label.set_ellipsize(Pango.EllipsizeMode.END)  # Ellipsize button text
-            label.set_xalign(0)
-            label.set_margin_start(0)
-            label.set_margin_end(0)
-            # Set maximum width for the text
-            label.set_max_width_chars(10)  # Limit to approximately 10 characters
-            label.set_width_chars(10)      # Try to keep consistent width
-            list_item.set_child(label)
-        
-        def bind_button_label(factory, list_item):
-            position = list_item.get_position()
-            label = list_item.get_child()
-            label.set_text(font_names.get_string(position))
-        
-        button_factory.connect("setup", setup_button_label)
-        button_factory.connect("bind", bind_button_label)
-        
-        # Apply the factory only to the dropdown display (not the list)
-        win.font_dropdown.set_factory(button_factory)
-        
-        # For the popup list, create a standard factory without ellipsization
-        list_factory = Gtk.SignalListItemFactory()
-        
-        def setup_list_label(factory, list_item):
-            label = Gtk.Label()
-            label.set_xalign(0)
-            label.set_margin_start(2)
-            label.set_margin_end(2)
-            list_item.set_child(label)
-        
-        def bind_list_label(factory, list_item):
-            position = list_item.get_position()
-            label = list_item.get_child()
-            label.set_text(font_names.get_string(position))
-        
-        list_factory.connect("setup", setup_list_label)
-        list_factory.connect("bind", bind_list_label)
-        
-        # Apply the list factory to the dropdown list only
-        win.font_dropdown.set_list_factory(list_factory)
-        
-        # Set initial font (first in list)
-        win.font_dropdown.set_selected(0)
-        
-        # Connect signal handler
-        win.font_handler_id = win.font_dropdown.connect(
-            "notify::selected", lambda dd, param: self.on_font_changed(win, dd))
-        
-        # ---- FONT SIZE DROPDOWN ----
-        # Create string list for font sizes
-        font_sizes = Gtk.StringList()
-        for size in [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 21, 22, 24, 26, 28, 32, 36, 40, 42, 44, 48, 54, 60, 66, 72, 80, 88, 96]:
-            font_sizes.append(str(size))
-        
-        # Create dropdown
-        win.font_size_dropdown = Gtk.DropDown()
-        win.font_size_dropdown.set_tooltip_text("Font Size")
-        win.font_size_dropdown.set_focus_on_click(False)
-        win.font_size_dropdown.set_model(font_sizes)
-        
-        # Set a reasonable width
-        win.font_size_dropdown.set_size_request(65, -1)
-        
-        # Set initial size (12pt)
-        initial_size = 6  # Index of size 12 in our list
-        win.font_size_dropdown.set_selected(initial_size)
-        
-        # Connect signal handler
-        win.font_size_handler_id = win.font_size_dropdown.connect(
-            "notify::selected", lambda dd, param: self.on_font_size_changed(win, dd))
-        
-        # Add Paragraph, font, size linked button group
-        para_font_size_box.append(win.paragraph_style_dropdown)
-        para_font_size_box.append(win.font_dropdown)
-        para_font_size_box.append(win.font_size_dropdown)    
-                    
-        win.toolbars_wrapbox.append(para_font_size_box)
+        # Insert text box button
+        text_box_button = Gtk.Button(icon_name="insert-text-symbolic")
+        text_box_button.set_size_request(40, 36)
+        text_box_button.set_tooltip_text("Insert Text Box")
+        text_box_button.connect("clicked", lambda btn: self.on_insert_text_box_clicked(win, btn))
+
+        # Insert image button
+        image_button = Gtk.Button(icon_name="insert-image-symbolic")
+        image_button.set_size_request(40, 36)
+        image_button.set_tooltip_text("Insert Image")
+        image_button.connect("clicked", lambda btn: self.on_insert_image_clicked(win, btn))
+
+        # Insert link button
+        link_button = Gtk.Button(icon_name="insert-link-symbolic")
+        link_button.set_size_request(40, 36)
+        link_button.set_tooltip_text("Insert link")
+        link_button.connect("clicked", lambda btn: self.on_insert_link_clicked(win, btn))
+
+        # Add buttons to insert group
+        insert_group.append(table_button)
+        insert_group.append(text_box_button)
+        insert_group.append(image_button)
+        insert_group.append(link_button)
+        # Add insert group to toolbar
+        win.toolbars_wrapbox.append(insert_group)
+
+
+
+
+
+
+
+
+
 
 
 
