@@ -2098,13 +2098,16 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
             transient_for=parent_window,
             application_name="HTML Editor",
             application_icon="text-editor",
-            developer_name="Developer",
-            version="1.0",
-            developers=["Your Name"],
-            copyright="© 2025"
+            copyright="GNU General Public License (GPLv3+)",
+            comments="rich text editor using webkit",
+            website="https://github.com/fastrizwaan/htmleditor",
+            developer_name="Mohammed Asif Ali Rizvan",
+            license_type=Gtk.License.GPL_3_0,
+            issue_url="https://github.com/fastrizwaan/htmleditor/issues"
         )
         about.present()
-    
+
+            
     def on_preferences(self, action, param):
         """Show preferences dialog"""
         if not self.windows:
