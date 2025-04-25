@@ -3,592 +3,6 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 from gi.repository import Gtk, Adw, Gdk, GLib, Gio, Pango, PangoCairo
 
-def create_formatting_toolbar(self, win):
-    """Create the toolbar for formatting options with toggle buttons and dropdowns"""
-    # Main horizontal container for the entire toolbar
-    formatting_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-    formatting_toolbar.set_margin_start(0)
-    formatting_toolbar.set_margin_end(0)
-    formatting_toolbar.set_margin_top(0)
-    formatting_toolbar.set_margin_bottom(4)
-    
-# === LEFT SECTION ===
-    # Create vertical box for the left section
-    left_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-    left_section.set_hexpand(False)
-    
-    # Create horizontal box for the top row
-    top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-    top_row.set_margin_start(5)
-    top_row.set_margin_top(5)  # Add top margin to align with right section
-    
-    # Store the handlers for blocking
-    win.bold_handler_id = None
-    win.italic_handler_id = None
-    win.underline_handler_id = None
-    win.strikeout_handler_id = None
-    win.subscript_handler_id = None
-    win.superscript_handler_id = None
-    win.paragraph_style_handler_id = None
-    win.font_handler_id = None
-    win.font_size_handler_id = None
-
-    # Paragraph, font family, font size box        
-    pfs_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-    pfs_box.add_css_class("linked")
-    pfs_box.set_margin_start(2)
-    pfs_box.set_margin_end(6)
-    
-# ---- PARAGRAPH STYLES DROPDOWN ----
-    # Create paragraph styles dropdown
-    win.paragraph_style_dropdown = Gtk.DropDown()
-    win.paragraph_style_dropdown.set_tooltip_text("Paragraph Style")
-    win.paragraph_style_dropdown.set_focus_on_click(False)
-    
-    # Create string list for paragraph styles
-    paragraph_styles = Gtk.StringList()
-    paragraph_styles.append("Normal")
-    paragraph_styles.append("Heading 1")
-    paragraph_styles.append("Heading 2")
-    paragraph_styles.append("Heading 3")
-    paragraph_styles.append("Heading 4")
-    paragraph_styles.append("Heading 5")
-    paragraph_styles.append("Heading 6")
-    
-    win.paragraph_style_dropdown.set_model(paragraph_styles)
-    win.paragraph_style_dropdown.set_selected(0)  # Default to Normal
-    
-    # Connect signal handler
-    win.paragraph_style_handler_id = win.paragraph_style_dropdown.connect(
-        "notify::selected", lambda dd, param: self.on_paragraph_style_changed(win, dd))
-    win.paragraph_style_dropdown.set_size_request(122, -1)
-    pfs_box.append(win.paragraph_style_dropdown)
-    
-# ---- FONT FAMILY DROPDOWN ----
-    # Get available fonts from Pango
-    font_map = PangoCairo.FontMap.get_default()
-    font_families = font_map.list_families()
-    
-    # Create string list and sort alphabetically
-    font_names = Gtk.StringList()
-    sorted_families = sorted([family.get_name() for family in font_families])
-    
-    # Add all fonts in alphabetical order
-    for family in sorted_families:
-        font_names.append(family)
-    
-    # Create dropdown with fixed width
-    win.font_dropdown = Gtk.DropDown()
-    win.font_dropdown.set_tooltip_text("Font Family")
-    win.font_dropdown.set_focus_on_click(False)
-    win.font_dropdown.set_model(font_names)
-
-    # Set fixed width and prevent expansion
-    win.font_dropdown.set_size_request(282, -1)
-    win.font_dropdown.set_hexpand(False)
-    
-    # Create a factory only for the BUTTON part of the dropdown
-    button_factory = Gtk.SignalListItemFactory()
-    
-    def setup_button_label(factory, list_item):
-        label = Gtk.Label()
-        label.set_ellipsize(Pango.EllipsizeMode.END)  # Ellipsize button text
-        label.set_xalign(0)
-        label.set_margin_start(6)
-        label.set_margin_end(6)
-        # Set maximum width for the text
-        label.set_max_width_chars(10)  # Limit to approximately 10 characters
-        label.set_width_chars(10)      # Try to keep consistent width
-        list_item.set_child(label)
-    
-    def bind_button_label(factory, list_item):
-        position = list_item.get_position()
-        label = list_item.get_child()
-        label.set_text(font_names.get_string(position))
-    
-    button_factory.connect("setup", setup_button_label)
-    button_factory.connect("bind", bind_button_label)
-    
-    # Apply the factory only to the dropdown display (not the list)
-    win.font_dropdown.set_factory(button_factory)
-    
-    # For the popup list, create a standard factory without ellipsization
-    list_factory = Gtk.SignalListItemFactory()
-    
-    def setup_list_label(factory, list_item):
-        label = Gtk.Label()
-        label.set_xalign(0)
-        label.set_margin_start(6)
-        label.set_margin_end(6)
-        list_item.set_child(label)
-    
-    def bind_list_label(factory, list_item):
-        position = list_item.get_position()
-        label = list_item.get_child()
-        label.set_text(font_names.get_string(position))
-    
-    list_factory.connect("setup", setup_list_label)
-    list_factory.connect("bind", bind_list_label)
-    
-    # Apply the list factory to the dropdown list only
-    win.font_dropdown.set_list_factory(list_factory)
-    
-    # Set initial font (first in list)
-    win.font_dropdown.set_selected(0)
-    
-    # Connect signal handler
-    win.font_handler_id = win.font_dropdown.connect(
-        "notify::selected", lambda dd, param: self.on_font_changed(win, dd))
-    
-    pfs_box.append(win.font_dropdown)
-    
-
-# ---- FONT SIZE DROPDOWN ----
-    # Create string list for font sizes
-    font_sizes = Gtk.StringList()
-    for size in [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 21, 22, 24, 26, 28, 32, 36, 40, 42, 44, 48, 54, 60, 66, 72, 80, 88, 96]:
-        font_sizes.append(str(size))
-    
-    # Create dropdown
-    win.font_size_dropdown = Gtk.DropDown()
-    win.font_size_dropdown.set_tooltip_text("Font Size")
-    win.font_size_dropdown.set_focus_on_click(False)
-    win.font_size_dropdown.set_model(font_sizes)
-    
-    # Set a reasonable width
-    win.font_size_dropdown.set_size_request(50, -1)
-    
-    # Set initial size (12pt)
-    initial_size = 6  # Index of size 12 in our list
-    win.font_size_dropdown.set_selected(initial_size)
-    
-    # Connect signal handler
-    win.font_size_handler_id = win.font_size_dropdown.connect(
-        "notify::selected", lambda dd, param: self.on_font_size_changed(win, dd))
-    
-    pfs_box.append(win.font_size_dropdown)
-    top_row.append(pfs_box)
-    
-    # Add the top row to the left section
-    left_section.append(top_row)
-    
-    # Create second row for formatting buttons
-    bottom_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-    bottom_row.set_margin_start(5)
-    bottom_row.set_margin_top(4)
-    bottom_row.set_margin_bottom(4)
-    
-    # Create first button group (basic formatting)
-    button_group = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
-    button_group.set_margin_start(2)
-    button_group.set_margin_end(5)
-    
-    # Bold button
-    win.bold_button = Gtk.ToggleButton(icon_name="format-text-bold-symbolic")
-    win.bold_button.set_tooltip_text("Bold")
-    win.bold_button.set_focus_on_click(False)
-    win.bold_button.set_size_request(40, 36)
-    win.bold_handler_id = win.bold_button.connect("toggled", lambda btn: self.on_bold_toggled(win, btn))
-    button_group.append(win.bold_button)
-    
-    # Italic button
-    win.italic_button = Gtk.ToggleButton(icon_name="format-text-italic-symbolic")
-    win.italic_button.set_tooltip_text("Italic")
-    win.italic_button.set_focus_on_click(False)
-    win.italic_button.set_size_request(40, 36)
-    win.italic_handler_id = win.italic_button.connect("toggled", lambda btn: self.on_italic_toggled(win, btn))
-    button_group.append(win.italic_button)
-    
-    # Underline button
-    win.underline_button = Gtk.ToggleButton(icon_name="format-text-underline-symbolic")
-    win.underline_button.set_tooltip_text("Underline")
-    win.underline_button.set_focus_on_click(False)
-    win.underline_button.set_size_request(40, 36)
-    win.underline_handler_id = win.underline_button.connect("toggled", lambda btn: self.on_underline_toggled(win, btn))
-    button_group.append(win.underline_button)
-    
-    # Strikeout button
-    win.strikeout_button = Gtk.ToggleButton(icon_name="format-text-strikethrough-symbolic")
-    win.strikeout_button.set_tooltip_text("Strikeout")
-    win.strikeout_button.set_focus_on_click(False)
-    win.strikeout_button.set_size_request(40, 36)
-    win.strikeout_handler_id = win.strikeout_button.connect("toggled", lambda btn: self.on_strikeout_toggled(win, btn))
-    button_group.append(win.strikeout_button)
-    
-    # Subscript button
-    win.subscript_button = Gtk.ToggleButton(icon_name="format-text-subscript-symbolic")
-    win.subscript_button.set_tooltip_text("Subscript")
-    win.subscript_button.set_focus_on_click(False)
-    win.subscript_button.set_size_request(40, 36)
-    win.subscript_handler_id = win.subscript_button.connect("toggled", lambda btn: self.on_subscript_toggled(win, btn))
-    button_group.append(win.subscript_button)
-    
-    # Superscript button
-    win.superscript_button = Gtk.ToggleButton(icon_name="format-text-superscript-symbolic")
-    win.superscript_button.set_tooltip_text("Superscript")
-    win.superscript_button.set_focus_on_click(False)
-    win.superscript_button.set_size_request(40, 36)
-    win.superscript_handler_id = win.superscript_button.connect("toggled", lambda btn: self.on_superscript_toggled(win, btn))
-    button_group.append(win.superscript_button)    
-    
-    # Create second button group for colors and other formatting
-    button_group2 = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=0)        
-    button_group2.set_margin_start(0)
-    button_group2.set_margin_end(5)
-
-    # --- Text Color SplitButton ---
-    # Create the main button part with icon and color indicator
-    font_color_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-
-    # Icon
-    font_color_icon = Gtk.Image.new_from_icon_name("draw-text-symbolic")
-    font_color_icon.set_margin_top(4)
-    font_color_icon.set_margin_bottom(0)
-    font_color_box.append(font_color_icon)
-
-    # Color indicator
-    win.font_color_indicator = Gtk.Box()
-    win.font_color_indicator.add_css_class("color-indicator")
-    win.font_color_indicator.set_size_request(16, 2)
-    color = Gdk.RGBA()
-    color.parse("transparent")
-    self.set_box_color(win.font_color_indicator, color)
-    font_color_box.append(win.font_color_indicator)
-
-    # Create font color popover for the dropdown part
-    font_color_popover = Gtk.Popover()
-    font_color_popover.set_autohide(True)
-    font_color_popover.set_has_arrow(False)
-
-    font_color_box_menu = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-    font_color_box_menu.set_margin_start(6)
-    font_color_box_menu.set_margin_end(6)
-    font_color_box_menu.set_margin_top(6)
-    font_color_box_menu.set_margin_bottom(6)
-
-    # Add "Automatic" option at the top
-    automatic_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-    automatic_row.set_margin_bottom(0)
-    automatic_icon = Gtk.Image.new_from_icon_name("edit-undo-symbolic")
-    automatic_label = Gtk.Label(label="Automatic")
-    automatic_row.append(automatic_icon)
-    automatic_row.append(automatic_label)
-
-    automatic_button = Gtk.Button()
-    automatic_button.set_child(automatic_row)
-    automatic_button.connect("clicked", lambda btn: self.on_font_color_automatic_clicked(win, font_color_popover))
-    font_color_box_menu.append(automatic_button)
-
-    # Add separator
-    separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-    separator.set_margin_bottom(6)
-    font_color_box_menu.append(separator)
-
-    # Create color grid
-    font_color_grid = Gtk.Grid()
-    font_color_grid.set_row_spacing(2)
-    font_color_grid.set_column_spacing(2)
-    font_color_grid.set_row_homogeneous(True)
-    font_color_grid.set_column_homogeneous(True)
-    font_color_grid.add_css_class("color-grid")
-
-    # Basic colors for text
-    text_colors = [
-        "#000000", "#434343", "#666666", "#999999", "#b7b7b7", "#cccccc", "#d9d9d9", "#efefef", "#f3f3f3", "#ffffff",
-        "#980000", "#ff0000", "#ff9900", "#ffff00", "#00ff00", "#00ffff", "#4a86e8", "#0000ff", "#9900ff", "#ff00ff",
-        "#e6b8af", "#f4cccc", "#fce5cd", "#fff2cc", "#d9ead3", "#d0e0e3", "#c9daf8", "#cfe2f3", "#d9d2e9", "#ead1dc",
-        "#dd7e6b", "#ea9999", "#f9cb9c", "#ffe599", "#b6d7a8", "#a2c4c9", "#a4c2f4", "#9fc5e8", "#b4a7d6", "#d5a6bd",
-        "#cc4125", "#e06666", "#f6b26b", "#ffd966", "#93c47d", "#76a5af", "#6d9eeb", "#6fa8dc", "#8e7cc3", "#c27ba0",
-        "#a61c00", "#cc0000", "#e69138", "#f1c232", "#6aa84f", "#45818e", "#3c78d8", "#3d85c6", "#674ea7", "#a64d79",
-        "#85200c", "#990000", "#b45f06", "#bf9000", "#38761d", "#134f5c", "#1155cc", "#0b5394", "#351c75", "#741b47",
-        "#5b0f00", "#660000", "#783f04", "#7f6000", "#274e13", "#0c343d", "#1c4587", "#073763", "#20124d", "#4c1130"
-    ]
-
-    # Create color buttons and add to grid
-    row, col = 0, 0
-    for color_hex in text_colors:
-        color_button = self.create_color_button(color_hex)
-        color_button.connect("clicked", lambda btn, c=color_hex: self.on_font_color_selected(win, c, font_color_popover))
-        font_color_grid.attach(color_button, col, row, 1, 1)
-        col += 1
-        if col >= 10:  # 10 columns
-            col = 0
-            row += 1
-
-    font_color_box_menu.append(font_color_grid)
-
-    # Add "More Colors..." button
-    more_colors_button = Gtk.Button(label="More Colors...")
-    more_colors_button.set_margin_top(6)
-    more_colors_button.connect("clicked", lambda btn: self.on_more_font_colors_clicked(win, font_color_popover))
-    font_color_box_menu.append(more_colors_button)
-
-    # Set content for popover
-    font_color_popover.set_child(font_color_box_menu)
-
-    # Create the SplitButton
-    win.font_color_button = Adw.SplitButton()
-    win.font_color_button.set_tooltip_text("Text Color")
-    win.font_color_button.set_focus_on_click(False)
-    win.font_color_button.set_size_request(40, 36)
-    win.font_color_button.set_child(font_color_box)
-    win.font_color_button.set_popover(font_color_popover)
-
-    # Connect the click handler to apply the current color
-    win.font_color_button.connect("clicked", lambda btn: self.on_font_color_button_clicked(win))
-    button_group2.append(win.font_color_button)
-    
-    # --- Background Color SplitButton ---
-    # Create the main button part with icon and color indicator
-    bg_color_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-
-    # Icon
-    bg_color_icon = Gtk.Image.new_from_icon_name("marker-symbolic")
-    bg_color_icon.set_margin_top(4)
-    bg_color_icon.set_margin_bottom(0)
-    bg_color_box.append(bg_color_icon)
-
-    # Color indicator
-    win.bg_color_indicator = Gtk.Box()
-    win.bg_color_indicator.add_css_class("color-indicator")
-    win.bg_color_indicator.set_size_request(16, 2)
-    bg_color = Gdk.RGBA()
-    bg_color.parse("transparent")
-    self.set_box_color(win.bg_color_indicator, bg_color)
-    bg_color_box.append(win.bg_color_indicator)
-
-    # Create Background Color popover for the dropdown
-    bg_color_popover = Gtk.Popover()
-    bg_color_popover.set_autohide(True)
-    bg_color_popover.set_has_arrow(False)
-    bg_color_box_menu = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-    bg_color_box_menu.set_margin_start(6)
-    bg_color_box_menu.set_margin_end(6)
-    bg_color_box_menu.set_margin_top(6)
-    bg_color_box_menu.set_margin_bottom(6)
-
-    # Add "Automatic" option at the top
-    bg_automatic_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-    bg_automatic_row.set_margin_bottom(0)
-    bg_automatic_icon = Gtk.Image.new_from_icon_name("edit-undo-symbolic")
-    bg_automatic_label = Gtk.Label(label="Automatic")
-    bg_automatic_row.append(bg_automatic_icon)
-    bg_automatic_row.append(bg_automatic_label)
-
-    bg_automatic_button = Gtk.Button()
-    bg_automatic_button.set_child(bg_automatic_row)
-    bg_automatic_button.connect("clicked", lambda btn: self.on_bg_color_automatic_clicked(win, bg_color_popover))
-    bg_color_box_menu.append(bg_automatic_button)
-
-    # Add separator
-    bg_separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-    bg_separator.set_margin_bottom(6)
-    bg_color_box_menu.append(bg_separator)
-
-    # Create color grid
-    bg_color_grid = Gtk.Grid()
-    bg_color_grid.set_row_spacing(2)
-    bg_color_grid.set_column_spacing(2)
-    bg_color_grid.set_row_homogeneous(True)
-    bg_color_grid.set_column_homogeneous(True)
-    bg_color_grid.add_css_class("color-grid")
-
-    # Basic colors for background (same palette as text)
-    bg_colors = text_colors
-
-    # Create color buttons and add to grid
-    row, col = 0, 0
-    for color_hex in bg_colors:
-        color_button = self.create_color_button(color_hex)
-        color_button.connect("clicked", lambda btn, c=color_hex: self.on_bg_color_selected(win, c, bg_color_popover))
-        bg_color_grid.attach(color_button, col, row, 1, 1)
-        col += 1
-        if col >= 10:  # 10 columns
-            col = 0
-            row += 1
-
-    bg_color_box_menu.append(bg_color_grid)
-
-    # Add "More Colors..." button
-    bg_more_colors_button = Gtk.Button(label="More Colors...")
-    bg_more_colors_button.set_margin_top(6)
-    bg_more_colors_button.connect("clicked", lambda btn: self.on_more_bg_colors_clicked(win, bg_color_popover))
-    bg_color_box_menu.append(bg_more_colors_button)
-
-    # Set content for popover
-    bg_color_popover.set_child(bg_color_box_menu)
-
-    # Create the SplitButton
-    win.bg_color_button = Adw.SplitButton()
-    win.bg_color_button.set_tooltip_text("Background Color")
-    win.bg_color_button.set_focus_on_click(False)
-    win.bg_color_button.set_size_request(40, 36)
-    win.bg_color_button.set_child(bg_color_box)
-    win.bg_color_button.set_popover(bg_color_popover)
-
-    # Connect the click handler to apply the current color
-    win.bg_color_button.connect("clicked", lambda btn: self.on_bg_color_button_clicked(win))
-    button_group2.append(win.bg_color_button)
-    
-    # Clear formatting button
-    clear_formatting_button = Gtk.Button(icon_name="eraser-symbolic")
-    clear_formatting_button.set_tooltip_text("Remove Text Formatting")
-    clear_formatting_button.set_size_request(40, 36)
-    clear_formatting_button.connect("clicked", lambda btn: self.on_clear_formatting_clicked(win, btn))
-    button_group2.append(clear_formatting_button)
-    
-    # Case change menu button
-    case_menu_button = Gtk.MenuButton(icon_name="uppercase-symbolic")
-    case_menu_button.set_tooltip_text("Change Case")
-    case_menu_button.set_size_request(40, 36)
-
-    # Create case change menu
-    case_menu = Gio.Menu()
-    case_menu.append("Sentence case.", "win.change-case::sentence")
-    case_menu.append("lowercase", "win.change-case::lower")
-    case_menu.append("UPPERCASE", "win.change-case::upper")
-    case_menu.append("Capitalize Each Word", "win.change-case::title")
-    case_menu.append("tOGGLE cASE", "win.change-case::toggle")
-
-    # Set the menu model for the button
-    case_menu_button.set_menu_model(case_menu)
-    button_group2.append(case_menu_button)
-    
-    # Add the button groups to the bottom row
-    bottom_row.append(button_group)
-    bottom_row.append(button_group2)
-    
-    # Add the bottom row to the left section
-    left_section.append(bottom_row)
-    
-# === RIGHT SECTION ===
-    # Create vertical box for the right section
-    right_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-    right_section.set_margin_start(5)
-    right_section.set_margin_end(5)
-    right_section.set_hexpand(False)
-    right_section.set_valign(Gtk.Align.CENTER)  # Align vertically to center
-    
-    # Create horizontal box for the top row in right section
-    right_top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-    right_top_row.set_margin_top(5)
-    
-    # Create linked button group for list/indent controls
-    list_indent_group = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
-    
-    # Indent button
-    indent_button = Gtk.Button(icon_name="format-indent-more-symbolic")
-    indent_button.set_tooltip_text("Increase Indent")
-    indent_button.set_focus_on_click(False)
-    indent_button.set_size_request(40, 36)
-    indent_button.connect("clicked", lambda btn: self.on_indent_clicked(win, btn))
-    list_indent_group.append(indent_button)
-    
-    # Outdent button
-    outdent_button = Gtk.Button(icon_name="format-indent-less-symbolic")
-    outdent_button.set_tooltip_text("Decrease Indent")
-    outdent_button.set_focus_on_click(False)
-    outdent_button.set_size_request(40, 36)
-    outdent_button.connect("clicked", lambda btn: self.on_outdent_clicked(win, btn))
-    list_indent_group.append(outdent_button)
-    
-    # Bullet List button
-    win.bullet_list_button = Gtk.ToggleButton(icon_name="view-list-bullet-symbolic")
-    win.bullet_list_button.set_tooltip_text("Bullet List")
-    win.bullet_list_button.set_focus_on_click(False)
-    win.bullet_list_button.set_size_request(40, 36)
-    # Store the handler ID directly on the button
-    win.bullet_list_button.handler_id = win.bullet_list_button.connect("toggled", 
-        lambda btn: self.on_bullet_list_toggled(win, btn))
-    list_indent_group.append(win.bullet_list_button)
-
-    # Numbered List button
-    win.numbered_list_button = Gtk.ToggleButton(icon_name="view-list-ordered-symbolic")
-    win.numbered_list_button.set_tooltip_text("Numbered List")
-    win.numbered_list_button.set_focus_on_click(False)
-    win.numbered_list_button.set_size_request(40, 36)
-    # Store the handler ID directly on the button
-    win.numbered_list_button.handler_id = win.numbered_list_button.connect("toggled", 
-        lambda btn: self.on_numbered_list_toggled(win, btn))
-    list_indent_group.append(win.numbered_list_button)
-    
-    # Add list/indent group to right top row
-    right_top_row.append(list_indent_group)
-    
-    # Add the right top row to the right section
-    right_section.append(right_top_row)
-    
-    # Create horizontal box for the bottom row in right section
-    right_bottom_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-    right_bottom_row.set_margin_top(4)
-    right_bottom_row.set_margin_bottom(4)
-    
-    # Create linked button group for alignment controls
-    alignment_group = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
-    
-    # Align Left button
-    align_left_button = Gtk.ToggleButton(icon_name="format-justify-left-symbolic")
-    align_left_button.set_tooltip_text("Align Left")
-    align_left_button.set_focus_on_click(False)
-    align_left_button.set_size_request(40, 36)
-    # Store the handler ID when connecting
-    align_left_button.handler_id = align_left_button.connect("toggled", 
-        lambda btn: self.on_align_left_toggled(win, btn))
-    alignment_group.append(align_left_button)
-
-    # Align Center button
-    align_center_button = Gtk.ToggleButton(icon_name="format-justify-center-symbolic")
-    align_center_button.set_tooltip_text("Align Center")
-    align_center_button.set_focus_on_click(False)
-    align_center_button.set_size_request(40, 36)
-    # Store the handler ID when connecting
-    align_center_button.handler_id = align_center_button.connect("toggled", 
-        lambda btn: self.on_align_center_toggled(win, btn))
-    alignment_group.append(align_center_button)
-
-    # Align Right button
-    align_right_button = Gtk.ToggleButton(icon_name="format-justify-right-symbolic")
-    align_right_button.set_tooltip_text("Align Right")
-    align_right_button.set_focus_on_click(False)
-    align_right_button.set_size_request(40, 36)
-    # Store the handler ID when connecting
-    align_right_button.handler_id = align_right_button.connect("toggled", 
-        lambda btn: self.on_align_right_toggled(win, btn))
-    alignment_group.append(align_right_button)
-
-    # Justify button
-    align_justify_button = Gtk.ToggleButton(icon_name="format-justify-fill-symbolic")
-    align_justify_button.set_tooltip_text("Justify")
-    align_justify_button.set_focus_on_click(False)
-    align_justify_button.set_size_request(40, 36)
-    # Store the handler ID when connecting
-    align_justify_button.handler_id = align_justify_button.connect("toggled", 
-        lambda btn: self.on_align_justify_toggled(win, btn))
-    alignment_group.append(align_justify_button)
-
-    
-    # Store references to alignment buttons for toggling
-    win.alignment_buttons = {
-        'left': align_left_button,
-        'center': align_center_button, 
-        'right': align_right_button,
-        'justify': align_justify_button
-    }
-    
-    # Add alignment group to right bottom row
-    right_bottom_row.append(alignment_group)
-    
-    # Add the right bottom row to the right section
-    right_section.append(right_bottom_row)
-    
-    # Add left section to the main toolbar
-    formatting_toolbar.append(left_section)
-    
-    # Add right section to the main toolbar
-    formatting_toolbar.append(right_section)
-    
-    return formatting_toolbar  
-
 def on_bold_shortcut(self, win, *args):
     """Handle Ctrl+B shortcut for bold formatting"""
     # Execute the bold command directly in JavaScript
@@ -2583,3 +1997,431 @@ def on_change_case(self, win, case_type):
     
     win.statusbar.set_text(status_messages.get(case_type, "Changed text case"))
     win.webview.grab_focus()    
+    
+def on_select_all_clicked(self, win, btn):
+    """Handle select all button click"""
+    self.execute_js(win, """
+        (function() {
+            document.execCommand('selectAll');
+            return true;
+        })();
+    """)
+    win.statusbar.set_text("Selected all content")
+    
+############### formatting marks, drop cap
+def on_drop_cap_clicked(self, win, button):
+    """Handle drop cap button click with inline styles for better compatibility"""
+    js_code = """
+    (function() {
+        // Find the container paragraph or div
+        let selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+            let range = selection.getRangeAt(0);
+            let parentEl = range.commonAncestorContainer;
+            
+            // Get containing paragraph or div
+            if (parentEl.nodeType !== Node.ELEMENT_NODE) {
+                parentEl = parentEl.parentNode;
+            }
+            
+            // Find paragraph or div parent
+            while (parentEl && parentEl.nodeName.toLowerCase() !== 'p' && parentEl.nodeName.toLowerCase() !== 'div') {
+                parentEl = parentEl.parentNode;
+                if (!parentEl || parentEl.nodeName.toLowerCase() === 'body') {
+                    break;
+                }
+            }
+            
+            // Track result type
+            let result = "none";
+            
+            if (parentEl && (parentEl.nodeName.toLowerCase() === 'p' || parentEl.nodeName.toLowerCase() === 'div')) {
+                try {
+                    // Check if drop cap already exists - now we look for spans with inline styles instead
+                    const existingDropCap = parentEl.querySelector('span[style*="float: left"][style*="font-size"]');
+                    
+                    if (existingDropCap) {
+                        // Remove the drop cap formatting
+                        const text = existingDropCap.textContent;
+                        const textNode = document.createTextNode(text);
+                        existingDropCap.parentNode.replaceChild(textNode, existingDropCap);
+                        
+                        // Normalize text nodes to join adjacent text
+                        parentEl.normalize();
+                        result = "removed";
+                    } else {
+                        // Apply drop cap to the paragraph
+                        const text = parentEl.textContent.trim();
+                        if (text && text.length > 0) {
+                            // Find the first letter
+                            let firstChar = '';
+                            for (let i = 0; i < text.length; i++) {
+                                if (text[i].match(/[a-zA-Z0-9]/)) {
+                                    firstChar = text[i];
+                                    break;
+                                }
+                            }
+                            
+                            if (firstChar) {
+                                // Find the node with the first letter
+                                const textNodes = [];
+                                const walker = document.createTreeWalker(
+                                    parentEl,
+                                    NodeFilter.SHOW_TEXT,
+                                    null,
+                                    false
+                                );
+                                
+                                // Collect all text nodes
+                                let node;
+                                while (node = walker.nextNode()) {
+                                    if (node.nodeValue.trim()) {
+                                        textNodes.push(node);
+                                    }
+                                }
+                                
+                                // Find the node with the first letter
+                                let targetNode = null;
+                                let index = -1;
+                                
+                                for (let i = 0; i < textNodes.length; i++) {
+                                    const nodeText = textNodes[i].nodeValue;
+                                    const idx = nodeText.indexOf(firstChar);
+                                    
+                                    if (idx !== -1) {
+                                        targetNode = textNodes[i];
+                                        index = idx;
+                                        break;
+                                    }
+                                }
+                                
+                                if (targetNode) {
+                                    // Create a drop cap with inline styles instead of a class
+                                    const dropCap = document.createElement('span');
+                                    dropCap.style.cssText = "float: left; font-size: 3.2em; font-weight: bold; line-height: 0.8; margin-right: 0.08em; margin-top: 0.05em; padding-bottom: 0.05em;";
+                                    dropCap.textContent = firstChar;
+                                    
+                                    // Only replace the first character, not the whole text node
+                                    const beforeText = targetNode.nodeValue.substring(0, index);
+                                    const afterText = targetNode.nodeValue.substring(index + 1);
+                                    
+                                    // Create a text node for before text if needed
+                                    if (beforeText) {
+                                        const beforeNode = document.createTextNode(beforeText);
+                                        targetNode.parentNode.insertBefore(beforeNode, targetNode);
+                                    }
+                                    
+                                    // Insert the drop cap
+                                    targetNode.parentNode.insertBefore(dropCap, targetNode);
+                                    
+                                    // Update the target node to contain only the text after the first letter
+                                    targetNode.nodeValue = afterText;
+                                    
+                                    result = "applied";
+                                }
+                            }
+                        } else {
+                            result = "no-text";
+                        }
+                    }
+                } catch (err) {
+                    console.error("Error in drop cap processing:", err);
+                    result = "error";
+                }
+            }
+            
+            // Signal content changed if we modified the document
+            if (result === "applied" || result === "removed") {
+                try {
+                    window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                } catch (e) {
+                    console.error("Error notifying about content change:", e);
+                }
+            }
+            
+            return result;
+        }
+        return "none";
+    })();
+    """
+    
+    # Execute the JavaScript
+    win.webview.evaluate_javascript(
+        js_code,
+        -1, None, None, None,
+        lambda webview, result, data: self._handle_drop_cap_result(win, webview, result),
+        None
+    )
+
+def _handle_drop_cap_result(self, win, webview, result):
+    """Handle the result from drop cap operation"""
+    try:
+        js_result = webview.evaluate_javascript_finish(result)
+        if js_result:
+            # Get the result string based on WebKit version
+            result_str = ""
+            if hasattr(js_result, 'get_js_value'):
+                result_str = js_result.get_js_value().to_string()
+            elif hasattr(js_result, 'to_string'):
+                result_str = js_result.to_string()
+            else:
+                result_str = str(js_result)
+            
+            # Remove any quotes that might be around the result
+            result_str = result_str.strip('"\'')
+            
+            # Update status based on result
+            if result_str == "applied":
+                win.statusbar.set_text("Applied drop cap to paragraph")
+            elif result_str == "removed":
+                win.statusbar.set_text("Removed drop cap from paragraph")
+            elif result_str == "error":
+                win.statusbar.set_text("Error toggling drop cap")
+            elif result_str == "no-text":
+                win.statusbar.set_text("No text found to apply drop cap to")
+            else:
+                win.statusbar.set_text("No paragraph selected for drop cap")
+    except Exception as e:
+        print(f"Error handling drop cap result: {e}")
+        win.statusbar.set_text("Error applying drop cap")
+
+def on_show_formatting_marks_toggled(self, win, button):
+    """Handle show formatting marks button toggle with improved LibreOffice-like implementation"""
+    is_active = button.get_active()
+    
+    # Execute JavaScript to toggle formatting marks
+    js_code = f"""
+    (function() {{
+        // Define the formatting marks toggle functionality
+        let styleSheet = document.getElementById('editorStyles');
+        if (!styleSheet) {{
+            styleSheet = document.createElement('style');
+            styleSheet.id = 'editorStyles';
+            document.head.appendChild(styleSheet);
+        }}
+        
+        if ({str(is_active).lower()}) {{
+            // Add CSS to show formatting marks - LibreOffice style
+            styleSheet.textContent += `
+            /* Paragraph marks */
+            #editor p:not(:empty)::after, 
+            #editor div:not(:empty)::after {{
+                content: "¶";
+                color: #999;
+                margin-left: 2px;
+                font-size: 0.8em;
+                opacity: 0.8;
+            }}
+            
+            /* Tab marks - using right arrow character */
+            #editor .tab-mark::before {{
+                content: "→";
+                color: #999;
+                opacity: 0.8;
+                display: inline-block;
+                width: 1em;
+            }}
+            
+            /* Space marks - using middle dot character */
+            #editor .space-mark::before {{
+                content: "·";
+                color: #999;
+                font-size: 0.8em;
+                opacity: 0.8;
+                display: inline;
+                position: relative;
+            }}
+            
+            /* Line break marks */
+            #editor br::after {{
+                content: "↵";
+                color: #999;
+                opacity: 0.8;
+                font-size: 0.8em;
+                line-height: 1;
+            }}`;
+            
+            // Add classes to editor
+            document.getElementById('editor').classList.add('show-formatting');
+            
+            // Function to mark spaces and tabs
+            function markFormatting() {{
+                try {{
+                    const editor = document.getElementById('editor');
+                    const textNodes = [];
+                    
+                    // Find all text nodes in the editor
+                    function findTextNodes(node) {{
+                        if (node.nodeType === 3) {{ // Text node
+                            if (node.nodeValue.includes(' ') || node.nodeValue.includes('\\t')) {{
+                                textNodes.push(node);
+                            }}
+                        }} else if (node.nodeType === 1) {{ // Element node
+                            // Don't process certain elements
+                            if (node.classList && 
+                                (node.classList.contains('space-mark') || 
+                                 node.classList.contains('tab-mark'))) {{
+                                return;
+                            }}
+                            
+                            for (let i = 0; i < node.childNodes.length; i++) {{
+                                findTextNodes(node.childNodes[i]);
+                            }}
+                        }}
+                    }}
+                    
+                    findTextNodes(editor);
+                    
+                    // Process text nodes - replace spaces and tabs with marked spans
+                    textNodes.forEach(textNode => {{
+                        if (!textNode.parentNode) return;
+                        
+                        const parent = textNode.parentNode;
+                        const text = textNode.nodeValue;
+                        
+                        // Don't process if parent is a special element
+                        if (parent.classList && 
+                            (parent.classList.contains('space-mark') || 
+                             parent.classList.contains('tab-mark'))) {{
+                            return;
+                        }}
+                        
+                        // Check if this node has spaces or tabs
+                        if ((text.includes(' ') || text.includes('\\t'))) {{
+                            // Create a document fragment for the new content
+                            const fragment = document.createDocumentFragment();
+                            let currentText = '';
+                            
+                            // Process each character to handle spaces and tabs
+                            for (let i = 0; i < text.length; i++) {{
+                                const char = text[i];
+                                
+                                if (char === ' ') {{
+                                    // Add any accumulated text
+                                    if (currentText) {{
+                                        fragment.appendChild(document.createTextNode(currentText));
+                                        currentText = '';
+                                    }}
+                                    
+                                    // Create a space marker
+                                    const spaceSpan = document.createElement('span');
+                                    spaceSpan.classList.add('space-mark');
+                                    spaceSpan.innerHTML = ' ';
+                                    fragment.appendChild(spaceSpan);
+                                }} 
+                                else if (char === '\\t') {{
+                                    // Add any accumulated text
+                                    if (currentText) {{
+                                        fragment.appendChild(document.createTextNode(currentText));
+                                        currentText = '';
+                                    }}
+                                    
+                                    // Create a tab marker
+                                    const tabSpan = document.createElement('span');
+                                    tabSpan.classList.add('tab-mark');
+                                    tabSpan.innerHTML = ' ';  // Using a space for tab content
+                                    fragment.appendChild(tabSpan);
+                                }} 
+                                else {{
+                                    // Accumulate regular text
+                                    currentText += char;
+                                }}
+                            }}
+                            
+                            // Add any remaining text
+                            if (currentText) {{
+                                fragment.appendChild(document.createTextNode(currentText));
+                            }}
+                            
+                            // Replace the original text node with our fragment
+                            parent.replaceChild(fragment, textNode);
+                        }}
+                    }});
+                }} catch (err) {{
+                    console.error("Error in formatting marks processing:", err);
+                }}
+            }}
+            
+            // Call the function to mark formatting
+            markFormatting();
+            
+            // Set up a mutation observer to mark formatting in new content
+            const observer = new MutationObserver(mutations => {{
+                for (const mutation of mutations) {{
+                    if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {{
+                        // Only process if we're not currently processing
+                        if (!observer._processing) {{
+                            observer._processing = true;
+                            setTimeout(() => {{
+                                markFormatting();
+                                observer._processing = false;
+                            }}, 0);
+                        }}
+                    }}
+                }}
+            }});
+            
+            // Start observing changes to the editor
+            observer.observe(document.getElementById('editor'), {{ 
+                childList: true, 
+                subtree: true, 
+                characterData: true 
+            }});
+            
+            // Store the observer in a property so we can disconnect it later
+            document.getElementById('editor')._formattingObserver = observer;
+            
+        }} else {{
+            // IMPORTANT: Completely remove the formatting styles
+            // First, save any existing non-formatting styles
+            const originalStyles = styleSheet.textContent
+                .replace(/#editor p[^{{]*?::after[\\s\\S]*?}}|#editor div[^{{]*?::after[\\s\\S]*?}}|#editor .tab-mark::before[\\s\\S]*?}}|#editor .space-mark::before[\\s\\S]*?}}|#editor br::after[\\s\\S]*?}}/g, '');
+            
+            // Set the stylesheet content to just the non-formatting styles
+            styleSheet.textContent = originalStyles;
+            
+            // Remove formatting marks class
+            document.getElementById('editor').classList.remove('show-formatting');
+            
+            // Disconnect the observer if it exists
+            const editor = document.getElementById('editor');
+            if (editor._formattingObserver) {{
+                editor._formattingObserver.disconnect();
+                delete editor._formattingObserver;
+            }}
+            
+            // Function to remove formatting marks
+            function removeFormatting() {{
+                // Remove space markers
+                const spaceMarks = editor.querySelectorAll('.space-mark');
+                spaceMarks.forEach(mark => {{
+                    const space = document.createTextNode(' ');
+                    mark.parentNode.replaceChild(space, mark);
+                }});
+                
+                // Remove tab markers
+                const tabMarks = editor.querySelectorAll('.tab-mark');
+                tabMarks.forEach(mark => {{
+                    const tab = document.createTextNode('\\t');
+                    mark.parentNode.replaceChild(tab, mark);
+                }});
+                
+                // Normalize text nodes to join adjacent text
+                editor.normalize();
+            }}
+            
+            // Remove formatting marks
+            removeFormatting();
+        }}
+        return true;
+    }})();
+    """
+    
+    # Execute the JavaScript
+    self.execute_js(win, js_code)
+    
+    # Update status bar
+    if is_active:
+        win.statusbar.set_text("Showing formatting marks")
+    else:
+        win.statusbar.set_text("Hiding formatting marks")
