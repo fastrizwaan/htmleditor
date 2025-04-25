@@ -3381,6 +3381,44 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         win.toolbars_wrapbox.append(spacing_group)        
 
 
+        # --- Insert operations group (Table, Text Box, Image) ---
+        insert_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        insert_group.add_css_class("linked")  # Apply linked styling
+        insert_group.set_margin_start(0)
+
+        # Insert table button
+        table_button = Gtk.Button(icon_name="table-symbolic")  # Use a standard table icon
+        table_button.set_size_request(40, 36)
+        table_button.set_tooltip_text("Insert Table")
+        table_button.connect("clicked", lambda btn: self.on_insert_table_clicked(win, btn))
+
+        # Insert text box button
+        text_box_button = Gtk.Button(icon_name="insert-text-symbolic")
+        text_box_button.set_size_request(40, 36)
+        text_box_button.set_tooltip_text("Insert Text Box")
+        text_box_button.connect("clicked", lambda btn: self.on_insert_text_box_clicked(win, btn))
+
+        # Insert image button
+        image_button = Gtk.Button(icon_name="insert-image-symbolic")
+        image_button.set_size_request(40, 36)
+        image_button.set_tooltip_text("Insert Image")
+        image_button.connect("clicked", lambda btn: self.on_insert_image_clicked(win, btn))
+
+        # Insert link button
+        link_button = Gtk.Button(icon_name="insert-link-symbolic")
+        link_button.set_size_request(40, 36)
+        link_button.set_tooltip_text("Insert link")
+        link_button.connect("clicked", lambda btn: self.on_insert_link_clicked(win, btn))
+
+        # Add buttons to insert group
+        insert_group.append(table_button)
+        insert_group.append(text_box_button)
+        insert_group.append(image_button)
+        insert_group.append(link_button)
+        # Add insert group to toolbar
+        win.toolbars_wrapbox.append(insert_group)
+
+
         
         # Create formatting toolbar
         # Paragraph, font family, font size box        
@@ -3909,42 +3947,6 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
 
         win.toolbars_wrapbox.append(alignment_group)
 
-        # --- Insert operations group (Table, Text Box, Image) ---
-        insert_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        insert_group.add_css_class("linked")  # Apply linked styling
-        insert_group.set_margin_start(0)
-
-        # Insert table button
-        table_button = Gtk.Button(icon_name="table-symbolic")  # Use a standard table icon
-        table_button.set_size_request(40, 36)
-        table_button.set_tooltip_text("Insert Table")
-        table_button.connect("clicked", lambda btn: self.on_insert_table_clicked(win, btn))
-
-        # Insert text box button
-        text_box_button = Gtk.Button(icon_name="insert-text-symbolic")
-        text_box_button.set_size_request(40, 36)
-        text_box_button.set_tooltip_text("Insert Text Box")
-        text_box_button.connect("clicked", lambda btn: self.on_insert_text_box_clicked(win, btn))
-
-        # Insert image button
-        image_button = Gtk.Button(icon_name="insert-image-symbolic")
-        image_button.set_size_request(40, 36)
-        image_button.set_tooltip_text("Insert Image")
-        image_button.connect("clicked", lambda btn: self.on_insert_image_clicked(win, btn))
-
-        # Insert link button
-        link_button = Gtk.Button(icon_name="insert-link-symbolic")
-        link_button.set_size_request(40, 36)
-        link_button.set_tooltip_text("Insert link")
-        link_button.connect("clicked", lambda btn: self.on_insert_link_clicked(win, btn))
-
-        # Add buttons to insert group
-        insert_group.append(table_button)
-        insert_group.append(text_box_button)
-        insert_group.append(image_button)
-        insert_group.append(link_button)
-        # Add insert group to toolbar
-        win.toolbars_wrapbox.append(insert_group)
 
 
 
