@@ -153,17 +153,63 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
 .toolbar-separator { min-height: 0px; min-width: 1px; background-color: alpha(currentColor, 0.15); margin: 0px 0px; }
 .color-indicator { min-height: 2px; min-width: 16px; margin-top: 1px; margin-bottom: 0px; border-radius: 2px; }
 .color-box { padding: 0px; }
-.linked button               {background-color: rgba(127, 127, 127, 0.10); border: solid 1px rgba(127, 127, 127, 0.00);}
+
+
+
+
+.linked button               {background-color: rgba(127, 127, 127, 0.10); border: solid 1px rgba(127, 127, 127, 0.00); }
 .linked button:hover         {background-color: rgba(127, 127, 127, 0.35); border: solid 1px rgba(127, 127, 127, 0.30);}
 .linked button:active        {background-color: rgba(127, 127, 127, 0.35); border: solid 1px rgba(127, 127, 127, 0.00);}
 .linked button:checked       {background-color: rgba(127, 127, 127, 0.35); border: solid 1px rgba(127, 127, 127, 0.00);}
 .linked button:checked:hover {background-color: rgba(127, 127, 127, 0.35); border: solid 1px rgba(127, 127, 127, 0.30);}
+
+/* Corrected menubutton selectors - removed space after colon */
+.linked menubutton:first-child  {
+    border-top-left-radius: 5px; 
+    border-bottom-left-radius: 5px; 
+    border-top-right-radius: 0px; 
+    border-bottom-right-radius: 0px;
+}
+
+.linked menubutton:last-child {
+    border-top-left-radius: 0px; 
+    border-bottom-left-radius: 0px; 
+    border-top-right-radius: 5px; 
+    border-bottom-right-radius: 5px; 
+} 
+
+/* Additional recommended fixes for consistent styling */
+.linked menubutton button {
+    background-color: rgba(127, 127, 127, 0.10);
+    border: solid 1px rgba(127, 127, 127, 0.00);
+}
+
+.linked menubutton button:hover {
+    background-color: rgba(127, 127, 127, 0.35);
+    border: solid 1px rgba(127, 127, 127, 0.30);
+}
+
+.linked menubutton button:active, 
+.linked menubutton button:checked {
+    background-color: rgba(127, 127, 127, 0.35);
+    border: solid 1px rgba(127, 127, 127, 0.00);
+}
+
+.linked menubutton button:checked:hover {
+    background-color: rgba(127, 127, 127, 0.35);
+    border: solid 1px rgba(127, 127, 127, 0.30);
+}
+
 .linked splitbutton > menubutton > button.toggle {
-    border-top-left-radius: 0px; border-bottom-left-radius: 0px; border-top-right-radius: 0px; border-bottom-right-radius: 0px; padding: 0px 2px 0px 2px;}
+    border-top-left-radius: 0px; border-bottom-left-radius: 0px; border-top-right-radius: 0px; border-bottom-right-radius: 0px; padding: 0px 2px 0px 2px; }
 .linked splitbutton > button  {
     border-top-left-radius: 0px; border-bottom-left-radius: 0px; border-top-right-radius: 0px; border-bottom-right-radius: 0px;}
 .linked splitbutton:first-child > button  {
     border-top-left-radius: 5px; border-bottom-left-radius: 5px; border-top-right-radius: 0px; border-bottom-right-radius: 0px;}
+.linked splitbutton:last-child > button  {
+    border-top-left-radius: 0px; border-bottom-left-radius: 0px; border-top-right-radius: 0px; border-bottom-right-radius: 0px;}
+.linked splitbutton:last-child > menubutton > button.toggle   {
+    border-top-left-radius: 0px; border-bottom-left-radius: 0px; border-top-right-radius: 5px; border-bottom-right-radius: 5px;}
 
 """
         
@@ -3219,17 +3265,26 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         # Add file group to toolbar
         win.toolbars_wrapbox.append(file_group)
         
-        # --- Edit operations group (Cut, Copy, Paste, Select All) ---
-        edit_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        edit_group.add_css_class("linked")  # Apply linked styling
-        edit_group.set_margin_start(0)
+
         
         # Select All button
+        # --- Edit operations group (Cut, Copy, Paste, Select All) ---
+        select_all_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        select_all_group.add_css_class("linked")  # Apply linked styling
+        select_all_group.set_margin_start(0)
+        
         select_all_button = Gtk.Button(icon_name="edit-select-all-symbolic")
         select_all_button.set_tooltip_text("Select All")
         select_all_button.connect("clicked", lambda btn: self.on_select_all_clicked(win, btn))
         select_all_button.set_size_request(40, 36)
-        
+
+        select_all_group.append(select_all_button)
+        win.toolbars_wrapbox.append(select_all_group)
+        # --- Edit operations group (Cut, Copy, Paste, Select All) ---
+        edit_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        edit_group.add_css_class("linked")  # Apply linked styling
+        edit_group.set_margin_start(0)
+                
         # Cut button
         cut_button = Gtk.Button(icon_name="edit-cut-symbolic")
         cut_button.set_tooltip_text("Cut")
@@ -3249,7 +3304,6 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         paste_button.set_size_request(40, 36)
         
         # Add buttons to edit group
-        edit_group.append(select_all_button)
         edit_group.append(cut_button)
         edit_group.append(copy_button)
         edit_group.append(paste_button)
@@ -3258,9 +3312,9 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         win.toolbars_wrapbox.append(edit_group)
         
         # --- Undo/Redo group ---
-        undo_print_find_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        undo_print_find_group.add_css_class("linked")  # Apply linked styling
-        undo_print_find_group.set_margin_start(0)
+        undo_redo_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        undo_redo_group.add_css_class("linked")  # Apply linked styling
+        undo_redo_group.set_margin_start(0)
         
         # Undo button
         win.undo_button = Gtk.Button(icon_name="edit-undo-symbolic")
@@ -3276,7 +3330,17 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         win.redo_button.set_sensitive(False)  # Initially disabled
         win.redo_button.set_size_request(40, 36)
         
+        # Add buttons to undo group
+        undo_redo_group.append(win.undo_button)
+        undo_redo_group.append(win.redo_button)
+
+        # Add undo group to toolbar
+        win.toolbars_wrapbox.append(undo_redo_group)
+        
         # Print button
+        print_find_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        print_find_group.add_css_class("linked")  # Apply linked styling
+        print_find_group.set_margin_start(0)
         print_button = Gtk.Button(icon_name="document-print-symbolic")
         print_button.set_tooltip_text("Print Document")
         print_button.connect("clicked", lambda btn: self.on_print_clicked(win, btn) if hasattr(self, "on_print_clicked") else None)
@@ -3288,14 +3352,11 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         win.find_button_handler_id = win.find_button.connect("toggled", lambda btn: self.on_find_button_toggled(win, btn))
         win.find_button.set_size_request(40, 36)
 
-        # Add buttons to undo group
-        undo_print_find_group.append(win.undo_button)
-        undo_print_find_group.append(win.redo_button)
-        undo_print_find_group.append(print_button)
-        undo_print_find_group.append(win.find_button)
+        print_find_group.append(print_button)
+        print_find_group.append(win.find_button)
 
-        # Add undo group to toolbar
-        win.toolbars_wrapbox.append(undo_print_find_group)
+        # Add print find group to toolbar
+        win.toolbars_wrapbox.append(print_find_group)
         
         # --- Spacing operations group (Line Spacing, Paragraph Spacing) ---
         spacing_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
@@ -3306,7 +3367,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         line_spacing_button = Gtk.MenuButton(icon_name="line_space_new")
         line_spacing_button.set_size_request(40, 36)
         line_spacing_button.set_tooltip_text("Line Spacing")
-        line_spacing_button.add_css_class("flat")
+
         
         # Create line spacing menu
         line_spacing_menu = Gio.Menu()
@@ -3323,7 +3384,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         para_spacing_button = Gtk.MenuButton(icon_name="paragraph_line_spacing")
         para_spacing_button.set_size_request(40, 36)
         para_spacing_button.set_tooltip_text("Paragraph Spacing")
-        para_spacing_button.add_css_class("flat")
+
         
         # Create paragraph spacing menu
         para_spacing_menu = Gio.Menu()
@@ -3337,11 +3398,22 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         
         para_spacing_button.set_menu_model(para_spacing_menu)
         
+        # Add buttons to spacing group
+        spacing_group.append(line_spacing_button)
+        spacing_group.append(para_spacing_button)
+
+        # Add spacing group to toolbar
+        win.toolbars_wrapbox.append(spacing_group)        
+                
         # Column layout button menu
+        column_case_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        column_case_group.add_css_class("linked")  # Apply linked styling
+        column_case_group.set_margin_start(0)
+        
         column_button = Gtk.MenuButton(icon_name="columns-symbolic")
         column_button.set_size_request(40, 36)
         column_button.set_tooltip_text("Column Layout")
-        column_button.add_css_class("flat")
+
         
         # Create column menu
         column_menu = Gio.Menu()
@@ -3371,14 +3443,13 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         # Set the menu model for the button
         case_menu_button.set_menu_model(case_menu)
 
-        # Add buttons to spacing group
-        spacing_group.append(line_spacing_button)
-        spacing_group.append(para_spacing_button)
-        spacing_group.append(column_button)
-        spacing_group.append(case_menu_button)        
+        # Add buttons to column case group
+        column_case_group.append(column_button)
+        column_case_group.append(case_menu_button)        
         
         # Add spacing group to toolbar
-        win.toolbars_wrapbox.append(spacing_group)        
+        win.toolbars_wrapbox.append(column_case_group)        
+            
 
 
         # --- Insert operations group (Table, Text Box, Image) ---
@@ -3420,6 +3491,400 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
 
 
         
+
+        
+        # Create first button group (basic formatting - Bold, Italics, Underline, Strikethrough)
+        bius_group = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        bius_group.set_margin_start(0)
+        bius_group.set_margin_end(0)
+        
+        # Bold button
+        win.bold_button = Gtk.ToggleButton(icon_name="format-text-bold-symbolic")
+        win.bold_button.set_tooltip_text("Bold")
+        win.bold_button.set_focus_on_click(False)
+        win.bold_button.set_size_request(40, 36)
+        win.bold_handler_id = win.bold_button.connect("toggled", lambda btn: self.on_bold_toggled(win, btn))
+        bius_group.append(win.bold_button)
+        
+        # Italic button
+        win.italic_button = Gtk.ToggleButton(icon_name="format-text-italic-symbolic")
+        win.italic_button.set_tooltip_text("Italic")
+        win.italic_button.set_focus_on_click(False)
+        win.italic_button.set_size_request(40, 36)
+        win.italic_handler_id = win.italic_button.connect("toggled", lambda btn: self.on_italic_toggled(win, btn))
+        bius_group.append(win.italic_button)
+        
+        # Underline button
+        win.underline_button = Gtk.ToggleButton(icon_name="format-text-underline-symbolic")
+        win.underline_button.set_tooltip_text("Underline")
+        win.underline_button.set_focus_on_click(False)
+        win.underline_button.set_size_request(40, 36)
+        win.underline_handler_id = win.underline_button.connect("toggled", lambda btn: self.on_underline_toggled(win, btn))
+        bius_group.append(win.underline_button)
+        
+        
+        # Strikeout button
+        win.strikeout_button = Gtk.ToggleButton(icon_name="format-text-strikethrough-symbolic")
+        win.strikeout_button.set_tooltip_text("Strikeout")
+        win.strikeout_button.set_focus_on_click(False)
+        win.strikeout_button.set_size_request(40, 36)
+        win.strikeout_handler_id = win.strikeout_button.connect("toggled", lambda btn: self.on_strikeout_toggled(win, btn))
+        bius_group.append(win.strikeout_button)        
+
+        win.toolbars_wrapbox.append(bius_group)
+
+        # Subscript, Superscript, Paragraph, Font style shadow, color )
+        subscript_group = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        subscript_group.set_margin_start(0)
+        subscript_group.set_margin_end(0)
+        # Add subscript and superscript buttons if your handlers exist
+        if hasattr(self, 'on_subscript_toggled'):
+            win.subscript_button = Gtk.ToggleButton(icon_name="format-text-subscript-symbolic")
+            win.subscript_button.set_tooltip_text("Subscript")
+            win.subscript_button.add_css_class("flat")
+            win.subscript_button.set_size_request(40, 36)
+            win.subscript_handler_id = win.subscript_button.connect("toggled", 
+                lambda btn: self.on_subscript_toggled(win, btn))
+            subscript_group.append(win.subscript_button)
+        
+        if hasattr(self, 'on_superscript_toggled'):
+            win.superscript_button = Gtk.ToggleButton(icon_name="format-text-superscript-symbolic")
+            win.superscript_button.set_tooltip_text("Superscript")
+            win.superscript_button.add_css_class("flat")
+            win.superscript_button.set_size_request(40, 36)
+            win.superscript_handler_id = win.superscript_button.connect("toggled", 
+                lambda btn: self.on_superscript_toggled(win, btn))
+            subscript_group.append(win.superscript_button)
+
+        win.toolbars_wrapbox.append(subscript_group)
+        
+        # Show formatting marks toggle button
+        dropcap_formatting_marks_group = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        dropcap_formatting_marks_group.set_margin_start(0)
+        dropcap_formatting_marks_group.set_margin_end(0)
+        win.format_marks_button = Gtk.ToggleButton(icon_name="format-show-marks-symbolic")
+        win.format_marks_button.set_tooltip_text("Show Formatting Marks")
+        win.format_marks_button.set_size_request(40, 36)
+        win.format_marks_button.connect("toggled", lambda btn: self.on_show_formatting_marks_toggled(win, btn))
+        dropcap_formatting_marks_group.append(win.format_marks_button)
+
+        # Drop cap button
+        win.drop_cap_button = Gtk.Button(icon_name="format-drop-cap-symbolic")
+        win.drop_cap_button.set_tooltip_text("Drop Cap")
+        win.drop_cap_button.set_size_request(40, 36)
+        win.drop_cap_button.connect("clicked", lambda btn: self.on_drop_cap_clicked(win, btn))
+        dropcap_formatting_marks_group.append(win.drop_cap_button)
+        
+        win.toolbars_wrapbox.append(dropcap_formatting_marks_group)
+
+        # Create linked button group for list/indent controls
+        indent_group = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        
+        # Indent button
+        indent_button = Gtk.Button(icon_name="format-indent-more-symbolic")
+        indent_button.set_tooltip_text("Increase Indent")
+        indent_button.set_focus_on_click(False)
+        indent_button.set_size_request(40, 36)
+        indent_button.connect("clicked", lambda btn: self.on_indent_clicked(win, btn))
+        indent_group.append(indent_button)
+        
+        # Outdent button
+        outdent_button = Gtk.Button(icon_name="format-indent-less-symbolic")
+        outdent_button.set_tooltip_text("Decrease Indent")
+        outdent_button.set_focus_on_click(False)
+        outdent_button.set_size_request(40, 36)
+        outdent_button.connect("clicked", lambda btn: self.on_outdent_clicked(win, btn))
+        indent_group.append(outdent_button)
+        
+        win.toolbars_wrapbox.append(indent_group)
+        # Bullet List button
+        list_group = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        win.bullet_list_button = Gtk.ToggleButton(icon_name="view-list-bullet-symbolic")
+        win.bullet_list_button.set_tooltip_text("Bullet List")
+        win.bullet_list_button.set_focus_on_click(False)
+        win.bullet_list_button.set_size_request(40, 36)
+        # Store the handler ID directly on the button
+        win.bullet_list_button.handler_id = win.bullet_list_button.connect("toggled", 
+            lambda btn: self.on_bullet_list_toggled(win, btn))
+        list_group.append(win.bullet_list_button)
+
+        # Numbered List button
+        win.numbered_list_button = Gtk.ToggleButton(icon_name="view-list-ordered-symbolic")
+        win.numbered_list_button.set_tooltip_text("Numbered List")
+        win.numbered_list_button.set_focus_on_click(False)
+        win.numbered_list_button.set_size_request(40, 36)
+        # Store the handler ID directly on the button
+        win.numbered_list_button.handler_id = win.numbered_list_button.connect("toggled", 
+            lambda btn: self.on_numbered_list_toggled(win, btn))
+        list_group.append(win.numbered_list_button)
+
+        win.toolbars_wrapbox.append(list_group)
+
+
+
+        # Create second button group for colors and other formatting
+        color_bg_group = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=0)        
+        color_bg_group.set_margin_start(0)
+        color_bg_group.set_margin_end(0)
+
+        # --- Text Color SplitButton ---
+        # Create the main button part with icon and color indicator
+        font_color_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+
+        # Icon
+        font_color_icon = Gtk.Image.new_from_icon_name("draw-text-symbolic")
+        font_color_icon.set_margin_top(4)
+        font_color_icon.set_margin_bottom(0)
+        font_color_box.append(font_color_icon)
+
+        # Color indicator
+        win.font_color_indicator = Gtk.Box()
+        win.font_color_indicator.add_css_class("color-indicator")
+        win.font_color_indicator.set_size_request(16, 2)
+        color = Gdk.RGBA()
+        color.parse("transparent")
+        self.set_box_color(win.font_color_indicator, color)
+        font_color_box.append(win.font_color_indicator)
+
+        # Create font color popover for the dropdown part
+        font_color_popover = Gtk.Popover()
+        font_color_popover.set_autohide(True)
+        font_color_popover.set_has_arrow(False)
+
+        font_color_box_menu = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        font_color_box_menu.set_margin_start(6)
+        font_color_box_menu.set_margin_end(6)
+        font_color_box_menu.set_margin_top(6)
+        font_color_box_menu.set_margin_bottom(6)
+
+        # Add "Automatic" option at the top
+        automatic_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        automatic_row.set_margin_bottom(0)
+        automatic_icon = Gtk.Image.new_from_icon_name("edit-undo-symbolic")
+        automatic_label = Gtk.Label(label="Automatic")
+        automatic_row.append(automatic_icon)
+        automatic_row.append(automatic_label)
+
+        automatic_button = Gtk.Button()
+        automatic_button.set_child(automatic_row)
+        automatic_button.connect("clicked", lambda btn: self.on_font_color_automatic_clicked(win, font_color_popover))
+        font_color_box_menu.append(automatic_button)
+
+        # Create color grid
+        font_color_grid = Gtk.Grid()
+        font_color_grid.set_row_spacing(2)
+        font_color_grid.set_column_spacing(2)
+        font_color_grid.set_row_homogeneous(True)
+        font_color_grid.set_column_homogeneous(True)
+        font_color_grid.add_css_class("color-grid")
+
+        # Basic colors for text
+        text_colors = [
+            "#000000", "#434343", "#666666", "#999999", "#b7b7b7", "#cccccc", "#d9d9d9", "#efefef", "#f3f3f3", "#ffffff",
+            "#980000", "#ff0000", "#ff9900", "#ffff00", "#00ff00", "#00ffff", "#4a86e8", "#0000ff", "#9900ff", "#ff00ff",
+            "#e6b8af", "#f4cccc", "#fce5cd", "#fff2cc", "#d9ead3", "#d0e0e3", "#c9daf8", "#cfe2f3", "#d9d2e9", "#ead1dc",
+            "#dd7e6b", "#ea9999", "#f9cb9c", "#ffe599", "#b6d7a8", "#a2c4c9", "#a4c2f4", "#9fc5e8", "#b4a7d6", "#d5a6bd",
+            "#cc4125", "#e06666", "#f6b26b", "#ffd966", "#93c47d", "#76a5af", "#6d9eeb", "#6fa8dc", "#8e7cc3", "#c27ba0",
+            "#a61c00", "#cc0000", "#e69138", "#f1c232", "#6aa84f", "#45818e", "#3c78d8", "#3d85c6", "#674ea7", "#a64d79",
+            "#85200c", "#990000", "#b45f06", "#bf9000", "#38761d", "#134f5c", "#1155cc", "#0b5394", "#351c75", "#741b47",
+            "#5b0f00", "#660000", "#783f04", "#7f6000", "#274e13", "#0c343d", "#1c4587", "#073763", "#20124d", "#4c1130"
+        ]
+
+        # Create color buttons and add to grid
+        row, col = 0, 0
+        for color_hex in text_colors:
+            color_button = self.create_color_button(color_hex)
+            color_button.connect("clicked", lambda btn, c=color_hex: self.on_font_color_selected(win, c, font_color_popover))
+            font_color_grid.attach(color_button, col, row, 1, 1)
+            col += 1
+            if col >= 10:  # 10 columns
+                col = 0
+                row += 1
+
+        font_color_box_menu.append(font_color_grid)
+
+        # Add "More Colors..." button
+        more_colors_button = Gtk.Button(label="More Colors...")
+        more_colors_button.set_margin_top(6)
+        more_colors_button.connect("clicked", lambda btn: self.on_more_font_colors_clicked(win, font_color_popover))
+        font_color_box_menu.append(more_colors_button)
+
+        # Set content for popover
+        font_color_popover.set_child(font_color_box_menu)
+
+        # Create the SplitButton
+        win.font_color_button = Adw.SplitButton()
+        win.font_color_button.set_tooltip_text("Text Color")
+        win.font_color_button.set_focus_on_click(False)
+        win.font_color_button.set_size_request(40, 36)
+        win.font_color_button.set_child(font_color_box)
+        win.font_color_button.set_popover(font_color_popover)
+
+        # Connect the click handler to apply the current color
+        win.font_color_button.connect("clicked", lambda btn: self.on_font_color_button_clicked(win))
+        color_bg_group.append(win.font_color_button)
+        
+        # --- Background Color SplitButton ---
+        # Create the main button part with icon and color indicator
+        bg_color_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+
+        # Icon
+        bg_color_icon = Gtk.Image.new_from_icon_name("marker-symbolic")
+        bg_color_icon.set_margin_top(4)
+        bg_color_icon.set_margin_bottom(0)
+        bg_color_box.append(bg_color_icon)
+
+        # Color indicator
+        win.bg_color_indicator = Gtk.Box()
+        win.bg_color_indicator.add_css_class("color-indicator")
+        win.bg_color_indicator.set_size_request(16, 2)
+        bg_color = Gdk.RGBA()
+        bg_color.parse("transparent")
+        self.set_box_color(win.bg_color_indicator, bg_color)
+        bg_color_box.append(win.bg_color_indicator)
+
+        # Create Background Color popover for the dropdown
+        bg_color_popover = Gtk.Popover()
+        bg_color_popover.set_autohide(True)
+        bg_color_popover.set_has_arrow(False)
+        bg_color_box_menu = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        bg_color_box_menu.set_margin_start(6)
+        bg_color_box_menu.set_margin_end(6)
+        bg_color_box_menu.set_margin_top(6)
+        bg_color_box_menu.set_margin_bottom(6)
+
+        # Add "Automatic" option at the top
+        bg_automatic_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        bg_automatic_row.set_margin_bottom(0)
+        bg_automatic_icon = Gtk.Image.new_from_icon_name("edit-undo-symbolic")
+        bg_automatic_label = Gtk.Label(label="Automatic")
+        bg_automatic_row.append(bg_automatic_icon)
+        bg_automatic_row.append(bg_automatic_label)
+
+        bg_automatic_button = Gtk.Button()
+        bg_automatic_button.set_child(bg_automatic_row)
+        bg_automatic_button.connect("clicked", lambda btn: self.on_bg_color_automatic_clicked(win, bg_color_popover))
+        bg_color_box_menu.append(bg_automatic_button)
+
+        # Add separator
+        bg_separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        bg_separator.set_margin_bottom(6)
+        bg_color_box_menu.append(bg_separator)
+
+        # Create color grid
+        bg_color_grid = Gtk.Grid()
+        bg_color_grid.set_row_spacing(2)
+        bg_color_grid.set_column_spacing(2)
+        bg_color_grid.set_row_homogeneous(True)
+        bg_color_grid.set_column_homogeneous(True)
+        bg_color_grid.add_css_class("color-grid")
+
+        # Basic colors for background (same palette as text)
+        bg_colors = text_colors
+
+        # Create color buttons and add to grid
+        row, col = 0, 0
+        for color_hex in bg_colors:
+            color_button = self.create_color_button(color_hex)
+            color_button.connect("clicked", lambda btn, c=color_hex: self.on_bg_color_selected(win, c, bg_color_popover))
+            bg_color_grid.attach(color_button, col, row, 1, 1)
+            col += 1
+            if col >= 10:  # 10 columns
+                col = 0
+                row += 1
+
+        bg_color_box_menu.append(bg_color_grid)
+
+        # Add "More Colors..." button
+        bg_more_colors_button = Gtk.Button(label="More Colors...")
+        bg_more_colors_button.set_margin_top(6)
+        bg_more_colors_button.connect("clicked", lambda btn: self.on_more_bg_colors_clicked(win, bg_color_popover))
+        bg_color_box_menu.append(bg_more_colors_button)
+
+        # Set content for popover
+        bg_color_popover.set_child(bg_color_box_menu)
+
+        # Create the SplitButton
+        win.bg_color_button = Adw.SplitButton()
+        win.bg_color_button.set_tooltip_text("Background Color")
+        win.bg_color_button.set_focus_on_click(False)
+        win.bg_color_button.set_size_request(40, 36)
+        win.bg_color_button.set_child(bg_color_box)
+        win.bg_color_button.set_popover(bg_color_popover)
+
+        # Connect the click handler to apply the current color
+        win.bg_color_button.connect("clicked", lambda btn: self.on_bg_color_button_clicked(win))
+        color_bg_group.append(win.bg_color_button)
+        
+        win.toolbars_wrapbox.append(color_bg_group)
+        # Clear formatting button
+        clear_group = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=0)        
+        clear_group.set_margin_start(0)
+        clear_group.set_margin_end(0)
+        
+        clear_formatting_button = Gtk.Button(icon_name="eraser-symbolic")
+        clear_formatting_button.set_tooltip_text("Remove Text Formatting")
+        clear_formatting_button.set_size_request(42, 36)
+        clear_formatting_button.connect("clicked", lambda btn: self.on_clear_formatting_clicked(win, btn))
+        clear_group.append(clear_formatting_button)
+
+        win.toolbars_wrapbox.append(clear_group)
+
+        # Create linked button group for alignment controls
+        alignment_group = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        
+        # Align Left button
+        align_left_button = Gtk.ToggleButton(icon_name="format-justify-left-symbolic")
+        align_left_button.set_tooltip_text("Align Left")
+        align_left_button.set_focus_on_click(False)
+        align_left_button.set_size_request(40, 36)
+        # Store the handler ID when connecting
+        align_left_button.handler_id = align_left_button.connect("toggled", 
+            lambda btn: self.on_align_left_toggled(win, btn))
+        alignment_group.append(align_left_button)
+
+        # Align Center button
+        align_center_button = Gtk.ToggleButton(icon_name="format-justify-center-symbolic")
+        align_center_button.set_tooltip_text("Align Center")
+        align_center_button.set_focus_on_click(False)
+        align_center_button.set_size_request(40, 36)
+        # Store the handler ID when connecting
+        align_center_button.handler_id = align_center_button.connect("toggled", 
+            lambda btn: self.on_align_center_toggled(win, btn))
+        alignment_group.append(align_center_button)
+
+        # Align Right button
+        align_right_button = Gtk.ToggleButton(icon_name="format-justify-right-symbolic")
+        align_right_button.set_tooltip_text("Align Right")
+        align_right_button.set_focus_on_click(False)
+        align_right_button.set_size_request(40, 36)
+        # Store the handler ID when connecting
+        align_right_button.handler_id = align_right_button.connect("toggled", 
+            lambda btn: self.on_align_right_toggled(win, btn))
+        alignment_group.append(align_right_button)
+
+        # Justify button
+        align_justify_button = Gtk.ToggleButton(icon_name="format-justify-fill-symbolic")
+        align_justify_button.set_tooltip_text("Justify")
+        align_justify_button.set_focus_on_click(False)
+        align_justify_button.set_size_request(40, 36)
+        # Store the handler ID when connecting
+        align_justify_button.handler_id = align_justify_button.connect("toggled", 
+            lambda btn: self.on_align_justify_toggled(win, btn))
+        alignment_group.append(align_justify_button)
+
+        
+        # Store references to alignment buttons for toggling
+        win.alignment_buttons = {
+            'left': align_left_button,
+            'center': align_center_button, 
+            'right': align_right_button,
+            'justify': align_justify_button
+        }
+
+        win.toolbars_wrapbox.append(alignment_group)
+
+
         # Create formatting toolbar
         # Paragraph, font family, font size box        
         para_font_size_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
@@ -3566,389 +4031,6 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         para_font_size_box.append(win.font_size_dropdown)    
                     
         win.toolbars_wrapbox.append(para_font_size_box)
-        
-        # Create first button group (basic formatting - Bold, Italics, Underline, Strikethrough)
-        bius_group = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        bius_group.set_margin_start(0)
-        bius_group.set_margin_end(0)
-        
-        # Bold button
-        win.bold_button = Gtk.ToggleButton(icon_name="format-text-bold-symbolic")
-        win.bold_button.set_tooltip_text("Bold")
-        win.bold_button.set_focus_on_click(False)
-        win.bold_button.set_size_request(40, 36)
-        win.bold_handler_id = win.bold_button.connect("toggled", lambda btn: self.on_bold_toggled(win, btn))
-        bius_group.append(win.bold_button)
-        
-        # Italic button
-        win.italic_button = Gtk.ToggleButton(icon_name="format-text-italic-symbolic")
-        win.italic_button.set_tooltip_text("Italic")
-        win.italic_button.set_focus_on_click(False)
-        win.italic_button.set_size_request(40, 36)
-        win.italic_handler_id = win.italic_button.connect("toggled", lambda btn: self.on_italic_toggled(win, btn))
-        bius_group.append(win.italic_button)
-        
-        # Underline button
-        win.underline_button = Gtk.ToggleButton(icon_name="format-text-underline-symbolic")
-        win.underline_button.set_tooltip_text("Underline")
-        win.underline_button.set_focus_on_click(False)
-        win.underline_button.set_size_request(40, 36)
-        win.underline_handler_id = win.underline_button.connect("toggled", lambda btn: self.on_underline_toggled(win, btn))
-        bius_group.append(win.underline_button)
-        
-        
-        # Strikeout button
-        win.strikeout_button = Gtk.ToggleButton(icon_name="format-text-strikethrough-symbolic")
-        win.strikeout_button.set_tooltip_text("Strikeout")
-        win.strikeout_button.set_focus_on_click(False)
-        win.strikeout_button.set_size_request(40, 36)
-        win.strikeout_handler_id = win.strikeout_button.connect("toggled", lambda btn: self.on_strikeout_toggled(win, btn))
-        bius_group.append(win.strikeout_button)        
-
-        win.toolbars_wrapbox.append(bius_group)
-
-        # Subscript, Superscript, Paragraph, Font style shadow, color )
-        subscript_group = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        subscript_group.set_margin_start(0)
-        subscript_group.set_margin_end(0)
-        # Add subscript and superscript buttons if your handlers exist
-        if hasattr(self, 'on_subscript_toggled'):
-            win.subscript_button = Gtk.ToggleButton(icon_name="format-text-subscript-symbolic")
-            win.subscript_button.set_tooltip_text("Subscript")
-            win.subscript_button.add_css_class("flat")
-            win.subscript_button.set_size_request(40, 36)
-            win.subscript_handler_id = win.subscript_button.connect("toggled", 
-                lambda btn: self.on_subscript_toggled(win, btn))
-            subscript_group.append(win.subscript_button)
-        
-        if hasattr(self, 'on_superscript_toggled'):
-            win.superscript_button = Gtk.ToggleButton(icon_name="format-text-superscript-symbolic")
-            win.superscript_button.set_tooltip_text("Superscript")
-            win.superscript_button.add_css_class("flat")
-            win.superscript_button.set_size_request(40, 36)
-            win.superscript_handler_id = win.superscript_button.connect("toggled", 
-                lambda btn: self.on_superscript_toggled(win, btn))
-            subscript_group.append(win.superscript_button)
-
-        # Show formatting marks toggle button
-        win.format_marks_button = Gtk.ToggleButton(icon_name="format-show-marks-symbolic")
-        win.format_marks_button.set_tooltip_text("Show Formatting Marks")
-        win.format_marks_button.set_size_request(40, 36)
-        win.format_marks_button.connect("toggled", lambda btn: self.on_show_formatting_marks_toggled(win, btn))
-        subscript_group.append(win.format_marks_button)
-
-        # Drop cap button
-        win.drop_cap_button = Gtk.Button(icon_name="format-drop-cap-symbolic")
-        win.drop_cap_button.set_tooltip_text("Drop Cap")
-        win.drop_cap_button.set_size_request(40, 36)
-        win.drop_cap_button.connect("clicked", lambda btn: self.on_drop_cap_clicked(win, btn))
-        subscript_group.append(win.drop_cap_button)
-        
-        win.toolbars_wrapbox.append(subscript_group)
-
-
-        # Create linked button group for list/indent controls
-        list_indent_group = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        
-        # Indent button
-        indent_button = Gtk.Button(icon_name="format-indent-more-symbolic")
-        indent_button.set_tooltip_text("Increase Indent")
-        indent_button.set_focus_on_click(False)
-        indent_button.set_size_request(40, 36)
-        indent_button.connect("clicked", lambda btn: self.on_indent_clicked(win, btn))
-        list_indent_group.append(indent_button)
-        
-        # Outdent button
-        outdent_button = Gtk.Button(icon_name="format-indent-less-symbolic")
-        outdent_button.set_tooltip_text("Decrease Indent")
-        outdent_button.set_focus_on_click(False)
-        outdent_button.set_size_request(40, 36)
-        outdent_button.connect("clicked", lambda btn: self.on_outdent_clicked(win, btn))
-        list_indent_group.append(outdent_button)
-        
-        # Bullet List button
-        win.bullet_list_button = Gtk.ToggleButton(icon_name="view-list-bullet-symbolic")
-        win.bullet_list_button.set_tooltip_text("Bullet List")
-        win.bullet_list_button.set_focus_on_click(False)
-        win.bullet_list_button.set_size_request(40, 36)
-        # Store the handler ID directly on the button
-        win.bullet_list_button.handler_id = win.bullet_list_button.connect("toggled", 
-            lambda btn: self.on_bullet_list_toggled(win, btn))
-        list_indent_group.append(win.bullet_list_button)
-
-        # Numbered List button
-        win.numbered_list_button = Gtk.ToggleButton(icon_name="view-list-ordered-symbolic")
-        win.numbered_list_button.set_tooltip_text("Numbered List")
-        win.numbered_list_button.set_focus_on_click(False)
-        win.numbered_list_button.set_size_request(40, 36)
-        # Store the handler ID directly on the button
-        win.numbered_list_button.handler_id = win.numbered_list_button.connect("toggled", 
-            lambda btn: self.on_numbered_list_toggled(win, btn))
-        list_indent_group.append(win.numbered_list_button)
-
-        win.toolbars_wrapbox.append(list_indent_group)
-
-
-
-        # Create second button group for colors and other formatting
-        color_bg_clear_group = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=0)        
-        color_bg_clear_group.set_margin_start(0)
-        color_bg_clear_group.set_margin_end(0)
-
-        # --- Text Color SplitButton ---
-        # Create the main button part with icon and color indicator
-        font_color_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-
-        # Icon
-        font_color_icon = Gtk.Image.new_from_icon_name("draw-text-symbolic")
-        font_color_icon.set_margin_top(4)
-        font_color_icon.set_margin_bottom(0)
-        font_color_box.append(font_color_icon)
-
-        # Color indicator
-        win.font_color_indicator = Gtk.Box()
-        win.font_color_indicator.add_css_class("color-indicator")
-        win.font_color_indicator.set_size_request(16, 2)
-        color = Gdk.RGBA()
-        color.parse("transparent")
-        self.set_box_color(win.font_color_indicator, color)
-        font_color_box.append(win.font_color_indicator)
-
-        # Create font color popover for the dropdown part
-        font_color_popover = Gtk.Popover()
-        font_color_popover.set_autohide(True)
-        font_color_popover.set_has_arrow(False)
-
-        font_color_box_menu = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        font_color_box_menu.set_margin_start(6)
-        font_color_box_menu.set_margin_end(6)
-        font_color_box_menu.set_margin_top(6)
-        font_color_box_menu.set_margin_bottom(6)
-
-        # Add "Automatic" option at the top
-        automatic_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        automatic_row.set_margin_bottom(0)
-        automatic_icon = Gtk.Image.new_from_icon_name("edit-undo-symbolic")
-        automatic_label = Gtk.Label(label="Automatic")
-        automatic_row.append(automatic_icon)
-        automatic_row.append(automatic_label)
-
-        automatic_button = Gtk.Button()
-        automatic_button.set_child(automatic_row)
-        automatic_button.connect("clicked", lambda btn: self.on_font_color_automatic_clicked(win, font_color_popover))
-        font_color_box_menu.append(automatic_button)
-
-        # Create color grid
-        font_color_grid = Gtk.Grid()
-        font_color_grid.set_row_spacing(2)
-        font_color_grid.set_column_spacing(2)
-        font_color_grid.set_row_homogeneous(True)
-        font_color_grid.set_column_homogeneous(True)
-        font_color_grid.add_css_class("color-grid")
-
-        # Basic colors for text
-        text_colors = [
-            "#000000", "#434343", "#666666", "#999999", "#b7b7b7", "#cccccc", "#d9d9d9", "#efefef", "#f3f3f3", "#ffffff",
-            "#980000", "#ff0000", "#ff9900", "#ffff00", "#00ff00", "#00ffff", "#4a86e8", "#0000ff", "#9900ff", "#ff00ff",
-            "#e6b8af", "#f4cccc", "#fce5cd", "#fff2cc", "#d9ead3", "#d0e0e3", "#c9daf8", "#cfe2f3", "#d9d2e9", "#ead1dc",
-            "#dd7e6b", "#ea9999", "#f9cb9c", "#ffe599", "#b6d7a8", "#a2c4c9", "#a4c2f4", "#9fc5e8", "#b4a7d6", "#d5a6bd",
-            "#cc4125", "#e06666", "#f6b26b", "#ffd966", "#93c47d", "#76a5af", "#6d9eeb", "#6fa8dc", "#8e7cc3", "#c27ba0",
-            "#a61c00", "#cc0000", "#e69138", "#f1c232", "#6aa84f", "#45818e", "#3c78d8", "#3d85c6", "#674ea7", "#a64d79",
-            "#85200c", "#990000", "#b45f06", "#bf9000", "#38761d", "#134f5c", "#1155cc", "#0b5394", "#351c75", "#741b47",
-            "#5b0f00", "#660000", "#783f04", "#7f6000", "#274e13", "#0c343d", "#1c4587", "#073763", "#20124d", "#4c1130"
-        ]
-
-        # Create color buttons and add to grid
-        row, col = 0, 0
-        for color_hex in text_colors:
-            color_button = self.create_color_button(color_hex)
-            color_button.connect("clicked", lambda btn, c=color_hex: self.on_font_color_selected(win, c, font_color_popover))
-            font_color_grid.attach(color_button, col, row, 1, 1)
-            col += 1
-            if col >= 10:  # 10 columns
-                col = 0
-                row += 1
-
-        font_color_box_menu.append(font_color_grid)
-
-        # Add "More Colors..." button
-        more_colors_button = Gtk.Button(label="More Colors...")
-        more_colors_button.set_margin_top(6)
-        more_colors_button.connect("clicked", lambda btn: self.on_more_font_colors_clicked(win, font_color_popover))
-        font_color_box_menu.append(more_colors_button)
-
-        # Set content for popover
-        font_color_popover.set_child(font_color_box_menu)
-
-        # Create the SplitButton
-        win.font_color_button = Adw.SplitButton()
-        win.font_color_button.set_tooltip_text("Text Color")
-        win.font_color_button.set_focus_on_click(False)
-        win.font_color_button.set_size_request(40, 36)
-        win.font_color_button.set_child(font_color_box)
-        win.font_color_button.set_popover(font_color_popover)
-
-        # Connect the click handler to apply the current color
-        win.font_color_button.connect("clicked", lambda btn: self.on_font_color_button_clicked(win))
-        color_bg_clear_group.append(win.font_color_button)
-        
-        # --- Background Color SplitButton ---
-        # Create the main button part with icon and color indicator
-        bg_color_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-
-        # Icon
-        bg_color_icon = Gtk.Image.new_from_icon_name("marker-symbolic")
-        bg_color_icon.set_margin_top(4)
-        bg_color_icon.set_margin_bottom(0)
-        bg_color_box.append(bg_color_icon)
-
-        # Color indicator
-        win.bg_color_indicator = Gtk.Box()
-        win.bg_color_indicator.add_css_class("color-indicator")
-        win.bg_color_indicator.set_size_request(16, 2)
-        bg_color = Gdk.RGBA()
-        bg_color.parse("transparent")
-        self.set_box_color(win.bg_color_indicator, bg_color)
-        bg_color_box.append(win.bg_color_indicator)
-
-        # Create Background Color popover for the dropdown
-        bg_color_popover = Gtk.Popover()
-        bg_color_popover.set_autohide(True)
-        bg_color_popover.set_has_arrow(False)
-        bg_color_box_menu = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        bg_color_box_menu.set_margin_start(6)
-        bg_color_box_menu.set_margin_end(6)
-        bg_color_box_menu.set_margin_top(6)
-        bg_color_box_menu.set_margin_bottom(6)
-
-        # Add "Automatic" option at the top
-        bg_automatic_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        bg_automatic_row.set_margin_bottom(0)
-        bg_automatic_icon = Gtk.Image.new_from_icon_name("edit-undo-symbolic")
-        bg_automatic_label = Gtk.Label(label="Automatic")
-        bg_automatic_row.append(bg_automatic_icon)
-        bg_automatic_row.append(bg_automatic_label)
-
-        bg_automatic_button = Gtk.Button()
-        bg_automatic_button.set_child(bg_automatic_row)
-        bg_automatic_button.connect("clicked", lambda btn: self.on_bg_color_automatic_clicked(win, bg_color_popover))
-        bg_color_box_menu.append(bg_automatic_button)
-
-        # Add separator
-        bg_separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        bg_separator.set_margin_bottom(6)
-        bg_color_box_menu.append(bg_separator)
-
-        # Create color grid
-        bg_color_grid = Gtk.Grid()
-        bg_color_grid.set_row_spacing(2)
-        bg_color_grid.set_column_spacing(2)
-        bg_color_grid.set_row_homogeneous(True)
-        bg_color_grid.set_column_homogeneous(True)
-        bg_color_grid.add_css_class("color-grid")
-
-        # Basic colors for background (same palette as text)
-        bg_colors = text_colors
-
-        # Create color buttons and add to grid
-        row, col = 0, 0
-        for color_hex in bg_colors:
-            color_button = self.create_color_button(color_hex)
-            color_button.connect("clicked", lambda btn, c=color_hex: self.on_bg_color_selected(win, c, bg_color_popover))
-            bg_color_grid.attach(color_button, col, row, 1, 1)
-            col += 1
-            if col >= 10:  # 10 columns
-                col = 0
-                row += 1
-
-        bg_color_box_menu.append(bg_color_grid)
-
-        # Add "More Colors..." button
-        bg_more_colors_button = Gtk.Button(label="More Colors...")
-        bg_more_colors_button.set_margin_top(6)
-        bg_more_colors_button.connect("clicked", lambda btn: self.on_more_bg_colors_clicked(win, bg_color_popover))
-        bg_color_box_menu.append(bg_more_colors_button)
-
-        # Set content for popover
-        bg_color_popover.set_child(bg_color_box_menu)
-
-        # Create the SplitButton
-        win.bg_color_button = Adw.SplitButton()
-        win.bg_color_button.set_tooltip_text("Background Color")
-        win.bg_color_button.set_focus_on_click(False)
-        win.bg_color_button.set_size_request(40, 36)
-        win.bg_color_button.set_child(bg_color_box)
-        win.bg_color_button.set_popover(bg_color_popover)
-
-        # Connect the click handler to apply the current color
-        win.bg_color_button.connect("clicked", lambda btn: self.on_bg_color_button_clicked(win))
-        color_bg_clear_group.append(win.bg_color_button)
-        
-        # Clear formatting button
-        clear_formatting_button = Gtk.Button(icon_name="eraser-symbolic")
-        clear_formatting_button.set_tooltip_text("Remove Text Formatting")
-        clear_formatting_button.set_size_request(42, 36)
-        clear_formatting_button.connect("clicked", lambda btn: self.on_clear_formatting_clicked(win, btn))
-        color_bg_clear_group.append(clear_formatting_button)
-
-        win.toolbars_wrapbox.append(color_bg_clear_group)
-
-        # Create linked button group for alignment controls
-        alignment_group = Gtk.Box(css_classes=["linked"], orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        
-        # Align Left button
-        align_left_button = Gtk.ToggleButton(icon_name="format-justify-left-symbolic")
-        align_left_button.set_tooltip_text("Align Left")
-        align_left_button.set_focus_on_click(False)
-        align_left_button.set_size_request(40, 36)
-        # Store the handler ID when connecting
-        align_left_button.handler_id = align_left_button.connect("toggled", 
-            lambda btn: self.on_align_left_toggled(win, btn))
-        alignment_group.append(align_left_button)
-
-        # Align Center button
-        align_center_button = Gtk.ToggleButton(icon_name="format-justify-center-symbolic")
-        align_center_button.set_tooltip_text("Align Center")
-        align_center_button.set_focus_on_click(False)
-        align_center_button.set_size_request(40, 36)
-        # Store the handler ID when connecting
-        align_center_button.handler_id = align_center_button.connect("toggled", 
-            lambda btn: self.on_align_center_toggled(win, btn))
-        alignment_group.append(align_center_button)
-
-        # Align Right button
-        align_right_button = Gtk.ToggleButton(icon_name="format-justify-right-symbolic")
-        align_right_button.set_tooltip_text("Align Right")
-        align_right_button.set_focus_on_click(False)
-        align_right_button.set_size_request(40, 36)
-        # Store the handler ID when connecting
-        align_right_button.handler_id = align_right_button.connect("toggled", 
-            lambda btn: self.on_align_right_toggled(win, btn))
-        alignment_group.append(align_right_button)
-
-        # Justify button
-        align_justify_button = Gtk.ToggleButton(icon_name="format-justify-fill-symbolic")
-        align_justify_button.set_tooltip_text("Justify")
-        align_justify_button.set_focus_on_click(False)
-        align_justify_button.set_size_request(40, 36)
-        # Store the handler ID when connecting
-        align_justify_button.handler_id = align_justify_button.connect("toggled", 
-            lambda btn: self.on_align_justify_toggled(win, btn))
-        alignment_group.append(align_justify_button)
-
-        
-        # Store references to alignment buttons for toggling
-        win.alignment_buttons = {
-            'left': align_left_button,
-            'center': align_center_button, 
-            'right': align_right_button,
-            'justify': align_justify_button
-        }
-
-        win.toolbars_wrapbox.append(alignment_group)
-
-
-
 
 
 
