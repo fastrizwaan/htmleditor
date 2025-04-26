@@ -1705,108 +1705,80 @@ def set_box_color(self, box, color):
     style_context.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
 def on_clear_formatting_clicked(self, win, button):
-    """Remove all formatting from selected text while preserving selection"""
+    """Remove all character formatting from selected text while preserving structure and selection"""
     js_code = """
     (function() {
-        // Use the modern Selection API
+        // Use the Selection API
         const selection = window.getSelection();
         if (selection.rangeCount > 0) {
             const range = selection.getRangeAt(0);
             
             // Check if there's selected text
             if (!range.collapsed) {
-                // Store the selection boundaries before modification
-                const startContainer = range.startContainer;
-                const startOffset = range.startOffset;
-                const endContainer = range.endContainer;
-                const endOffset = range.endOffset;
-                
-                // Get plain text
-                const plainText = range.toString();
-                
-                // Force removal of all formatting
-                document.execCommand('removeFormat');
-                
-                // As a backup, also use the insertText command
-                if (document.queryCommandSupported('insertText')) {
-                    document.execCommand('insertText', false, plainText);
-                }
-                
-                // Now try to restore the selection
                 try {
-                    // Create a new range
-                    const newRange = document.createRange();
+                    // Store the current selection
+                    const originalRange = range.cloneRange();
                     
-                    // If text was inserted, the containers may have changed
-                    // Try to get the containers at the proper offsets
+                    // Get the editor
                     const editor = document.getElementById('editor');
                     
-                    // Perform a fallback selection method - select the same text by content
-                    const textNodes = [];
-                    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
-                    let node;
-                    while (node = walker.nextNode()) {
-                        textNodes.push(node);
-                    }
+                    // Create a document fragment containing the selection
+                    const fragment = originalRange.cloneContents();
                     
-                    // Try to find the nearest text node that contains the same text
-                    if (textNodes.length > 0) {
-                        // Create a selection that spans the same length as the original
-                        const plainTextLength = plainText.length;
-                        
-                        // Simple approach: Find nodes containing parts of the text and select from
-                        // the start of the first to the end of the last matching node
-                        let foundStart = false;
-                        let startNode = null, startNodeOffset = 0;
-                        let endNode = null, endNodeOffset = 0;
-                        
-                        for (const node of textNodes) {
-                            if (!foundStart && node.textContent.includes(plainText.substring(0, Math.min(plainText.length, 10)))) {
-                                // Found likely start node
-                                startNode = node;
-                                startNodeOffset = node.textContent.indexOf(plainText.substring(0, Math.min(plainText.length, 10)));
-                                foundStart = true;
+                    // Create a temporary div to work with the content
+                    const tempDiv = document.createElement('div');
+                    tempDiv.appendChild(fragment);
+                    
+                    // Store the original HTML with structure
+                    const originalHTML = tempDiv.innerHTML;
+                    
+                    // Apply removeFormat command which preserves structure
+                    document.execCommand('removeFormat');
+                    
+                    // Also remove font tags and specific inline styles
+                    // without using insertText (which destroys structure)
+                    const nodes = selection.getRangeAt(0).commonAncestorContainer.querySelectorAll(
+                        'span[style], font, b, i, u, strike, strong, em, sub, sup'
+                    );
+                    
+                    // Process nodes that are within our selection
+                    for (const node of nodes) {
+                        if (selection.containsNode(node, true)) {
+                            // Replace the node with its text content
+                            if (node.innerHTML && node.innerHTML.trim()) {
+                                const wrapper = document.createElement(node.nodeName === 'DIV' ? 'div' : 'span');
+                                wrapper.innerHTML = node.innerHTML;
+                                node.parentNode.replaceChild(wrapper, node);
                             }
-                            
-                            if (foundStart && node.textContent.includes(plainText.substring(Math.max(0, plainText.length - 10)))) {
-                                // Found likely end node
-                                endNode = node;
-                                const endSubstring = plainText.substring(Math.max(0, plainText.length - 10));
-                                const endSubstringPos = node.textContent.indexOf(endSubstring);
-                                endNodeOffset = endSubstringPos + endSubstring.length;
-                                break;
-                            }
-                        }
-                        
-                        if (startNode && endNode) {
-                            // We have start and end nodes, set the range
-                            newRange.setStart(startNode, startNodeOffset);
-                            newRange.setEnd(endNode, endNodeOffset);
-                        } else if (startNode) {
-                            // We only have start node, try to approximate the selection
-                            newRange.setStart(startNode, startNodeOffset);
-                            newRange.setEnd(startNode, startNodeOffset + plainText.length);
                         }
                     }
                     
-                    // Apply the new range to the selection
-                    selection.removeAllRanges();
-                    selection.addRange(newRange);
+                    // Clean up empty and redundant spans
+                    setTimeout(() => {
+                        const emptySpans = editor.querySelectorAll('span:empty');
+                        for (const span of emptySpans) {
+                            if (span.parentNode) {
+                                span.parentNode.removeChild(span);
+                            }
+                        }
+                        
+                        // Record undo state
+                        if (window.saveState) {
+                            saveState();
+                            window.lastContent = editor.innerHTML;
+                            window.redoStack = [];
+                            try {
+                                window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                            } catch(e) {
+                                console.log("Could not notify about changes:", e);
+                            }
+                        }
+                    }, 0);
+                    
+                    return true;
                 } catch (e) {
-                    console.error("Error restoring selection:", e);
+                    console.error("Error removing formatting:", e);
                 }
-                
-                // Record undo state
-                saveState();
-                window.lastContent = editor.innerHTML;
-                window.redoStack = [];
-                try {
-                    window.webkit.messageHandlers.contentChanged.postMessage("changed");
-                } catch(e) {
-                    console.log("Could not notify about changes:", e);
-                }
-                
-                return true;
             }
         }
         return false;
