@@ -4036,7 +4036,12 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         win.toolbars_wrapbox.append(insert_group)
 
 
-
+        # --- Add the Show HTML button ---
+        show_html_button = Gtk.Button(icon_name="text-x-generic-symbolic")
+        show_html_button.set_tooltip_text("Show HTML")
+        show_html_button.set_margin_start(10)
+        show_html_button.connect("clicked", lambda btn: self.on_show_html_clicked(win, btn))
+        win.toolbars_wrapbox.append(show_html_button)
 
 
 
@@ -4208,7 +4213,173 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         
         return win
 
-##########################         
+##########################  show html
+    def on_show_html_clicked(self, win, btn):
+        """Handle Show HTML button click"""
+        win.statusbar.set_text("Getting HTML content...")
+        
+        # Execute JavaScript to get the full HTML content
+        js_code = """
+        (function() {
+            // Get the complete HTML content of the editor
+            const editorContent = document.getElementById('editor').innerHTML;
+            return editorContent;
+        })();
+        """
+        
+        win.webview.evaluate_javascript(
+            js_code,
+            -1, None, None, None,
+            lambda webview, result, data: self.show_html_dialog(win, webview, result),
+            None
+        )
+
+    # 3. Function to display the HTML in a dialog
+
+    def show_html_dialog(self, win, webview, result):
+        """Show the HTML content in a dialog"""
+        try:
+            js_result = webview.evaluate_javascript_finish(result)
+            html_content = ""
+            
+            if js_result:
+                # Get the HTML content
+                if hasattr(js_result, 'get_js_value'):
+                    html_content = js_result.get_js_value().to_string()
+                else:
+                    html_content = js_result.to_string()
+                
+                # Create a dialog with resizable text view
+                dialog = Adw.Dialog()
+                dialog.set_title("HTML Source")
+                dialog.set_content_width(600)
+                dialog.set_content_height(400)
+                
+                # Create content box
+                content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+                content_box.set_margin_top(24)
+                content_box.set_margin_bottom(24)
+                content_box.set_margin_start(24)
+                content_box.set_margin_end(24)
+                
+                # Add explanation label
+                explanation = Gtk.Label()
+                explanation.set_markup("<b>HTML Source Code:</b>")
+                explanation.set_halign(Gtk.Align.START)
+                content_box.append(explanation)
+                
+                # Create scrolled window for text view
+                scrolled_window = Gtk.ScrolledWindow()
+                scrolled_window.set_vexpand(True)
+                scrolled_window.set_hexpand(True)
+                
+                # Create text view for HTML content
+                text_view = Gtk.TextView()
+                text_view.set_editable(True)  # Allow editing
+                text_view.set_monospace(True)  # Use monospace font for code
+                text_view.set_wrap_mode(Gtk.WrapMode.WORD)
+                
+                # Create text buffer and set content
+                text_buffer = text_view.get_buffer()
+                text_buffer.set_text(html_content)
+                
+                scrolled_window.set_child(text_view)
+                content_box.append(scrolled_window)
+                
+                # Add buttons box
+                buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+                buttons_box.set_halign(Gtk.Align.END)
+                buttons_box.set_margin_top(12)
+                
+                # Copy button - left aligned with spacer to separate from other buttons
+                copy_button = Gtk.Button(label="Copy to Clipboard")
+                copy_button.connect("clicked", lambda btn: self.copy_html_to_clipboard(win, text_buffer))
+                copy_button.set_halign(Gtk.Align.START)
+                
+                # Button spacer to push close/apply buttons to the right
+                button_spacer = Gtk.Box()
+                button_spacer.set_hexpand(True)
+                
+                # Apply changes button
+                apply_button = Gtk.Button(label="Apply Changes")
+                apply_button.add_css_class("suggested-action")
+                apply_button.connect("clicked", lambda btn: self.apply_html_changes(win, dialog, text_buffer))
+                
+                # Close button
+                close_button = Gtk.Button(label="Close")
+                close_button.connect("clicked", lambda btn: dialog.close())
+                
+                buttons_box.append(copy_button)
+                buttons_box.append(button_spacer)
+                buttons_box.append(close_button)
+                buttons_box.append(apply_button)
+                content_box.append(buttons_box)
+                
+                # Set dialog content and present
+                dialog.set_child(content_box)
+                dialog.present(win)
+                
+                # Update status
+                win.statusbar.set_text("HTML content displayed")
+            else:
+                win.statusbar.set_text("Failed to get HTML content")
+                
+        except Exception as e:
+            print(f"Error displaying HTML: {e}")
+            win.statusbar.set_text(f"Error displaying HTML: {e}")
+
+    # 4. Function to apply HTML changes
+
+    def apply_html_changes(self, win, dialog, text_buffer):
+        """Apply the edited HTML content back to the editor"""
+        try:
+            # Get the text from the buffer
+            start_iter = text_buffer.get_start_iter()
+            end_iter = text_buffer.get_end_iter()
+            html_content = text_buffer.get_text(start_iter, end_iter, True)
+            
+            # Escape for JavaScript
+            js_content = html_content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+            
+            # Set the content in the editor
+            js_code = f'setContent("{js_content}");'
+            self.execute_js(win, js_code)
+            
+            # Close the dialog
+            dialog.close()
+            
+            # Update status
+            win.statusbar.set_text("HTML changes applied")
+            
+            # Mark document as modified
+            win.modified = True
+            self.update_window_title(win)
+            
+        except Exception as e:
+            print(f"Error applying HTML changes: {e}")
+            win.statusbar.set_text(f"Error applying HTML changes: {e}")
+
+    def copy_html_to_clipboard(self, win, text_buffer):
+        """Copy the HTML content to clipboard"""
+        try:
+            # Get the text from the buffer
+            start_iter = text_buffer.get_start_iter()
+            end_iter = text_buffer.get_end_iter()
+            html_content = text_buffer.get_text(start_iter, end_iter, True)
+            
+            # Get the clipboard
+            clipboard = Gdk.Display.get_default().get_clipboard()
+            
+            # Set the text to the clipboard
+            clipboard.set(html_content)
+            
+            # Update status
+            win.statusbar.set_text("HTML copied to clipboard")
+            
+        except Exception as e:
+            print(f"Error copying to clipboard: {e}")
+            win.statusbar.set_text(f"Error copying to clipboard: {e}")
+##########################  /show html            
 def main():
     app = HTMLEditorApp()
     return app.run(sys.argv)
