@@ -247,7 +247,6 @@ class HTMLEditorApp(Adw.Application):
 
 
 
-
     def get_editor_js(self):
         """Return the combined JavaScript logic for the editor."""
         return f"""
@@ -262,9 +261,9 @@ class HTMLEditorApp(Adw.Application):
         var searchIndex = -1;
         var currentSearchText = "";
 
-
         {self.set_content_js()}
         {self.insert_table_js()}
+        {self.table_border_style_js()}
         {self.insert_text_box_js()}
         {self.insert_image_js()}
         {self.insert_link_js()}
@@ -429,8 +428,7 @@ class HTMLEditorApp(Adw.Application):
         except Exception as e:
             print(f"Error setting initial focus: {e}")
             return False  # Don't call again
-
-
+            
 ##################
     def insert_table_js(self):
         """JavaScript for insert table and related functionality"""
@@ -812,7 +810,7 @@ class HTMLEditorApp(Adw.Application):
             });
         }
         """
-
+        
     def table_drag_resize_js(self):
         """JavaScript for table dragging and resizing"""
         return """
@@ -1152,7 +1150,7 @@ class HTMLEditorApp(Adw.Application):
             }
         }
         """
-
+        
     def table_floating_js(self):
         """JavaScript for floating table functionality"""
         return """
@@ -1528,11 +1526,7 @@ class HTMLEditorApp(Adw.Application):
         self.windows.append(win)
 
         return win
-
-    
-
-
-# First, modify the create_table_toolbar method to add the float button beside alignment buttons
+        
     def create_table_toolbar(self, win):
         """Create a toolbar for table editing"""
         toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
@@ -1622,6 +1616,39 @@ class HTMLEditorApp(Adw.Application):
         separator2.set_margin_end(10)
         toolbar.append(separator2)
         
+        # Border style and color buttons
+        border_label = Gtk.Label(label="Border:")
+        border_label.set_margin_end(5)
+        toolbar.append(border_label)
+        
+        # Create a group for border options
+        border_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
+        border_group.add_css_class("linked")
+        
+        # Border style button
+        border_style_button = Gtk.Button(icon_name="edit-select-all-symbolic")
+        border_style_button.set_tooltip_text("Border Style")
+        border_style_button.connect("clicked", lambda btn: self.on_border_style_button_clicked(win, btn))
+        border_group.append(border_style_button)
+        
+        # Border color button
+        border_color_button = Gtk.Button()
+        # Create a color swatch icon
+        color_icon = Gtk.Image.new_from_icon_name("preferences-color-symbolic")
+        border_color_button.set_child(color_icon)
+        border_color_button.set_tooltip_text("Border Color")
+        border_color_button.connect("clicked", lambda btn: self.on_border_color_button_clicked(win, btn))
+        border_group.append(border_color_button)
+        
+        # Add border group to toolbar
+        toolbar.append(border_group)
+        
+        # Separator
+        separator3 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        separator3.set_margin_start(10)
+        separator3.set_margin_end(10)
+        toolbar.append(separator3)
+        
         # Alignment options
         align_label = Gtk.Label(label="Align:")
         align_label.set_margin_end(5)
@@ -1658,7 +1685,7 @@ class HTMLEditorApp(Adw.Application):
         # Add alignment group to toolbar
         toolbar.append(align_group)
         
-        # Float button (new addition)
+        # Float button
         float_button = Gtk.Button(icon_name="move-tool-symbolic")
         float_button.set_tooltip_text("Make table float freely in editor")
         float_button.set_margin_start(5)
@@ -1684,6 +1711,7 @@ class HTMLEditorApp(Adw.Application):
         js_code = "setTableFloating();"
         self.execute_js(win, js_code)
         win.statusbar.set_text("Table is now floating")
+        
     def on_content_changed(self, win, manager, message):
         """Handle content changes from the editor"""
         win.modified = True
@@ -1833,8 +1861,9 @@ class HTMLEditorApp(Adw.Application):
             addTableColumn(activeTable, cellIndex);
         })();
         """
-        self.execute_js(win, js_code)
-
+        self.execute_js(win, js_code)     
+        
+        
     def on_add_column_after_clicked(self, win):
         """Add a column after the current column in the active table"""
         js_code = """
@@ -2151,17 +2180,23 @@ class HTMLEditorApp(Adw.Application):
                 }}
                 table.left-align {{
                     float: left;
-                    margin-right: 10px;
+                    margin-right: 5px;
+                    margin-top: 5px;
+                    margin-bottom: 0px;
                     clear: none;
                 }}
                 table.right-align {{
                     float: right;
-                    margin-left: 10px;
+                    margin-left: 5px;
+                    margin-top: 5px;
+                    margin-bottom: 0px;
                     clear: none;
                 }}
                 table.center-align {{
                     margin-left: auto;
                     margin-right: auto;
+                    margin-top: 5px;
+                    margin-bottom: 0px;
                     float: none;
                     clear: both;
                 }}
@@ -2264,1284 +2299,10 @@ class HTMLEditorApp(Adw.Application):
             <div id="editor" contenteditable="true"></div>
         </body>
         </html>
-        """        
+        """   
         
-###############
-    """
-    This code adds border style and color functionality to the HTML Editor's table toolbar.
-    It includes:
-    1. UI elements for border style and color buttons in the table toolbar
-    2. A popup interface for selecting different border styles and colors
-    3. JavaScript functions to apply selected styles to tables
-    4. Python handler methods to connect the UI with the JavaScript functionality
-    """
-
-    # Add to the create_table_toolbar method to include border style and color buttons
-    def create_table_toolbar(self, win):
-        """Create a toolbar for table editing with enhanced border styling options"""
-        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
-        toolbar.set_margin_start(10)
-        toolbar.set_margin_end(10)
-        toolbar.set_margin_top(5)
-        toolbar.set_margin_bottom(5)
-        
-        # Table operations label
-        table_label = Gtk.Label(label="Table:")
-        table_label.set_margin_end(10)
-        toolbar.append(table_label)
-        
-        # Create a group for row operations
-        row_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
-        row_group.add_css_class("linked")
-        
-        # Add Row Above button
-        add_row_above_button = Gtk.Button(icon_name="list-add-symbolic")
-        add_row_above_button.set_tooltip_text("Add row above")
-        add_row_above_button.connect("clicked", lambda btn: self.on_add_row_above_clicked(win))
-        row_group.append(add_row_above_button)
-        
-        # Add Row Below button
-        add_row_below_button = Gtk.Button(icon_name="list-add-symbolic")
-        add_row_below_button.set_tooltip_text("Add row below")
-        add_row_below_button.connect("clicked", lambda btn: self.on_add_row_below_clicked(win))
-        row_group.append(add_row_below_button)
-        
-        # Add row group to toolbar
-        toolbar.append(row_group)
-        
-        # Create a group for column operations
-        col_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
-        col_group.add_css_class("linked")
-        col_group.set_margin_start(5)
-        
-        # Add Column Before button
-        add_col_before_button = Gtk.Button(icon_name="list-add-symbolic")
-        add_col_before_button.set_tooltip_text("Add column before")
-        add_col_before_button.connect("clicked", lambda btn: self.on_add_column_before_clicked(win))
-        col_group.append(add_col_before_button)
-        
-        # Add Column After button
-        add_col_after_button = Gtk.Button(icon_name="list-add-symbolic")
-        add_col_after_button.set_tooltip_text("Add column after")
-        add_col_after_button.connect("clicked", lambda btn: self.on_add_column_after_clicked(win))
-        col_group.append(add_col_after_button)
-        
-        # Add column group to toolbar
-        toolbar.append(col_group)
-        
-        # Small separator
-        separator1 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
-        separator1.set_margin_start(5)
-        separator1.set_margin_end(5)
-        toolbar.append(separator1)
-        
-        # Create a group for delete operations
-        delete_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
-        delete_group.add_css_class("linked")
-        
-        # Delete Row button
-        del_row_button = Gtk.Button(icon_name="list-remove-symbolic")
-        del_row_button.set_tooltip_text("Delete row")
-        del_row_button.connect("clicked", lambda btn: self.on_delete_row_clicked(win))
-        delete_group.append(del_row_button)
-        
-        # Delete Column button
-        del_col_button = Gtk.Button(icon_name="list-remove-symbolic")
-        del_col_button.set_tooltip_text("Delete column")
-        del_col_button.connect("clicked", lambda btn: self.on_delete_column_clicked(win))
-        delete_group.append(del_col_button)
-        
-        # Delete Table button
-        del_table_button = Gtk.Button(icon_name="edit-delete-symbolic")
-        del_table_button.set_tooltip_text("Delete table")
-        del_table_button.connect("clicked", lambda btn: self.on_delete_table_clicked(win))
-        delete_group.append(del_table_button)
-        
-        # Add delete group to toolbar
-        toolbar.append(delete_group)
-        
-        # Separator
-        separator2 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
-        separator2.set_margin_start(10)
-        separator2.set_margin_end(10)
-        toolbar.append(separator2)
-        
-        # Border style and color buttons
-        # ------------------------------
-        border_label = Gtk.Label(label="Border:")
-        border_label.set_margin_end(5)
-        toolbar.append(border_label)
-        
-        # Create a group for border options
-        border_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
-        border_group.add_css_class("linked")
-        
-        # Border style button
-        border_style_button = Gtk.Button(icon_name="edit-select-all-symbolic")
-        border_style_button.set_tooltip_text("Border Style")
-        border_style_button.connect("clicked", lambda btn: self.on_border_style_button_clicked(win, btn))
-        border_group.append(border_style_button)
-        
-        # Border color button
-        border_color_button = Gtk.Button()
-        # Create a color swatch icon
-        color_icon = Gtk.Image.new_from_icon_name("preferences-color-symbolic")
-        border_color_button.set_child(color_icon)
-        border_color_button.set_tooltip_text("Border Color")
-        border_color_button.connect("clicked", lambda btn: self.on_border_color_button_clicked(win, btn))
-        border_group.append(border_color_button)
-        
-        # Add border group to toolbar
-        toolbar.append(border_group)
-        
-        # Separator
-        separator3 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
-        separator3.set_margin_start(10)
-        separator3.set_margin_end(10)
-        toolbar.append(separator3)
-        
-        # Alignment options
-        align_label = Gtk.Label(label="Align:")
-        align_label.set_margin_end(5)
-        toolbar.append(align_label)
-        
-        # Create a group for alignment buttons
-        align_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
-        align_group.add_css_class("linked")
-        
-        # Left alignment
-        align_left_button = Gtk.Button(icon_name="format-justify-left-symbolic")
-        align_left_button.set_tooltip_text("Align Left (text wraps around right)")
-        align_left_button.connect("clicked", lambda btn: self.on_table_align_left(win))
-        align_group.append(align_left_button)
-        
-        # Center alignment
-        align_center_button = Gtk.Button(icon_name="format-justify-center-symbolic")
-        align_center_button.set_tooltip_text("Center (no text wrap)")
-        align_center_button.connect("clicked", lambda btn: self.on_table_align_center(win))
-        align_group.append(align_center_button)
-        
-        # Right alignment
-        align_right_button = Gtk.Button(icon_name="format-justify-right-symbolic")
-        align_right_button.set_tooltip_text("Align Right (text wraps around left)")
-        align_right_button.connect("clicked", lambda btn: self.on_table_align_right(win))
-        align_group.append(align_right_button)
-        
-        # Full width (no wrap)
-        full_width_button = Gtk.Button(icon_name="format-justify-fill-symbolic")
-        full_width_button.set_tooltip_text("Full Width (no text wrap)")
-        full_width_button.connect("clicked", lambda btn: self.on_table_full_width(win))
-        align_group.append(full_width_button)
-        
-        # Add alignment group to toolbar
-        toolbar.append(align_group)
-        
-        # Float button
-        float_button = Gtk.Button(icon_name="move-tool-symbolic")
-        float_button.set_tooltip_text("Make table float freely in editor")
-        float_button.set_margin_start(5)
-        float_button.connect("clicked", lambda btn: self.on_table_float_clicked(win))
-        toolbar.append(float_button)
-        
-        # Spacer
-        spacer = Gtk.Box()
-        spacer.set_hexpand(True)
-        toolbar.append(spacer)
-        
-        # Close button
-        close_button = Gtk.Button(icon_name="window-close-symbolic")
-        close_button.set_tooltip_text("Close table toolbar")
-        close_button.connect("clicked", lambda btn: self.on_close_table_toolbar_clicked(win))
-        toolbar.append(close_button)
-        
-        return toolbar
-
     # Add JavaScript functions for border style and color manipulation
     def table_border_style_js(self):
-        """JavaScript for table border style manipulation"""
-        return """
-        // Function to set table border style
-        function setTableBorderStyle(style, width, color) {
-            if (!activeTable) return false;
-            
-            // Get all cells in the table
-            const cells = activeTable.querySelectorAll('th, td');
-            
-            // Store current values
-            let currentStyle = null;
-            let currentWidth = null;
-            let currentColor = null;
-            
-            // Get current values from the first cell if available
-            if (cells.length > 0) {
-                const firstCell = cells[0];
-                currentStyle = firstCell.style.borderStyle || 'solid';
-                currentWidth = parseInt(firstCell.style.borderWidth) || 1;
-                currentColor = firstCell.style.borderColor || getBorderColor();
-            }
-            
-            // Use provided values or fall back to current/default values
-            const newStyle = style || currentStyle || 'solid';
-            const newWidth = (width !== undefined && width !== null) ? width : (currentWidth || 1);
-            const newColor = color || currentColor || getBorderColor();
-            
-            // Update border style for all cells
-            cells.forEach(cell => {
-                // Only update properties that were actually provided
-                if (style) {
-                    cell.style.borderStyle = newStyle;
-                }
-                
-                if (width !== undefined && width !== null) {
-                    cell.style.borderWidth = newWidth + 'px';
-                }
-                
-                if (color) {
-                    cell.style.borderColor = newColor;
-                }
-                
-                // Make sure the borders are visible (in case they were 'none')
-                if (cell.style.borderStyle === 'none' && style) {
-                    cell.style.borderStyle = newStyle;
-                }
-            });
-            
-            // Store the current border settings as an attribute on the table for later reference
-            activeTable.setAttribute('data-border-style', newStyle);
-            activeTable.setAttribute('data-border-width', newWidth);
-            activeTable.setAttribute('data-border-color', newColor);
-            
-            // Notify that content changed
-            try {
-                window.webkit.messageHandlers.contentChanged.postMessage('changed');
-            } catch(e) {
-                console.log("Could not notify about content change:", e);
-            }
-            
-            return true;
-        }
-        
-        // Function to set table border color
-        function setTableBorderColor(color) {
-            return setTableBorderStyle(null, null, color);
-        }
-        
-        // Function to set table border width
-        function setTableBorderWidth(width) {
-            return setTableBorderStyle(null, width, null);
-        }
-        
-        // Function to get current table border style
-        function getTableBorderStyle() {
-            if (!activeTable) return null;
-            
-            // First try to get from stored data attributes
-            const storedStyle = activeTable.getAttribute('data-border-style');
-            const storedWidth = activeTable.getAttribute('data-border-width');
-            const storedColor = activeTable.getAttribute('data-border-color');
-            
-            if (storedStyle && storedWidth && storedColor) {
-                return {
-                    style: storedStyle,
-                    width: parseInt(storedWidth),
-                    color: storedColor
-                };
-            }
-            
-            // If not stored, get from the first cell
-            const firstCell = activeTable.querySelector('td, th');
-            if (!firstCell) return {
-                style: 'solid',
-                width: 1,
-                color: getBorderColor()
-            };
-            
-            // Get computed style to ensure we get actual values
-            const computedStyle = window.getComputedStyle(firstCell);
-            
-            return {
-                style: firstCell.style.borderStyle || computedStyle.borderStyle || 'solid',
-                width: parseInt(firstCell.style.borderWidth) || parseInt(computedStyle.borderWidth) || 1,
-                color: firstCell.style.borderColor || computedStyle.borderColor || getBorderColor()
-            };
-        }
-        
-        // Function to apply border to specific sides of the table
-        function applyTableBorderSides(sides) {
-            if (!activeTable) return false;
-            
-            const cells = activeTable.querySelectorAll('td, th');
-            const currentStyle = getTableBorderStyle();
-            
-            if (!currentStyle) return false;
-            
-            // Reset all borders to none
-            cells.forEach(cell => {
-                cell.style.borderTop = 'none';
-                cell.style.borderRight = 'none';
-                cell.style.borderBottom = 'none';
-                cell.style.borderLeft = 'none';
-            });
-            
-            // Create the border string with preserved style, width and color
-            const borderValue = `${currentStyle.width}px ${currentStyle.style} ${currentStyle.color}`;
-            
-            // Apply borders based on selected sides
-            cells.forEach(cell => {
-                // Get row and column position
-                const row = cell.parentElement;
-                const rowIndex = row.rowIndex;
-                const cellIndex = cell.cellIndex;
-                const isFirstRow = rowIndex === 0;
-                const isLastRow = rowIndex === activeTable.rows.length - 1;
-                const isFirstColumn = cellIndex === 0;
-                const isLastColumn = cellIndex === row.cells.length - 1;
-                
-                // Apply borders based on sides parameter and cell position
-                if (sides.includes('all')) {
-                    cell.style.border = borderValue;
-                } else {
-                    if (sides.includes('outer')) {
-                        if (isFirstRow) cell.style.borderTop = borderValue;
-                        if (isLastRow) cell.style.borderBottom = borderValue;
-                        if (isFirstColumn) cell.style.borderLeft = borderValue;
-                        if (isLastColumn) cell.style.borderRight = borderValue;
-                    }
-                    
-                    if (sides.includes('inner')) {
-                        if (!isFirstRow) cell.style.borderTop = borderValue;
-                        if (!isLastColumn) cell.style.borderRight = borderValue;
-                    }
-                    
-                    if (sides.includes('top')) {
-                        cell.style.borderTop = borderValue;
-                    }
-                    
-                    if (sides.includes('right')) {
-                        cell.style.borderRight = borderValue;
-                    }
-                    
-                    if (sides.includes('bottom')) {
-                        cell.style.borderBottom = borderValue;
-                    }
-                    
-                    if (sides.includes('left')) {
-                        cell.style.borderLeft = borderValue;
-                    }
-                    
-                    if (sides.includes('horizontal')) {
-                        cell.style.borderTop = borderValue;
-                        cell.style.borderBottom = borderValue;
-                    }
-                    
-                    if (sides.includes('vertical')) {
-                        cell.style.borderLeft = borderValue;
-                        cell.style.borderRight = borderValue;
-                    }
-                    
-                    if (sides.includes('none')) {
-                        cell.style.border = 'none';
-                    }
-                }
-            });
-            
-            // Notify that content changed
-            try {
-                window.webkit.messageHandlers.contentChanged.postMessage('changed');
-            } catch(e) {
-                console.log("Could not notify about content change:", e);
-            }
-            
-            return true;
-        }
-        """
-
-    # Add this to your get_editor_js() method to include the border style JavaScript
-    def get_editor_js(self):
-        """Return the combined JavaScript logic for the editor."""
-        return f"""
-        // Global scope for persistence
-        window.undoStack = [];
-        window.redoStack = [];
-        window.isUndoRedo = false;
-        window.lastContent = "";
-        
-        // Search variables
-        var searchResults = [];
-        var searchIndex = -1;
-        var currentSearchText = "";
-
-        {self.set_content_js()}
-        {self.insert_table_js()}
-        {self.table_border_style_js()}  // Add the border style JS
-        {self.insert_text_box_js()}
-        {self.insert_image_js()}
-        {self.insert_link_js()}
-        {self.init_editor_js()}
-        """
-
-    # Add methods to handle border style dialog
-    def on_border_style_button_clicked(self, win, button):
-        """Show the border style popup menu"""
-        # Create a popover for border styles
-        popover = Gtk.Popover()
-        popover.set_parent(button)
-        
-        # Create the content box
-        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        content_box.set_margin_start(12)
-        content_box.set_margin_end(12)
-        content_box.set_margin_top(12)
-        content_box.set_margin_bottom(12)
-        
-        # Add title label
-        title_label = Gtk.Label(label="<b>Border Style</b>")
-        title_label.set_use_markup(True)
-        title_label.set_halign(Gtk.Align.START)
-        content_box.append(title_label)
-        
-        # First get current border style info
-        js_code = """
-        (function() {
-            const style = getTableBorderStyle();
-            return JSON.stringify(style);
-        })();
-        """
-        
-        # Call JavaScript and initialize dialog after getting results
-        win.webview.evaluate_javascript(
-            js_code,
-            -1,  # Length
-            None,  # Source URI
-            None,  # Cancellable
-            None,  # Callback
-            self._on_get_border_style,  # User data
-            {"win": win, "button": button, "content_box": content_box, "popover": popover}  # Additional user data
-        )
-        
-        # Set the content and show the popover
-        popover.set_child(content_box)
-        popover.popup()
-        
-    def _on_get_border_style(self, webview, result, user_data):
-        """Handle getting current border style from JavaScript"""
-        win = user_data["win"]
-        content_box = user_data["content_box"]
-        popover = user_data["popover"]
-        
-        # Default values
-        current_style = "solid"
-        current_width = 1
-        
-        try:
-            # Try to get the result using different methods
-            try:
-                js_result = webview.evaluate_javascript_finish(result)
-                result_str = str(js_result)
-                
-                # Try to parse JSON result
-                import json
-                style_data = json.loads(result_str)
-                if isinstance(style_data, dict):
-                    current_style = style_data.get("style", "solid")
-                    current_width = style_data.get("width", 1)
-            except Exception as e:
-                print(f"Error parsing border style data: {e}")
-        except Exception as e:
-            print(f"Error getting border style: {e}")
-        
-        # Now create the content with the current values
-        
-        # Border style dropdown
-        style_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        style_label = Gtk.Label(label="Style:")
-        style_label.set_halign(Gtk.Align.START)
-        style_label.set_hexpand(True)
-        
-        # Create border style dropdown
-        style_combo = Gtk.DropDown()
-        style_model = Gtk.StringList()
-        
-        # Add style options
-        style_options = ["solid", "dashed", "dotted", "double", "groove", "ridge", "inset", "outset"]
-        selected_index = 0
-        
-        for i, style in enumerate(style_options):
-            style_model.append(style)
-            if style == current_style:
-                selected_index = i
-        
-        style_combo.set_model(style_model)
-        style_combo.set_selected(selected_index)
-        
-        # Connect dropdown to instantly apply style when changed
-        style_combo.connect("notify::selected", lambda combo, param: self.on_border_style_changed(
-            win, 
-            style_model.get_string(combo.get_selected()),
-            width_spin.get_value_as_int()
-        ))
-        
-        style_box.append(style_label)
-        style_box.append(style_combo)
-        content_box.append(style_box)
-        
-        # Border width spinner
-        width_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        width_label = Gtk.Label(label="Width:")
-        width_label.set_halign(Gtk.Align.START)
-        width_label.set_hexpand(True)
-        
-        width_adjustment = Gtk.Adjustment(value=current_width, lower=0, upper=10, step_increment=1)
-        width_spin = Gtk.SpinButton()
-        width_spin.set_adjustment(width_adjustment)
-        
-        # Connect spinner to instantly apply width when changed
-        width_spin.connect("value-changed", lambda spin: self.on_border_width_changed(
-            win,
-            style_model.get_string(style_combo.get_selected()),
-            spin.get_value_as_int()
-        ))
-        
-        width_box.append(width_label)
-        width_box.append(width_spin)
-        content_box.append(width_box)
-        
-        # Add a separator
-        content_box.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
-        
-        # Border display options title
-        display_label = Gtk.Label(label="<b>Border Display</b>")
-        display_label.set_use_markup(True)
-        display_label.set_halign(Gtk.Align.START)
-        display_label.set_margin_top(8)
-        content_box.append(display_label)
-        
-        # Create a grid of border display options
-        display_grid = Gtk.Grid()
-        display_grid.set_row_spacing(8)
-        display_grid.set_column_spacing(8)
-        display_grid.set_margin_top(8)
-        
-        # Create border display buttons
-        display_options = [
-            {"label": "All Borders", "value": "all", "icon": "view-grid-symbolic"},
-            {"label": "No Borders", "value": "none", "icon": "window-close-symbolic"},
-            {"label": "Outer Borders", "value": "outer", "icon": "view-frame-symbolic"},
-            {"label": "Inner Borders", "value": "inner", "icon": "view-more-horizontal-symbolic"},
-            {"label": "Horizontal", "value": "horizontal", "icon": "view-more-horizontal-symbolic"},
-            {"label": "Vertical", "value": "vertical", "icon": "view-more-vertical-symbolic"},
-            {"label": "Top", "value": "top", "icon": "go-up-symbolic"},
-            {"label": "Right", "value": "right", "icon": "go-next-symbolic"},
-            {"label": "Bottom", "value": "bottom", "icon": "go-down-symbolic"},
-            {"label": "Left", "value": "left", "icon": "go-previous-symbolic"}
-        ]
-        
-        for i, option in enumerate(display_options):
-            row = i // 2
-            col = i % 2
-            
-            button = Gtk.Button()
-            button.set_tooltip_text(option["label"])
-            
-            # Set up button with icon and label
-            button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-            icon = Gtk.Image.new_from_icon_name(option["icon"])
-            button_label = Gtk.Label(label=option["label"])
-            
-            button_box.append(icon)
-            button_box.append(button_label)
-            button.set_child(button_box)
-            
-            # Connect the click signal - instant apply without closing popup
-            button.connect("clicked", lambda btn, val=option["value"]: self.on_border_display_option_clicked(
-                win, None, style_combo, width_spin, val))
-            
-            display_grid.attach(button, col, row, 1, 1)
-        
-        content_box.append(display_grid)
-        
-        # Add a separator
-        content_box.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
-        
-        # Add close button
-        close_button = Gtk.Button(label="Close")
-        close_button.set_margin_top(8)
-        close_button.connect("clicked", lambda btn: popover.popdown())
-        
-        content_box.append(close_button)
-        
-        # Show all children
-        content_box.show()
-
-    def on_border_style_changed(self, win, style, width):
-        """Apply border style change immediately"""
-        # Execute JavaScript to apply the border style
-        js_code = f"""
-        (function() {{
-            setTableBorderStyle('{style}', {width}, null);
-            return true;
-        }})();
-        """
-        self.execute_js(win, js_code)
-        
-        # Update status message
-        win.statusbar.set_text(f"Applied {style} border style")
-
-    def on_border_width_changed(self, win, style, width):
-        """Apply border width change immediately"""
-        # Execute JavaScript to apply the border width
-        js_code = f"""
-        (function() {{
-            setTableBorderWidth({width});
-            return true;
-        }})();
-        """
-        self.execute_js(win, js_code)
-        
-        # Update status message
-        win.statusbar.set_text(f"Applied {width}px border width")
-
-    def on_border_display_option_clicked(self, win, popover, style_combo, width_spin, option):
-        """Apply the selected border display option"""
-        style = style_combo.get_model().get_string(style_combo.get_selected())
-        width = width_spin.get_value_as_int()
-        
-        # Execute JavaScript to apply the selected border option
-        js_code = f"""
-        (function() {{
-            applyTableBorderSides(['{option}']);
-            return true;
-        }})();
-        """
-        self.execute_js(win, js_code)
-        
-        # Update status message
-        win.statusbar.set_text(f"Applied {option} borders")
-        
-        # Close the popover if provided (but for instant apply we pass None)
-        if popover:
-            popover.popdown()
-
-    def on_border_style_apply_clicked(self, win, popover, style, width):
-        """Apply the selected border style to the table"""
-        # Execute JavaScript to apply the border style
-        js_code = f"""
-        (function() {{
-            setTableBorderStyle('{style}', {width}, null);
-            return true;
-        }})();
-        """
-        self.execute_js(win, js_code)
-        
-        # Update status message
-        win.statusbar.set_text(f"Applied {style} border style with {width}px width")
-        
-        # Close the popover
-        popover.popdown()
-
-    def on_border_color_button_clicked(self, win, button):
-        """Show the border color picker dialog"""
-        try:
-            # Different GTK versions may use different color dialog widgets
-            # Try different approaches based on the GTK version
-            
-            # Method 1: Modern Gtk.ColorDialog (GTK4)
-            try:
-                color_dialog = Gtk.ColorDialog()
-                color_dialog.set_title("Choose Border Color")
-                
-                # Set initial color from the current border
-                # First get the current border color from JavaScript
-                win.webview.evaluate_javascript(
-                    """(function() { 
-                        const style = getTableBorderStyle(); 
-                        return style ? style.color : '#000000';
-                    })();""", 
-                    -1,  # Length
-                    None,  # Source URI
-                    None,  # Cancellable
-                    None,  # Callback
-                    self._on_get_current_border_color,  # User data
-                    win  # Additional user data
-                )
-                
-                # Show the color dialog in a deferred way
-                GLib.timeout_add(100, self._show_color_dialog, win, color_dialog, button)
-                return
-            except (AttributeError, TypeError):
-                # ColorDialog not available, try alternative
-                pass
-                
-            # Method 2: ColorChooserDialog (GTK3+)
-            try:
-                # Create a color chooser dialog
-                color_dialog = Gtk.ColorChooserDialog(
-                    title="Choose Border Color",
-                    parent=win
-                )
-                
-                # Set up dialog buttons
-                color_dialog.add_button("_Cancel", Gtk.ResponseType.CANCEL)
-                color_dialog.add_button("_Select", Gtk.ResponseType.OK)
-                color_dialog.set_default_response(Gtk.ResponseType.OK)
-                
-                # Set initial color (black as default)
-                try:
-                    # Using RGBA to set color
-                    rgba = Gdk.RGBA()
-                    rgba.parse("#000000")
-                    color_dialog.set_rgba(rgba)
-                except:
-                    # Older method
-                    try:
-                        color = Gdk.Color.parse("#000000")
-                        color_dialog.set_current_color(color)
-                    except:
-                        pass  # If both methods fail, accept default
-                
-                # Connect the response signal
-                color_dialog.connect("response", self._on_color_dialog_response, win)
-                
-                # Show the dialog
-                color_dialog.show()
-                return
-            except (AttributeError, TypeError):
-                # ColorChooserDialog not available, try fallback
-                pass
-                
-            # Method 3: Ultimate fallback - simple popover with preset colors
-            self._show_color_preset_popover(win, button)
-                
-        except Exception as e:
-            print(f"Error showing color dialog: {e}")
-            win.statusbar.set_text("Could not open color picker")
-
-    def _show_color_preset_popover(self, win, button):
-        """Create a simple color picker popover with preset colors"""
-        popover = Gtk.Popover()
-        popover.set_parent(button)
-        
-        # Create grid layout for color swatches
-        grid = Gtk.Grid()
-        grid.set_column_spacing(5)
-        grid.set_row_spacing(5)
-        grid.set_margin_start(10)
-        grid.set_margin_end(10)
-        grid.set_margin_top(10)
-        grid.set_margin_bottom(10)
-        
-        # Define preset colors
-        preset_colors = [
-            "#000000", "#333333", "#666666", "#999999", "#CCCCCC",
-            "#FFFFFF", "#FF0000", "#00FF00", "#0000FF", "#FFFF00",
-            "#FF00FF", "#00FFFF", "#800000", "#008000", "#000080",
-            "#808000", "#800080", "#008080", "#FFA500", "#A52A2A"
-        ]
-        
-        # Create color buttons
-        for i, color in enumerate(preset_colors):
-            row = i // 5
-            col = i % 5
-            
-            # Create a button with color style
-            button = Gtk.Button()
-            button.set_size_request(24, 24)
-            
-            # Apply color to button using CSS
-            css_provider = Gtk.CssProvider()
-            css_data = f"button {{ background-color: {color}; }}".encode('utf8')
-            css_provider.load_from_data(css_data)
-            
-            ctx = button.get_style_context()
-            ctx.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-            
-            # Connect click handler to apply the color
-            button.connect("clicked", lambda btn, c=color: self._apply_preset_color(win, popover, c))
-            
-            # Add to grid
-            grid.attach(button, col, row, 1, 1)
-        
-        popover.set_child(grid)
-        popover.popup()
-
-    def _apply_preset_color(self, win, popover, color):
-        """Apply a preset color to the table border"""
-        # Execute JavaScript to apply the color
-        js_code = f"""
-        (function() {{
-            setTableBorderColor('{color}');
-            return true;
-        }})();
-        """
-        self.execute_js(win, js_code)
-        
-        # Update status message
-        win.statusbar.set_text(f"Applied border color: {color}")
-        
-        # Close the popover
-        popover.popdown()
-
-    def _on_color_dialog_response(self, dialog, response_id, win):
-        """Handle response from color dialog"""
-        if response_id == Gtk.ResponseType.OK:
-            try:
-                # Try to get the selected color using different methods
-                # Method 1: get_rgba (GTK3+)
-                try:
-                    rgba = dialog.get_rgba()
-                    # Convert RGBA to hex
-                    red = int(rgba.red * 255)
-                    green = int(rgba.green * 255)
-                    blue = int(rgba.blue * 255)
-                    hex_color = f"#{red:02x}{green:02x}{blue:02x}"
-                except:
-                    # Method 2: get_current_color (older GTK)
-                    try:
-                        color = dialog.get_current_color()
-                        red = color.red >> 8
-                        green = color.green >> 8
-                        blue = color.blue >> 8
-                        hex_color = f"#{red:02x}{green:02x}{blue:02x}"
-                    except:
-                        # Default if all methods fail
-                        hex_color = "#000000"
-                
-                # Apply the color to the table borders
-                js_code = f"""
-                (function() {{
-                    setTableBorderColor('{hex_color}');
-                    return true;
-                }})();
-                """
-                self.execute_js(win, js_code)
-                
-                win.statusbar.set_text(f"Applied border color: {hex_color}")
-            except Exception as e:
-                print(f"Error getting color: {e}")
-        
-        # Close the dialog
-        dialog.destroy()
-
-    def _show_color_dialog(self, win, color_dialog, button):
-        """Show the color dialog with deferred timing"""
-        # Use native dialog with parent window
-        color_dialog.choose_rgba(win, None, None, 
-                                 lambda dialog, result, data: self._on_color_chosen(dialog, result, data),
-                                 win)
-        return False  # Don't call again
-
-    def _on_get_current_border_color(self, webview, result, win):
-        """Handle getting the current border color from JavaScript"""
-        try:
-            # Different WebKit versions return different result types
-            # Try the most common methods to extract the value
-            js_result = webview.evaluate_javascript_finish(result)
-            
-            # Method 1: Direct string conversion (newer WebKit)
-            try:
-                color_value = str(js_result)
-                if color_value.startswith('#') or color_value.startswith('rgb'):
-                    win.current_border_color = color_value
-                    return
-            except:
-                pass
-                
-            # Method 2: get_js_value (some WebKit versions)
-            try:
-                color_value = js_result.get_js_value().to_string()
-                win.current_border_color = color_value
-                return
-            except:
-                pass
-                
-            # Method 3: to_string (some WebKit versions)
-            try:
-                color_value = js_result.to_string()
-                win.current_border_color = color_value
-                return
-            except:
-                pass
-                
-            # Default if all methods fail
-            win.current_border_color = "#000000"
-                
-        except Exception as e:
-            print(f"Error getting current border color: {e}")
-            win.current_border_color = "#000000"  # Default to black
-
-    def _on_color_chosen(self, dialog, result, win):
-        """Handle color selection result"""
-        try:
-            # Get the selected color
-            rgba = dialog.choose_rgba_finish(result)
-            if rgba:
-                # Different versions of GTK have different color APIs
-                # Try multiple methods to extract the color components
-                
-                # Method 1: Standard RGBA methods
-                try:
-                    red = int(rgba.get_red() * 255)
-                    green = int(rgba.get_green() * 255)
-                    blue = int(rgba.get_blue() * 255)
-                    hex_color = f"#{red:02x}{green:02x}{blue:02x}"
-                except:
-                    # Method 2: GdkRGBA direct properties
-                    try:
-                        red = int(rgba.red * 255)
-                        green = int(rgba.green * 255)
-                        blue = int(rgba.blue * 255)
-                        hex_color = f"#{red:02x}{green:02x}{blue:02x}"
-                    except:
-                        # Method 3: Parse to_string format "rgb(r,g,b)"
-                        try:
-                            rgba_str = str(rgba)
-                            # Parse "rgb(r,g,b)" format
-                            import re
-                            rgb_match = re.search(r'rgb\((\d+),\s*(\d+),\s*(\d+)', rgba_str)
-                            if rgb_match:
-                                red = int(rgb_match.group(1))
-                                green = int(rgb_match.group(2))
-                                blue = int(rgb_match.group(3))
-                                hex_color = f"#{red:02x}{green:02x}{blue:02x}"
-                            else:
-                                hex_color = "#000000"  # Default
-                        except:
-                            hex_color = "#000000"  # Default if all methods fail
-                
-                # Apply the color to the table borders
-                js_code = f"""
-                (function() {{
-                    setTableBorderColor('{hex_color}');
-                    return true;
-                }})();
-                """
-                self.execute_js(win, js_code)
-                
-                win.statusbar.set_text(f"Applied border color: {hex_color}")
-        except Exception as e:
-            print(f"Error choosing color: {e}")
-            win.statusbar.set_text("Error applying border color")
-        
-    def on_border_style_button_clicked(self, win, button):
-        """Show the border style popup menu with improved UI"""
-        # Create a popover for border styles
-        popover = Gtk.Popover()
-        popover.set_parent(button)
-        
-        # Create the content box
-        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        content_box.set_margin_start(12)
-        content_box.set_margin_end(12)
-        content_box.set_margin_top(12)
-        content_box.set_margin_bottom(12)
-        
-        # Create header with title and close button
-        header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        header_box.set_margin_bottom(8)
-        
-        # Add title label
-        title_label = Gtk.Label(label="<b>Border Style</b>")
-        title_label.set_use_markup(True)
-        title_label.set_halign(Gtk.Align.START)
-        title_label.set_hexpand(True)
-        header_box.append(title_label)
-        
-        # Add close button [x]
-        close_button = Gtk.Button.new_from_icon_name("window-close-symbolic")
-        close_button.set_tooltip_text("Close")
-        close_button.add_css_class("flat")  # Use flat style for better appearance
-        close_button.connect("clicked", lambda btn: popover.popdown())
-        header_box.append(close_button)
-        
-        content_box.append(header_box)
-        
-        # First get current border style info
-        js_code = """
-        (function() {
-            const style = getTableBorderStyle();
-            return JSON.stringify(style);
-        })();
-        """
-        
-        # Call JavaScript and initialize dialog after getting results
-        win.webview.evaluate_javascript(
-            js_code,
-            -1,  # Length
-            None,  # Source URI
-            None,  # Cancellable
-            None,  # Callback
-            self._on_get_border_style,  # User data
-            {"win": win, "button": button, "content_box": content_box, "popover": popover}  # Additional user data
-        )
-        
-        # Set the content and show the popover
-        popover.set_child(content_box)
-        popover.popup()
-        
-    def _on_get_border_style(self, webview, result, user_data):
-        """Handle getting current border style from JavaScript"""
-        win = user_data["win"]
-        content_box = user_data["content_box"]
-        popover = user_data["popover"]
-        
-        # Default values
-        current_style = "solid"
-        current_width = 1
-        
-        try:
-            # Try to get the result using different methods
-            try:
-                js_result = webview.evaluate_javascript_finish(result)
-                result_str = str(js_result)
-                
-                # Try to parse JSON result
-                import json
-                style_data = json.loads(result_str)
-                if isinstance(style_data, dict):
-                    current_style = style_data.get("style", "solid")
-                    current_width = style_data.get("width", 1)
-            except Exception as e:
-                print(f"Error parsing border style data: {e}")
-        except Exception as e:
-            print(f"Error getting border style: {e}")
-        
-        # Now create the content with the current values
-        
-        # Create a horizontal box for style and color with linked buttons
-        style_color_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        
-        # Create border style dropdown in a MenuButton for compact UI
-        style_button = Gtk.MenuButton()
-        style_button.set_label(f"Style: {current_style}")
-        style_button.set_tooltip_text("Select border style")
-        style_button.set_hexpand(True)
-        
-        # Create the dropdown menu
-        popover_menu = Gtk.Popover()
-        popover_menu_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        popover_menu_box.set_margin_start(8)
-        popover_menu_box.set_margin_end(8)
-        popover_menu_box.set_margin_top(8)
-        popover_menu_box.set_margin_bottom(8)
-        
-        # Add style options as buttons
-        style_options = ["solid", "dashed", "dotted", "double", "groove", "ridge", "inset", "outset"]
-        
-        for style in style_options:
-            style_option = Gtk.Button(label=style)
-            style_option.connect("clicked", lambda btn, s=style: [
-                self.on_border_style_changed(win, s, width_spin.get_value_as_int()),
-                style_button.set_label(f"Style: {s}"),
-                popover_menu.popdown()
-            ])
-            popover_menu_box.append(style_option)
-        
-        popover_menu.set_child(popover_menu_box)
-        style_button.set_popover(popover_menu)
-        
-        # Color button - a button with a color swatch icon
-        color_button = Gtk.Button()
-        color_button.set_tooltip_text("Border Color")
-        color_button.set_icon_name("preferences-color-symbolic")
-        
-        # Connect click handler for color button
-        color_button.connect("clicked", lambda btn: self._show_color_preset_popover(win, btn))
-        
-        style_color_box.append(style_button)
-        style_color_box.append(color_button)
-        content_box.append(style_color_box)
-        
-        # Border width spinner
-        width_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        width_label = Gtk.Label(label="Width:")
-        width_label.set_halign(Gtk.Align.START)
-        width_label.set_hexpand(True)
-        
-        width_adjustment = Gtk.Adjustment(value=current_width, lower=0, upper=10, step_increment=1)
-        width_spin = Gtk.SpinButton()
-        width_spin.set_adjustment(width_adjustment)
-        
-        # Connect spinner to instantly apply width when changed
-        width_spin.connect("value-changed", lambda spin: self.on_border_width_changed(
-            win,
-            current_style,  # Use the current style (we don't have direct access to dropdown value)
-            spin.get_value_as_int()
-        ))
-        
-        width_box.append(width_label)
-        width_box.append(width_spin)
-        content_box.append(width_box)
-        
-        # Add a separator
-        content_box.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
-        
-        # Border display options title
-        display_label = Gtk.Label(label="<b>Border Display</b>")
-        display_label.set_use_markup(True)
-        display_label.set_halign(Gtk.Align.START)
-        display_label.set_margin_top(8)
-        content_box.append(display_label)
-        
-        # Create a linked box for primary border toggles
-        primary_border_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        primary_border_box.add_css_class("linked")
-        primary_border_box.set_margin_top(8)
-        
-        # Create the primary border buttons - with just icons
-        border_options = [
-            {"icon": "view-grid-symbolic", "tooltip": "All Borders", "value": "all"},
-            {"icon": "window-close-symbolic", "tooltip": "No Borders", "value": "none"},
-            {"icon": "view-frame-symbolic", "tooltip": "Outer Borders", "value": "outer"},
-            {"icon": "view-paged-symbolic", "tooltip": "Inner Borders", "value": "inner"}
-        ]
-        
-        # Store buttons to access them for combined operations
-        border_buttons = {}
-        
-        for option in border_options:
-            button = Gtk.Button.new_from_icon_name(option["icon"])
-            button.set_tooltip_text(option["tooltip"])
-            
-            # Connect the click signal with explicit parameter in lambda
-            button.connect("clicked", lambda btn, border_option=option["value"]: self.on_border_display_option_clicked(
-                win, None, width_spin, border_option))
-            
-            primary_border_box.append(button)
-            border_buttons[option["value"]] = button
-        
-        content_box.append(primary_border_box)
-        
-        # Create a second linked box for combination border buttons
-        combo_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        combo_box.add_css_class("linked")
-        combo_box.set_margin_top(8)
-        
-        # Create horizontal/vertical buttons - with just icons
-        combo_options = [
-            {"icon": "view-more-horizontal-symbolic", "tooltip": "Horizontal Borders", "value": "horizontal"},
-            {"icon": "view-more-vertical-symbolic", "tooltip": "Vertical Borders", "value": "vertical"},
-            {"icon": "pan-up-symbolic", "tooltip": "Outer Horizontal Borders", "value": ["outer", "horizontal"]},
-            {"icon": "pan-start-symbolic", "tooltip": "Outer Vertical Borders", "value": ["outer", "vertical"]}
-        ]
-        
-        for option in combo_options:
-            button = Gtk.Button.new_from_icon_name(option["icon"])
-            button.set_tooltip_text(option["tooltip"])
-            
-            # Handle single values and combined values differently with explicit parameter names
-            if isinstance(option["value"], list):
-                # If it's a combined value (list), use _apply_combined_borders
-                button.connect("clicked", lambda btn, border_types=option["value"]: self._apply_combined_borders(
-                    win, width_spin, border_types))
-            else:
-                # If it's a single value, use the standard handler
-                button.connect("clicked", lambda btn, border_option=option["value"]: self.on_border_display_option_clicked(
-                    win, None, width_spin, border_option))
-            
-            combo_box.append(button)
-            
-        content_box.append(combo_box)
-        
-        # Show all children
-        content_box.show()
-
-    # We no longer need these toggle-specific handler methods since we're using regular buttons
-
-    def _apply_combined_borders(self, win, width_spin, border_types):
-        """Apply a combination of border types (e.g., outer + horizontal)"""
-        # Get the current style from the JavaScript side
-        js_code = """
-        (function() {
-            const style = getTableBorderStyle();
-            return JSON.stringify(style);
-        })();
-        """
-        
-        # Execute JavaScript to get the current style
-        win.webview.evaluate_javascript(
-            js_code,
-            -1,  # Length
-            None,  # Source URI
-            None,  # Cancellable
-            None,  # Callback
-            self._on_get_style_for_combined_borders,  # User data
-            {"win": win, "border_types": border_types, "width_spin": width_spin}  # Additional user data
-        )
-
-    def _on_get_style_for_combined_borders(self, webview, result, user_data):
-        """Handle getting style for combined borders"""
-        win = user_data["win"]
-        border_types = user_data["border_types"]
-        width_spin = user_data["width_spin"]
-        
-        # Default values
-        width = width_spin.get_value_as_int()
-        
-        # Join the border types for the JavaScript array
-        border_types_str = "', '".join(border_types)
-        
-        # Execute JavaScript to apply the combined border options
-        js_code = f"""
-        (function() {{
-            applyTableBorderSides(['{border_types_str}']);
-            return true;
-        }})();
-        """
-        win.webview.evaluate_javascript(js_code, -1, None, None, None, None, None)
-        
-        # Update status message
-        win.statusbar.set_text(f"Applied {' + '.join(border_types)} borders")
-
-    def _show_color_preset_popover(self, win, button):
-        """Create a color picker popover with preset colors that apply instantly"""
-        popover = Gtk.Popover()
-        popover.set_parent(button)
-        
-        # Create grid layout for color swatches
-        grid = Gtk.Grid()
-        grid.set_column_spacing(5)
-        grid.set_row_spacing(5)
-        grid.set_margin_start(10)
-        grid.set_margin_end(10)
-        grid.set_margin_top(10)
-        grid.set_margin_bottom(10)
-        
-        # Define preset colors
-        preset_colors = [
-            "#000000", "#333333", "#666666", "#999999", "#CCCCCC",
-            "#FFFFFF", "#FF0000", "#00FF00", "#0000FF", "#FFFF00",
-            "#FF00FF", "#00FFFF", "#800000", "#008000", "#000080",
-            "#808000", "#800080", "#008080", "#FFA500", "#A52A2A"
-        ]
-        
-        # Create color buttons
-        for i, color in enumerate(preset_colors):
-            row = i // 5
-            col = i % 5
-            
-            # Create a button with color style
-            button = Gtk.Button()
-            button.set_size_request(24, 24)
-            
-            # Apply color to button using CSS
-            css_provider = Gtk.CssProvider()
-            css_data = f"button {{ background-color: {color}; }}".encode('utf8')
-            css_provider.load_from_data(css_data)
-            
-            ctx = button.get_style_context()
-            ctx.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-            
-            # Connect click handler to apply the color
-            button.connect("clicked", lambda btn, c=color: self._apply_preset_color(win, popover, c))
-            
-            # Add to grid
-            grid.attach(button, col, row, 1, 1)
-        
-        popover.set_child(grid)
-        popover.popup()
-
-    # Add the following javascript function to the table_border_style_js() method
-    def table_border_style_js(self):
         """JavaScript for table border style manipulation with combined borders"""
         return """
         // Function to set table border style
@@ -3694,8 +2455,30 @@ class HTMLEditorApp(Adw.Application):
                 } else if (sides.includes('none')) {
                     cell.style.border = 'none';
                 } else {
+                    // Outer + Inner Horizontal: Apply outer borders on all 4 sides PLUS inner horizontal borders
+                    if (hasOuter && hasInner && hasHorizontal && !hasVertical) {
+                        // Apply outer borders (all 4 sides)
+                        if (isFirstRow) cell.style.borderTop = borderValue;
+                        if (isLastRow) cell.style.borderBottom = borderValue;
+                        if (isFirstColumn) cell.style.borderLeft = borderValue;
+                        if (isLastColumn) cell.style.borderRight = borderValue;
+                        
+                        // Plus inner horizontal borders
+                        if (!isLastRow) cell.style.borderBottom = borderValue;
+                    }
+                    // Outer + Inner Vertical: Apply outer borders on all 4 sides PLUS inner vertical borders
+                    else if (hasOuter && hasInner && hasVertical && !hasHorizontal) {
+                        // Apply outer borders (all 4 sides)
+                        if (isFirstRow) cell.style.borderTop = borderValue;
+                        if (isLastRow) cell.style.borderBottom = borderValue;
+                        if (isFirstColumn) cell.style.borderLeft = borderValue;
+                        if (isLastColumn) cell.style.borderRight = borderValue;
+                        
+                        // Plus inner vertical borders
+                        if (!isLastColumn) cell.style.borderRight = borderValue;
+                    }
                     // Handle outer borders
-                    if (hasOuter) {
+                    else if (hasOuter) {
                         if (isFirstRow) cell.style.borderTop = borderValue;
                         if (isLastRow) cell.style.borderBottom = borderValue;
                         if (isFirstColumn) cell.style.borderLeft = borderValue;
@@ -3760,7 +2543,7 @@ class HTMLEditorApp(Adw.Application):
             
             return true;
         }
-        """       
+        """
         
     def on_border_style_button_clicked(self, win, button):
         """Show the border style popup menu with improved UI"""
@@ -3817,580 +2600,7 @@ class HTMLEditorApp(Adw.Application):
         # Set the content and show the popover
         popover.set_child(content_box)
         popover.popup()
-
-    def _on_get_border_style(self, webview, result, user_data):
-        """Handle getting current border style from JavaScript"""
-        win = user_data["win"]
-        content_box = user_data["content_box"]
-        popover = user_data["popover"]
         
-        # Default values
-        current_style = "solid"
-        current_width = 1
-        
-        try:
-            # Try to get the result using different methods
-            try:
-                js_result = webview.evaluate_javascript_finish(result)
-                result_str = str(js_result)
-                
-                # Try to parse JSON result
-                import json
-                style_data = json.loads(result_str)
-                if isinstance(style_data, dict):
-                    current_style = style_data.get("style", "solid")
-                    current_width = style_data.get("width", 1)
-            except Exception as e:
-                print(f"Error parsing border style data: {e}")
-        except Exception as e:
-            print(f"Error getting border style: {e}")
-        
-        # Now create the content with the current values
-        
-        # Create a horizontal box for style and color with linked buttons
-        style_color_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        
-        # Create border style dropdown in a MenuButton for compact UI
-        style_button = Gtk.MenuButton()
-        style_button.set_label(f"Style: {current_style}")
-        style_button.set_tooltip_text("Select border style")
-        style_button.set_hexpand(True)
-        
-        # Create the dropdown menu
-        popover_menu = Gtk.Popover()
-        popover_menu_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        popover_menu_box.set_margin_start(8)
-        popover_menu_box.set_margin_end(8)
-        popover_menu_box.set_margin_top(8)
-        popover_menu_box.set_margin_bottom(8)
-        
-        # Add style options as buttons
-        style_options = ["solid", "dashed", "dotted", "double", "groove", "ridge", "inset", "outset"]
-        
-        for style in style_options:
-            style_option = Gtk.Button(label=style)
-            style_option.connect("clicked", lambda btn, s=style: [
-                self.on_border_style_changed(win, s, width_spin.get_value_as_int()),
-                style_button.set_label(f"Style: {s}"),
-                popover_menu.popdown()
-            ])
-            popover_menu_box.append(style_option)
-        
-        popover_menu.set_child(popover_menu_box)
-        style_button.set_popover(popover_menu)
-        
-        # Color button - a button with a color swatch icon
-        color_button = Gtk.Button()
-        color_button.set_tooltip_text("Border Color")
-        color_button.set_icon_name("preferences-color-symbolic")
-        
-        # Connect click handler for color button
-        color_button.connect("clicked", lambda btn: self._show_color_preset_popover(win, btn))
-        
-        style_color_box.append(style_button)
-        style_color_box.append(color_button)
-        content_box.append(style_color_box)
-        
-        # Border width spinner
-        width_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        width_label = Gtk.Label(label="Width:")
-        width_label.set_halign(Gtk.Align.START)
-        width_label.set_hexpand(True)
-        
-        width_adjustment = Gtk.Adjustment(value=current_width, lower=0, upper=10, step_increment=1)
-        width_spin = Gtk.SpinButton()
-        width_spin.set_adjustment(width_adjustment)
-        
-        # Connect spinner to instantly apply width when changed
-        width_spin.connect("value-changed", lambda spin: self.on_border_width_changed(
-            win,
-            current_style,  # Use the current style (we don't have direct access to dropdown value)
-            spin.get_value_as_int()
-        ))
-        
-        width_box.append(width_label)
-        width_box.append(width_spin)
-        content_box.append(width_box)
-        
-        # Add a separator
-        content_box.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
-        
-        # Border display options title
-        display_label = Gtk.Label(label="<b>Border Display</b>")
-        display_label.set_use_markup(True)
-        display_label.set_halign(Gtk.Align.START)
-        display_label.set_margin_top(8)
-        content_box.append(display_label)
-        
-        # Create a linked box for primary border toggles
-        primary_border_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        primary_border_box.add_css_class("linked")
-        primary_border_box.set_margin_top(8)
-        
-        # Create the primary border buttons - with just icons
-        border_options = [
-            {"icon": "view-grid-symbolic", "tooltip": "All Borders", "value": "all"},
-            {"icon": "window-close-symbolic", "tooltip": "No Borders", "value": "none"},
-            {"icon": "view-frame-symbolic", "tooltip": "Outer Borders", "value": "outer"},
-            {"icon": "view-paged-symbolic", "tooltip": "Inner Borders", "value": "inner"}
-        ]
-        
-        # Store buttons to access them for combined operations
-        border_buttons = {}
-        
-        for option in border_options:
-            button = Gtk.Button.new_from_icon_name(option["icon"])
-            button.set_tooltip_text(option["tooltip"])
-            
-            # Connect the click signal with explicit parameter in lambda
-            button.connect("clicked", lambda btn, border_option=option["value"]: self.on_border_display_option_clicked(
-                win, None, width_spin, border_option))
-            
-            primary_border_box.append(button)
-            border_buttons[option["value"]] = button
-        
-        content_box.append(primary_border_box)
-        
-        # Create a second linked box for combination border buttons
-        combo_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        combo_box.add_css_class("linked")
-        combo_box.set_margin_top(8)
-        
-        # Create horizontal/vertical buttons - with just icons
-        # Add inner combinations to the options
-        combo_options = [
-            {"icon": "view-more-horizontal-symbolic", "tooltip": "Horizontal Borders", "value": "horizontal"},
-            {"icon": "view-more-vertical-symbolic", "tooltip": "Vertical Borders", "value": "vertical"},
-            {"icon": "pan-up-symbolic", "tooltip": "Outer Horizontal Borders", "value": ["outer", "horizontal"]},
-            {"icon": "pan-start-symbolic", "tooltip": "Outer Vertical Borders", "value": ["outer", "vertical"]},
-            {"icon": "pan-down-symbolic", "tooltip": "Inner Horizontal Borders", "value": ["inner", "horizontal"]},
-            {"icon": "pan-end-symbolic", "tooltip": "Inner Vertical Borders", "value": ["inner", "vertical"]}
-        ]
-        
-        for option in combo_options:
-            button = Gtk.Button.new_from_icon_name(option["icon"])
-            button.set_tooltip_text(option["tooltip"])
-            
-            # Handle single values and combined values differently with explicit parameter names
-            if isinstance(option["value"], list):
-                # If it's a combined value (list), use _apply_combined_borders
-                button.connect("clicked", lambda btn, border_types=option["value"]: self._apply_combined_borders(
-                    win, width_spin, border_types))
-            else:
-                # If it's a single value, use the standard handler
-                button.connect("clicked", lambda btn, border_option=option["value"]: self.on_border_display_option_clicked(
-                    win, None, width_spin, border_option))
-            
-            combo_box.append(button)
-            
-        content_box.append(combo_box)
-
-    def on_border_display_option_clicked(self, win, popover, width_spin, option):
-        """Apply the selected border display option"""
-        # Execute JavaScript to apply the selected border option directly
-        js_code = f"""
-        (function() {{
-            applyTableBorderSides(['{option}']);
-            return true;
-        }})();
-        """
-        win.webview.evaluate_javascript(js_code, -1, None, None, None, None, None)
-        
-        # Update status message
-        win.statusbar.set_text(f"Applied {option} borders")
-        
-        # Close the popover if provided (but for instant apply we pass None)
-        if popover:
-            popover.popdown()
-
-    def _apply_combined_borders(self, win, width_spin, border_types):
-        """Apply a combination of border types (e.g., outer + horizontal)"""
-        # Join the border types for the JavaScript array
-        border_types_str = "', '".join(border_types)
-        
-        # Execute JavaScript to apply the combined border options
-        js_code = f"""
-        (function() {{
-            applyTableBorderSides(['{border_types_str}']);
-            return true;
-        }})();
-        """
-        win.webview.evaluate_javascript(js_code, -1, None, None, None, None, None)
-        
-        # Update status message
-        win.statusbar.set_text(f"Applied {' + '.join(border_types)} borders")
-
-    def on_border_style_changed(self, win, style, width):
-        """Apply border style change immediately"""
-        # Execute JavaScript to apply the border style
-        js_code = f"""
-        (function() {{
-            setTableBorderStyle('{style}', {width}, null);
-            return true;
-        }})();
-        """
-        win.webview.evaluate_javascript(js_code, -1, None, None, None, None, None)
-        
-        # Update status message
-        win.statusbar.set_text(f"Applied {style} border style")
-
-    def on_border_width_changed(self, win, style, width):
-        """Apply border width change immediately"""
-        # Execute JavaScript to apply the border width
-        js_code = f"""
-        (function() {{
-            setTableBorderWidth({width});
-            return true;
-        }})();
-        """
-        win.webview.evaluate_javascript(js_code, -1, None, None, None, None, None)
-        
-        # Update status message
-        win.statusbar.set_text(f"Applied {width}px border width")
-
-    def _show_color_preset_popover(self, win, button):
-        """Create a color picker popover with preset colors that apply instantly"""
-        popover = Gtk.Popover()
-        popover.set_parent(button)
-        
-        # Create grid layout for color swatches
-        grid = Gtk.Grid()
-        grid.set_column_spacing(5)
-        grid.set_row_spacing(5)
-        grid.set_margin_start(10)
-        grid.set_margin_end(10)
-        grid.set_margin_top(10)
-        grid.set_margin_bottom(10)
-        
-        # Define preset colors
-        preset_colors = [
-            "#000000", "#333333", "#666666", "#999999", "#CCCCCC",
-            "#FFFFFF", "#FF0000", "#00FF00", "#0000FF", "#FFFF00",
-            "#FF00FF", "#00FFFF", "#800000", "#008000", "#000080",
-            "#808000", "#800080", "#008080", "#FFA500", "#A52A2A"
-        ]
-        
-        # Create color buttons
-        for i, color in enumerate(preset_colors):
-            row = i // 5
-            col = i % 5
-            
-            # Create a button with color style
-            button = Gtk.Button()
-            button.set_size_request(24, 24)
-            
-            # Apply color to button using CSS
-            css_provider = Gtk.CssProvider()
-            css_data = f"button {{ background-color: {color}; }}".encode('utf8')
-            css_provider.load_from_data(css_data)
-            
-            ctx = button.get_style_context()
-            ctx.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-            
-            # Connect click handler to apply the color
-            button.connect("clicked", lambda btn, c=color: self._apply_preset_color(win, popover, c))
-            
-            # Add to grid
-            grid.attach(button, col, row, 1, 1)
-        
-        popover.set_child(grid)
-        popover.popup()
-
-    def _apply_preset_color(self, win, popover, color):
-        """Apply a preset color to the table border"""
-        # Execute JavaScript to apply the color
-        js_code = f"""
-        (function() {{
-            setTableBorderColor('{color}');
-            return true;
-        }})();
-        """
-        win.webview.evaluate_javascript(js_code, -1, None, None, None, None, None)
-        
-        # Update status message
-        win.statusbar.set_text(f"Applied border color: {color}")
-        
-        # Close the popover
-        popover.popdown()
-
-    # Here's the JavaScript function for table border styling
-    def table_border_style_js(self):
-        """JavaScript for table border style manipulation with combined borders"""
-        return """
-        // Function to set table border style
-        function setTableBorderStyle(style, width, color) {
-            if (!activeTable) return false;
-            
-            // Get all cells in the table
-            const cells = activeTable.querySelectorAll('th, td');
-            
-            // Store current values
-            let currentStyle = null;
-            let currentWidth = null;
-            let currentColor = null;
-            
-            // Get current values from the first cell if available
-            if (cells.length > 0) {
-                const firstCell = cells[0];
-                currentStyle = firstCell.style.borderStyle || 'solid';
-                currentWidth = parseInt(firstCell.style.borderWidth) || 1;
-                currentColor = firstCell.style.borderColor || getBorderColor();
-            }
-            
-            // Use provided values or fall back to current/default values
-            const newStyle = style || currentStyle || 'solid';
-            const newWidth = (width !== undefined && width !== null) ? width : (currentWidth || 1);
-            const newColor = color || currentColor || getBorderColor();
-            
-            // Update border style for all cells
-            cells.forEach(cell => {
-                // Only update properties that were actually provided
-                if (style) {
-                    cell.style.borderStyle = newStyle;
-                }
-                
-                if (width !== undefined && width !== null) {
-                    cell.style.borderWidth = newWidth + 'px';
-                }
-                
-                if (color) {
-                    cell.style.borderColor = newColor;
-                }
-                
-                // Make sure the borders are visible (in case they were 'none')
-                if (cell.style.borderStyle === 'none' && style) {
-                    cell.style.borderStyle = newStyle;
-                }
-            });
-            
-            // Store the current border settings as an attribute on the table for later reference
-            activeTable.setAttribute('data-border-style', newStyle);
-            activeTable.setAttribute('data-border-width', newWidth);
-            activeTable.setAttribute('data-border-color', newColor);
-            
-            // Notify that content changed
-            try {
-                window.webkit.messageHandlers.contentChanged.postMessage('changed');
-            } catch(e) {
-                console.log("Could not notify about content change:", e);
-            }
-            
-            return true;
-        }
-        
-        // Function to set table border color
-        function setTableBorderColor(color) {
-            return setTableBorderStyle(null, null, color);
-        }
-        
-        // Function to set table border width
-        function setTableBorderWidth(width) {
-            return setTableBorderStyle(null, width, null);
-        }
-        
-        // Function to get current table border style
-        function getTableBorderStyle() {
-            if (!activeTable) return null;
-            
-            // First try to get from stored data attributes
-            const storedStyle = activeTable.getAttribute('data-border-style');
-            const storedWidth = activeTable.getAttribute('data-border-width');
-            const storedColor = activeTable.getAttribute('data-border-color');
-            
-            if (storedStyle && storedWidth && storedColor) {
-                return {
-                    style: storedStyle,
-                    width: parseInt(storedWidth),
-                    color: storedColor
-                };
-            }
-            
-            // If not stored, get from the first cell
-            const firstCell = activeTable.querySelector('td, th');
-            if (!firstCell) return {
-                style: 'solid',
-                width: 1,
-                color: getBorderColor()
-            };
-            
-            // Get computed style to ensure we get actual values
-            const computedStyle = window.getComputedStyle(firstCell);
-            
-            return {
-                style: firstCell.style.borderStyle || computedStyle.borderStyle || 'solid',
-                width: parseInt(firstCell.style.borderWidth) || parseInt(computedStyle.borderWidth) || 1,
-                color: firstCell.style.borderColor || computedStyle.borderColor || getBorderColor()
-            };
-        }
-        
-        // Enhanced function to apply border to specific sides of the table
-        // Now supports combined options like 'outer' + 'horizontal'
-        function applyTableBorderSides(sides) {
-            if (!activeTable) return false;
-            
-            const cells = activeTable.querySelectorAll('td, th');
-            const currentStyle = getTableBorderStyle();
-            
-            if (!currentStyle) return false;
-            
-            // Reset all borders to none
-            cells.forEach(cell => {
-                cell.style.borderTop = 'none';
-                cell.style.borderRight = 'none';
-                cell.style.borderBottom = 'none';
-                cell.style.borderLeft = 'none';
-            });
-            
-            // Create the border string with preserved style, width and color
-            const borderValue = `${currentStyle.width}px ${currentStyle.style} ${currentStyle.color}`;
-            
-            // Check for special combined cases
-            const hasOuter = sides.includes('outer');
-            const hasInner = sides.includes('inner');
-            const hasHorizontal = sides.includes('horizontal');
-            const hasVertical = sides.includes('vertical');
-            
-            // Apply borders based on selected sides
-            cells.forEach(cell => {
-                // Get row and column position
-                const row = cell.parentElement;
-                const rowIndex = row.rowIndex;
-                const cellIndex = cell.cellIndex;
-                const isFirstRow = rowIndex === 0;
-                const isLastRow = rowIndex === activeTable.rows.length - 1;
-                const isFirstColumn = cellIndex === 0;
-                const isLastColumn = cellIndex === row.cells.length - 1;
-                
-                // Apply borders based on sides parameter and cell position
-                if (sides.includes('all')) {
-                    cell.style.border = borderValue;
-                } else if (sides.includes('none')) {
-                    cell.style.border = 'none';
-                } else {
-                    // Handle outer borders
-                    if (hasOuter) {
-                        if (isFirstRow) cell.style.borderTop = borderValue;
-                        if (isLastRow) cell.style.borderBottom = borderValue;
-                        if (isFirstColumn) cell.style.borderLeft = borderValue;
-                        if (isLastColumn) cell.style.borderRight = borderValue;
-                        
-                        // If outer + horizontal, add only top and bottom outer borders
-                        if (hasHorizontal && !hasVertical) {
-                            if (isFirstRow) cell.style.borderTop = borderValue;
-                            if (isLastRow) cell.style.borderBottom = borderValue;
-                            cell.style.borderLeft = 'none';
-                            cell.style.borderRight = 'none';
-                        }
-                        
-                        // If outer + vertical, add only left and right outer borders
-                        if (hasVertical && !hasHorizontal) {
-                            cell.style.borderTop = 'none';
-                            cell.style.borderBottom = 'none';
-                            if (isFirstColumn) cell.style.borderLeft = borderValue;
-                            if (isLastColumn) cell.style.borderRight = borderValue;
-                        }
-                    }
-                    
-                    // Handle inner borders
-                    else if (hasInner) {
-                        if (!isLastRow) cell.style.borderBottom = borderValue;
-                        if (!isLastColumn) cell.style.borderRight = borderValue;
-                        
-                        // If inner + horizontal, add only horizontal inner borders
-                        if (hasHorizontal && !hasVertical) {
-                            if (!isLastRow) cell.style.borderBottom = borderValue;
-                            cell.style.borderRight = 'none';
-                        }
-                        
-                        // If inner + vertical, add only vertical inner borders
-                        if (hasVertical && !hasHorizontal) {
-                            cell.style.borderBottom = 'none';
-                            if (!isLastColumn) cell.style.borderRight = borderValue;
-                        }
-                    }
-                    
-                    // Handle standalone horizontal/vertical if not combined with outer/inner
-                    else {
-                        if (hasHorizontal) {
-                            cell.style.borderTop = borderValue;
-                            cell.style.borderBottom = borderValue;
-                        }
-                        
-                        if (hasVertical) {
-                            cell.style.borderLeft = borderValue;
-                            cell.style.borderRight = borderValue;
-                        }
-                    }
-                }
-            });
-            
-            // Notify that content changed
-            try {
-                window.webkit.messageHandlers.contentChanged.postMessage('changed');
-            } catch(e) {
-                console.log("Could not notify about content change:", e);
-            }
-            
-            return true;
-        }
-        """         
-        
-    def on_border_style_button_clicked(self, win, button):
-        """Show the border style popup menu with improved UI"""
-        # Create a popover for border styles
-        popover = Gtk.Popover()
-        popover.set_parent(button)
-        
-        # Create the content box
-        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        content_box.set_margin_start(12)
-        content_box.set_margin_end(12)
-        content_box.set_margin_top(12)
-        content_box.set_margin_bottom(12)
-        
-        # Create header with title and close button
-        header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        header_box.set_margin_bottom(8)
-        
-        # Add title label
-        title_label = Gtk.Label(label="<b>Border Style</b>")
-        title_label.set_use_markup(True)
-        title_label.set_halign(Gtk.Align.START)
-        title_label.set_hexpand(True)
-        header_box.append(title_label)
-        
-        # Add close button [x]
-        close_button = Gtk.Button.new_from_icon_name("window-close-symbolic")
-        close_button.set_tooltip_text("Close")
-        close_button.add_css_class("flat")  # Use flat style for better appearance
-        close_button.connect("clicked", lambda btn: popover.popdown())
-        header_box.append(close_button)
-        
-        content_box.append(header_box)
-        
-        # First get current border style info
-        js_code = """
-        (function() {
-            const style = getTableBorderStyle();
-            return JSON.stringify(style);
-        })();
-        """
-        
-        # Call JavaScript and initialize dialog after getting results
-        win.webview.evaluate_javascript(
-            js_code,
-            -1,  # Length
-            None,  # Source URI
-            None,  # Cancellable
-            None,  # Callback
-            self._on_get_border_style,  # User data
-            {"win": win, "button": button, "content_box": content_box, "popover": popover}  # Additional user data
-        )
-        
-        # Set the content and show the popover
-        popover.set_child(content_box)
-        popover.popup()
-
     def _on_get_border_style(self, webview, result, user_data):
         """Handle getting current border style from JavaScript"""
         win = user_data["win"]
@@ -4697,248 +2907,223 @@ class HTMLEditorApp(Adw.Application):
         # Close the popover
         popover.popdown()
 
-    def table_border_style_js(self):
-        """JavaScript for table border style manipulation with combined borders"""
-        return """
-        // Function to set table border style
-        function setTableBorderStyle(style, width, color) {
-            if (!activeTable) return false;
+    def on_border_color_button_clicked(self, win, button):
+        """Show the border color picker dialog"""
+        try:
+            # Different GTK versions may use different color dialog widgets
+            # Try different approaches based on the GTK version
             
-            // Get all cells in the table
-            const cells = activeTable.querySelectorAll('th, td');
-            
-            // Store current values
-            let currentStyle = null;
-            let currentWidth = null;
-            let currentColor = null;
-            
-            // Get current values from the first cell if available
-            if (cells.length > 0) {
-                const firstCell = cells[0];
-                currentStyle = firstCell.style.borderStyle || 'solid';
-                currentWidth = parseInt(firstCell.style.borderWidth) || 1;
-                currentColor = firstCell.style.borderColor || getBorderColor();
-            }
-            
-            // Use provided values or fall back to current/default values
-            const newStyle = style || currentStyle || 'solid';
-            const newWidth = (width !== undefined && width !== null) ? width : (currentWidth || 1);
-            const newColor = color || currentColor || getBorderColor();
-            
-            // Update border style for all cells
-            cells.forEach(cell => {
-                // Only update properties that were actually provided
-                if (style) {
-                    cell.style.borderStyle = newStyle;
-                }
+            # Method 1: Modern Gtk.ColorDialog (GTK4)
+            try:
+                color_dialog = Gtk.ColorDialog()
+                color_dialog.set_title("Choose Border Color")
                 
-                if (width !== undefined && width !== null) {
-                    cell.style.borderWidth = newWidth + 'px';
-                }
+                # Set initial color from the current border
+                # First get the current border color from JavaScript
+                win.webview.evaluate_javascript(
+                    """(function() { 
+                        const style = getTableBorderStyle(); 
+                        return style ? style.color : '#000000';
+                    })();""", 
+                    -1,  # Length
+                    None,  # Source URI
+                    None,  # Cancellable
+                    None,  # Callback
+                    self._on_get_current_border_color,  # User data
+                    win  # Additional user data
+                )
                 
-                if (color) {
-                    cell.style.borderColor = newColor;
-                }
+                # Show the color dialog in a deferred way
+                GLib.timeout_add(100, self._show_color_dialog, win, color_dialog, button)
+                return
+            except (AttributeError, TypeError):
+                # ColorDialog not available, try alternative
+                pass
                 
-                // Make sure the borders are visible (in case they were 'none')
-                if (cell.style.borderStyle === 'none' && style) {
-                    cell.style.borderStyle = newStyle;
-                }
-            });
-            
-            // Store the current border settings as an attribute on the table for later reference
-            activeTable.setAttribute('data-border-style', newStyle);
-            activeTable.setAttribute('data-border-width', newWidth);
-            activeTable.setAttribute('data-border-color', newColor);
-            
-            // Notify that content changed
-            try {
-                window.webkit.messageHandlers.contentChanged.postMessage('changed');
-            } catch(e) {
-                console.log("Could not notify about content change:", e);
-            }
-            
-            return true;
-        }
-        
-        // Function to set table border color
-        function setTableBorderColor(color) {
-            return setTableBorderStyle(null, null, color);
-        }
-        
-        // Function to set table border width
-        function setTableBorderWidth(width) {
-            return setTableBorderStyle(null, width, null);
-        }
-        
-        // Function to get current table border style
-        function getTableBorderStyle() {
-            if (!activeTable) return null;
-            
-            // First try to get from stored data attributes
-            const storedStyle = activeTable.getAttribute('data-border-style');
-            const storedWidth = activeTable.getAttribute('data-border-width');
-            const storedColor = activeTable.getAttribute('data-border-color');
-            
-            if (storedStyle && storedWidth && storedColor) {
-                return {
-                    style: storedStyle,
-                    width: parseInt(storedWidth),
-                    color: storedColor
-                };
-            }
-            
-            // If not stored, get from the first cell
-            const firstCell = activeTable.querySelector('td, th');
-            if (!firstCell) return {
-                style: 'solid',
-                width: 1,
-                color: getBorderColor()
-            };
-            
-            // Get computed style to ensure we get actual values
-            const computedStyle = window.getComputedStyle(firstCell);
-            
-            return {
-                style: firstCell.style.borderStyle || computedStyle.borderStyle || 'solid',
-                width: parseInt(firstCell.style.borderWidth) || parseInt(computedStyle.borderWidth) || 1,
-                color: firstCell.style.borderColor || computedStyle.borderColor || getBorderColor()
-            };
-        }
-        
-        // Enhanced function to apply border to specific sides of the table
-        // Now supports combined options like 'outer' + 'horizontal'
-        function applyTableBorderSides(sides) {
-            if (!activeTable) return false;
-            
-            const cells = activeTable.querySelectorAll('td, th');
-            const currentStyle = getTableBorderStyle();
-            
-            if (!currentStyle) return false;
-            
-            // Reset all borders to none
-            cells.forEach(cell => {
-                cell.style.borderTop = 'none';
-                cell.style.borderRight = 'none';
-                cell.style.borderBottom = 'none';
-                cell.style.borderLeft = 'none';
-            });
-            
-            // Create the border string with preserved style, width and color
-            const borderValue = `${currentStyle.width}px ${currentStyle.style} ${currentStyle.color}`;
-            
-            // Check for special combined cases
-            const hasOuter = sides.includes('outer');
-            const hasInner = sides.includes('inner');
-            const hasHorizontal = sides.includes('horizontal');
-            const hasVertical = sides.includes('vertical');
-            
-            // Apply borders based on selected sides
-            cells.forEach(cell => {
-                // Get row and column position
-                const row = cell.parentElement;
-                const rowIndex = row.rowIndex;
-                const cellIndex = cell.cellIndex;
-                const isFirstRow = rowIndex === 0;
-                const isLastRow = rowIndex === activeTable.rows.length - 1;
-                const isFirstColumn = cellIndex === 0;
-                const isLastColumn = cellIndex === row.cells.length - 1;
+            # Method 2: ColorChooserDialog (GTK3+)
+            try:
+                # Create a color chooser dialog
+                color_dialog = Gtk.ColorChooserDialog(
+                    title="Choose Border Color",
+                    parent=win
+                )
                 
-                // Apply borders based on sides parameter and cell position
-                if (sides.includes('all')) {
-                    cell.style.border = borderValue;
-                } else if (sides.includes('none')) {
-                    cell.style.border = 'none';
-                } else {
-                    // Outer + Inner Horizontal: Apply outer borders on all 4 sides PLUS inner horizontal borders
-                    if (hasOuter && hasInner && hasHorizontal && !hasVertical) {
-                        // Apply outer borders (all 4 sides)
-                        if (isFirstRow) cell.style.borderTop = borderValue;
-                        if (isLastRow) cell.style.borderBottom = borderValue;
-                        if (isFirstColumn) cell.style.borderLeft = borderValue;
-                        if (isLastColumn) cell.style.borderRight = borderValue;
-                        
-                        // Plus inner horizontal borders
-                        if (!isLastRow) cell.style.borderBottom = borderValue;
-                    }
-                    // Outer + Inner Vertical: Apply outer borders on all 4 sides PLUS inner vertical borders
-                    else if (hasOuter && hasInner && hasVertical && !hasHorizontal) {
-                        // Apply outer borders (all 4 sides)
-                        if (isFirstRow) cell.style.borderTop = borderValue;
-                        if (isLastRow) cell.style.borderBottom = borderValue;
-                        if (isFirstColumn) cell.style.borderLeft = borderValue;
-                        if (isLastColumn) cell.style.borderRight = borderValue;
-                        
-                        // Plus inner vertical borders
-                        if (!isLastColumn) cell.style.borderRight = borderValue;
-                    }
-                    // Handle outer borders
-                    else if (hasOuter) {
-                        if (isFirstRow) cell.style.borderTop = borderValue;
-                        if (isLastRow) cell.style.borderBottom = borderValue;
-                        if (isFirstColumn) cell.style.borderLeft = borderValue;
-                        if (isLastColumn) cell.style.borderRight = borderValue;
-                        
-                        // If outer + horizontal, add only top and bottom outer borders
-                        if (hasHorizontal && !hasVertical) {
-                            if (isFirstRow) cell.style.borderTop = borderValue;
-                            if (isLastRow) cell.style.borderBottom = borderValue;
-                            cell.style.borderLeft = 'none';
-                            cell.style.borderRight = 'none';
-                        }
-                        
-                        // If outer + vertical, add only left and right outer borders
-                        if (hasVertical && !hasHorizontal) {
-                            cell.style.borderTop = 'none';
-                            cell.style.borderBottom = 'none';
-                            if (isFirstColumn) cell.style.borderLeft = borderValue;
-                            if (isLastColumn) cell.style.borderRight = borderValue;
-                        }
-                    }
-                    
-                    // Handle inner borders
-                    else if (hasInner) {
-                        if (!isLastRow) cell.style.borderBottom = borderValue;
-                        if (!isLastColumn) cell.style.borderRight = borderValue;
-                        
-                        // If inner + horizontal, add only horizontal inner borders
-                        if (hasHorizontal && !hasVertical) {
-                            if (!isLastRow) cell.style.borderBottom = borderValue;
-                            cell.style.borderRight = 'none';
-                        }
-                        
-                        // If inner + vertical, add only vertical inner borders
-                        if (hasVertical && !hasHorizontal) {
-                            cell.style.borderBottom = 'none';
-                            if (!isLastColumn) cell.style.borderRight = borderValue;
-                        }
-                    }
-                    
-                    // Handle standalone horizontal/vertical if not combined with outer/inner
-                    else {
-                        if (hasHorizontal) {
-                            cell.style.borderTop = borderValue;
-                            cell.style.borderBottom = borderValue;
-                        }
-                        
-                        if (hasVertical) {
-                            cell.style.borderLeft = borderValue;
-                            cell.style.borderRight = borderValue;
-                        }
-                    }
-                }
-            });
+                # Set up dialog buttons
+                color_dialog.add_button("_Cancel", Gtk.ResponseType.CANCEL)
+                color_dialog.add_button("_Select", Gtk.ResponseType.OK)
+                color_dialog.set_default_response(Gtk.ResponseType.OK)
+                
+                # Set initial color (black as default)
+                try:
+                    # Using RGBA to set color
+                    rgba = Gdk.RGBA()
+                    rgba.parse("#000000")
+                    color_dialog.set_rgba(rgba)
+                except:
+                    # Older method
+                    try:
+                        color = Gdk.Color.parse("#000000")
+                        color_dialog.set_current_color(color)
+                    except:
+                        pass  # If both methods fail, accept default
+                
+                # Connect the response signal
+                color_dialog.connect("response", self._on_color_dialog_response, win)
+                
+                # Show the dialog
+                color_dialog.show()
+                return
+            except (AttributeError, TypeError):
+                # ColorChooserDialog not available, try fallback
+                pass
+                
+            # Method 3: Ultimate fallback - simple popover with preset colors
+            self._show_color_preset_popover(win, button)
+                
+        except Exception as e:
+            print(f"Error showing color dialog: {e}")
+            win.statusbar.set_text("Could not open color picker")
             
-            // Notify that content changed
-            try {
-                window.webkit.messageHandlers.contentChanged.postMessage('changed');
-            } catch(e) {
-                console.log("Could not notify about content change:", e);
-            }
+    def _on_color_dialog_response(self, dialog, response_id, win):
+        """Handle response from color dialog"""
+        if response_id == Gtk.ResponseType.OK:
+            try:
+                # Try to get the selected color using different methods
+                # Method 1: get_rgba (GTK3+)
+                try:
+                    rgba = dialog.get_rgba()
+                    # Convert RGBA to hex
+                    red = int(rgba.red * 255)
+                    green = int(rgba.green * 255)
+                    blue = int(rgba.blue * 255)
+                    hex_color = f"#{red:02x}{green:02x}{blue:02x}"
+                except:
+                    # Method 2: get_current_color (older GTK)
+                    try:
+                        color = dialog.get_current_color()
+                        red = color.red >> 8
+                        green = color.green >> 8
+                        blue = color.blue >> 8
+                        hex_color = f"#{red:02x}{green:02x}{blue:02x}"
+                    except:
+                        # Default if all methods fail
+                        hex_color = "#000000"
+                
+                # Apply the color to the table borders
+                js_code = f"""
+                (function() {{
+                    setTableBorderColor('{hex_color}');
+                    return true;
+                }})();
+                """
+                self.execute_js(win, js_code)
+                
+                win.statusbar.set_text(f"Applied border color: {hex_color}")
+            except Exception as e:
+                print(f"Error getting color: {e}")
+        
+        # Close the dialog
+        dialog.destroy()
+
+    def _show_color_dialog(self, win, color_dialog, button):
+        """Show the color dialog with deferred timing"""
+        # Use native dialog with parent window
+        color_dialog.choose_rgba(win, None, None, 
+                                 lambda dialog, result, data: self._on_color_chosen(dialog, result, data),
+                                 win)
+        return False  # Don't call again
+
+    def _on_get_current_border_color(self, webview, result, win):
+        """Handle getting the current border color from JavaScript"""
+        try:
+            # Different WebKit versions return different result types
+            # Try the most common methods to extract the value
+            js_result = webview.evaluate_javascript_finish(result)
             
-            return true;
-        }
-        """
+            # Method 1: Direct string conversion (newer WebKit)
+            try:
+                color_value = str(js_result)
+                if color_value.startswith('#') or color_value.startswith('rgb'):
+                    win.current_border_color = color_value
+                    return
+            except:
+                pass
+                
+            # Method 2: get_js_value (some WebKit versions)
+            try:
+                color_value = js_result.get_js_value().to_string()
+                win.current_border_color = color_value
+                return
+            except:
+                pass
+                
+            # Method 3: to_string (some WebKit versions)
+            try:
+                color_value = js_result.to_string()
+                win.current_border_color = color_value
+                return
+            except:
+                pass
+                
+            # Default if all methods fail
+            win.current_border_color = "#000000"
+                
+        except Exception as e:
+            print(f"Error getting current border color: {e}")
+            win.current_border_color = "#000000"  # Default to black
+
+    def _on_color_chosen(self, dialog, result, win):
+        """Handle color selection result"""
+        try:
+            # Get the selected color
+            rgba = dialog.choose_rgba_finish(result)
+            if rgba:
+                # Different versions of GTK have different color APIs
+                # Try multiple methods to extract the color components
+                
+                # Method 1: Standard RGBA methods
+                try:
+                    red = int(rgba.get_red() * 255)
+                    green = int(rgba.get_green() * 255)
+                    blue = int(rgba.get_blue() * 255)
+                    hex_color = f"#{red:02x}{green:02x}{blue:02x}"
+                except:
+                    # Method 2: GdkRGBA direct properties
+                    try:
+                        red = int(rgba.red * 255)
+                        green = int(rgba.green * 255)
+                        blue = int(rgba.blue * 255)
+                        hex_color = f"#{red:02x}{green:02x}{blue:02x}"
+                    except:
+                        # Method 3: Parse to_string format "rgb(r,g,b)"
+                        try:
+                            rgba_str = str(rgba)
+                            # Parse "rgb(r,g,b)" format
+                            import re
+                            rgb_match = re.search(r'rgb\((\d+),\s*(\d+),\s*(\d+)', rgba_str)
+                            if rgb_match:
+                                red = int(rgb_match.group(1))
+                                green = int(rgb_match.group(2))
+                                blue = int(rgb_match.group(3))
+                                hex_color = f"#{red:02x}{green:02x}{blue:02x}"
+                            else:
+                                hex_color = "#000000"  # Default
+                        except:
+                            hex_color = "#000000"  # Default if all methods fail
+                
+                # Apply the color to the table borders
+                js_code = f"""
+                (function() {{
+                    setTableBorderColor('{hex_color}');
+                    return true;
+                }})();
+                """
+                self.execute_js(win, js_code)
+                
+                win.statusbar.set_text(f"Applied border color: {hex_color}")
+        except Exception as e:
+            print(f"Error choosing color: {e}")
+            win.statusbar.set_text("Error applying border color")
         
 ##########################  show html
     def on_show_html_clicked(self, win, btn):
@@ -5113,4 +3298,4 @@ def main():
 
 if __name__ == "__main__":
     Adw.init()
-    sys.exit(main())    
+    sys.exit(main())

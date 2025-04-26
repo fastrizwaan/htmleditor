@@ -1,0 +1,430 @@
+#!/usr/bin/env python3
+import sys
+import gi
+import re
+import os
+
+# Hardware Acclerated Rendering (0); Software Rendering (1)
+os.environ['WEBKIT_DISABLE_COMPOSITING_MODE'] = '1'
+
+gi.require_version('Gtk', '4.0')
+gi.require_version('Adw', '1')
+gi.require_version('WebKit', '6.0')
+
+from gi.repository import Gtk, Adw, Gdk, WebKit, GLib, Gio, Pango, PangoCairo, Gdk
+
+
+class HTMLEditorApp(Adw.Application):
+    def __init__(self, **kwargs):
+        super().__init__(application_id='io.github.fastrizwaan.htmleditor',
+                        flags=Gio.ApplicationFlags.HANDLES_OPEN,
+                        **kwargs)
+        self.windows = []  # Track all open windows
+        self.window_buttons = {}  # Track window menu buttons {window_id: button}
+        self.connect('activate', self.on_activate)
+
+        
+        # Window properties (migrated from HTMLEditorWindow)
+        self.modified = False
+        self.auto_save_enabled = False
+        self.auto_save_interval = 60
+        self.current_file = None
+        self.auto_save_source_id = None
+        
+ 
+        
+    def do_startup(self):
+        """Initialize application and set up CSS provider"""
+        Adw.Application.do_startup(self)
+        
+        # Set up CSS provider
+        self.setup_css_provider()
+        
+  
+
+    def setup_css_provider(self):
+        """Set up CSS provider for custom styling"""
+        self.css_provider = Gtk.CssProvider()
+        
+        css_data = b"""
+        .flat { background: none; }
+        .flat:hover { background: rgba(127, 127, 127, 0.25); }
+        .flat:checked { background: rgba(127, 127, 127, 0.25); }
+
+        """
+        
+        # Load the CSS data
+        try:
+            self.css_provider.load_from_data(css_data)
+        except Exception as e:
+            print(f"Error loading CSS data: {e}")
+            return
+        
+        # Apply the CSS provider using the appropriate method based on GTK version
+        try:
+            # GTK4 method (modern approach)
+            Gtk.StyleContext.add_provider_for_display(
+                Gdk.Display.get_default(),
+                self.css_provider,
+                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            )
+        except (AttributeError, TypeError) as e:
+            # Fallback for GTK3 if the application is using an older version
+            try:
+                screen = Gdk.Screen.get_default()
+                Gtk.StyleContext.add_provider_for_screen(
+                    screen,
+                    self.css_provider,
+                    Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+                )
+            except Exception as e2:
+                print(f"Error applying CSS provider: {e2}")
+        
+    def on_activate(self, app):
+        """Handle application activation (new window)"""
+        win = self.create_window()
+        win.present()
+        
+        # Set focus after window is shown - this is crucial
+        GLib.timeout_add(500, lambda: self.set_initial_focus(win))
+        
+                    
+    def setup_headerbar_content(self, win):
+        """Create simplified headerbar content (menu and window buttons)"""
+        win.headerbar.set_margin_top(0)
+        win.headerbar.set_margin_bottom(0)
+
+        
+        # Set up the window title widget (can be customized further)
+        title_widget = Adw.WindowTitle()
+        title_widget.set_title("Untitled  - HTML Editor")
+        win.title_widget = title_widget  # Store for later updates
+        
+        # Save reference to update title 
+        win.headerbar.set_title_widget(title_widget)
+        
+
+            
+    def create_file_toolbar(self, win):
+        """Create the file toolbar with linked button groups"""
+        file_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
+        file_toolbar.set_margin_start(4)
+        file_toolbar.set_margin_end(0)
+        file_toolbar.set_margin_top(5)
+        file_toolbar.set_margin_bottom(0)
+        
+        # --- Insert operations group (Table, Text Box, Image) ---
+        insert_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
+        insert_group.add_css_class("linked")  # Apply linked styling
+        insert_group.set_margin_start(6)
+
+        # Insert table button
+        table_button = Gtk.Button(icon_name="table-symbolic")  # Use a standard table icon
+        table_button.set_size_request(40, 36)
+        table_button.set_tooltip_text("Insert Table")
+        table_button.connect("clicked", lambda btn: self.on_insert_table_clicked(win, btn))
+
+        # Insert text box button
+        text_box_button = Gtk.Button(icon_name="insert-text-symbolic")
+        text_box_button.set_size_request(40, 36)
+        text_box_button.set_tooltip_text("Insert Text Box")
+        text_box_button.connect("clicked", lambda btn: self.on_insert_text_box_clicked(win, btn))
+
+        # Insert image button
+        image_button = Gtk.Button(icon_name="insert-image-symbolic")
+        image_button.set_size_request(40, 36)
+        image_button.set_tooltip_text("Insert Image")
+        image_button.connect("clicked", lambda btn: self.on_insert_image_clicked(win, btn))
+
+        # Insert link button
+        link_button = Gtk.Button(icon_name="insert-link-symbolic")
+        link_button.set_size_request(40, 36)
+        link_button.set_tooltip_text("Insert link")
+        link_button.connect("clicked", lambda btn: self.on_insert_link_clicked(win, btn))
+
+        # Add buttons to insert group
+        insert_group.append(table_button)
+        insert_group.append(text_box_button)
+        insert_group.append(image_button)
+        insert_group.append(link_button)
+        # Add insert group to toolbar
+        file_toolbar.append(insert_group)
+
+        # --- Add the Show HTML button ---
+        show_html_button = Gtk.Button(icon_name="text-x-generic-symbolic")
+        show_html_button.set_tooltip_text("Show HTML")
+        show_html_button.set_margin_start(10)
+        show_html_button.connect("clicked", lambda btn: self.on_show_html_clicked(win, btn))
+        file_toolbar.append(show_html_button)
+        
+        # Add spacer (expanding box) at the end
+        spacer = Gtk.Box()
+        spacer.set_hexpand(True)
+        file_toolbar.append(spacer)
+        
+        return file_toolbar
+
+## Insert related code
+
+    def insert_text_box_js(self):
+        return """ """
+
+    def insert_image_js(self):
+        """JavaScript for insert image and related functionality"""
+        return """ """
+
+    def insert_link_js(self):
+        """JavaScript for insert link and related functionality"""
+        return """ """
+
+
+    def on_insert_text_box_clicked(self, win, btn):
+        """Handle text box insertion button click, textbox is basically 1x1 table"""
+        win.statusbar.set_text("Inserting text box...")
+        
+        # Execute JavaScript to insert a text box at the cursor position
+        js_code = """
+        (function() {
+            insertTextBox();
+            return true;
+        })();
+        """
+        self.execute_js(win, js_code)
+        
+    def on_insert_image_clicked(self, win, btn):
+        """Handle image insertion button click"""
+        win.statusbar.set_text("Inserting image...")
+
+        # Create a file chooser dialog using Gtk.FileChooserNative
+        dialog = Gtk.FileChooserNative(
+            title="Select an Image",
+            transient_for=win,  # Set the transient parent correctly
+            action=Gtk.FileChooserAction.OPEN,
+            accept_label="_Open",
+            cancel_label="_Cancel"
+        )
+
+        # Add image file filters
+        filter_image = Gtk.FileFilter()
+        filter_image.set_name("Image files")
+        filter_image.add_mime_type("image/png")
+        filter_image.add_mime_type("image/jpeg")
+        filter_image.add_mime_type("image/gif")
+        dialog.set_filter(filter_image)
+
+        dialog.connect("response", lambda dlg, response: self.on_image_dialog_response(dlg, response, win))
+        dialog.show()
+
+    def on_image_dialog_response(self, dialog, response, win):
+        """Handle the response from the image file chooser dialog"""
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file and (file_path := file.get_path()):
+                # Convert file path to a data URL for JavaScript
+                import base64
+                with open(file_path, "rb") as image_file:
+                    encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+                    mime_type = "image/png" if file_path.endswith(".png") else "image/jpeg"
+                    data_url = f"data:{mime_type};base64,{encoded_string}"
+
+                # Execute JavaScript to insert the image
+                js_code = f"""
+                (function() {{
+                    insertImage('{data_url}');
+                    return true;
+                }})();
+                """
+                self.execute_js(win, js_code)
+            else:
+                win.statusbar.set_text("Failed to select a valid image file.")
+        dialog.destroy() 
+
+    def on_insert_link_clicked(self, win, btn):
+      """show a dialog with URL and Text """
+      return
+      
+## /Insert related code
+
+
+
+    def get_editor_js(self):
+        """Return the combined JavaScript logic for the editor."""
+        return f"""
+        // Global scope for persistence
+        window.undoStack = [];
+        window.redoStack = [];
+        window.isUndoRedo = false;
+        window.lastContent = "";
+        
+        // Search variables
+        var searchResults = [];
+        var searchIndex = -1;
+        var currentSearchText = "";
+
+        {self.set_content_js()}
+        {self.insert_table_js()}
+        {self.table_border_style_js()}
+        {self.insert_text_box_js()}
+        {self.insert_image_js()}
+        {self.insert_link_js()}
+        {self.init_editor_js()}
+        """
+
+
+    
+
+    def find_last_text_node_js(self):
+        """JavaScript to find the last text node for cursor restoration."""
+        return """
+        function findLastTextNode(node) {
+            if (node.nodeType === 3) return node;
+            for (let i = node.childNodes.length - 1; i >= 0; i--) {
+                const found = findLastTextNode(node.childNodes[i]);
+                if (found) return found;
+            }
+            return null;
+        }
+        """
+
+    def set_content_js(self):
+        """JavaScript to set the editor content and reset stacks."""
+        return """
+        function setContent(html) {
+            const editor = document.getElementById('editor');
+            if (!html || html.trim() === '') {
+                editor.innerHTML = '<div><br></div>';
+            } else if (!html.trim().match(/^<(div|p|h[1-6]|ul|ol|table)/i)) {
+                editor.innerHTML = '<div>' + html + '</div>';
+            } else {
+                editor.innerHTML = html;
+            }
+            window.lastContent = editor.innerHTML;
+            window.undoStack = [window.lastContent];
+            window.redoStack = [];
+            editor.focus();
+        }
+        """
+
+    def init_editor_js(self):
+        """JavaScript to initialize the editor and set up event listeners."""
+        return """
+        document.addEventListener('DOMContentLoaded', function() {
+            const editor = document.getElementById('editor');
+            
+            // Give the editor a proper tabindex to ensure it can capture keyboard focus
+            editor.setAttribute('tabindex', '0');
+            
+            // Capture tab key to prevent focus from shifting
+            editor.addEventListener('keydown', function(e) {
+                if (e.key === 'Tab') {
+                    // Prevent the default focus shift action
+                    e.preventDefault();
+                    
+                    // Insert tab character as a styled span
+                    document.execCommand('insertHTML', false, '<span class="Apple-tab-span" style="white-space:pre">\\t</span>');
+                    
+                    // Trigger input event to register the change for undo/redo
+                    const event = new Event('input', {
+                        bubbles: true,
+                        cancelable: true
+                    });
+                    editor.dispatchEvent(event);
+                }
+            });
+            
+            editor.addEventListener('focus', function onFirstFocus(e) {
+                if (!editor.textContent.trim() && editor.innerHTML === '') {
+                    editor.innerHTML = '<div><br></div>';
+                    const range = document.createRange();
+                    const sel = window.getSelection();
+                    const firstDiv = editor.querySelector('div');
+                    if (firstDiv) {
+                        range.setStart(firstDiv, 0);
+                        range.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                    }
+                    editor.removeEventListener('focus', onFirstFocus);
+                }
+            });
+
+            window.lastContent = editor.innerHTML;
+            saveState();
+            editor.focus();
+
+            editor.addEventListener('input', function(e) {
+                if (document.getSelection().anchorNode === editor) {
+                    document.execCommand('formatBlock', false, 'div');
+                }
+                if (!window.isUndoRedo) {
+                    const currentContent = editor.innerHTML;
+                    if (currentContent !== window.lastContent) {
+                        saveState();
+                        window.lastContent = currentContent;
+                        window.redoStack = [];
+                        try {
+                            window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                        } catch(e) {
+                            console.log("Could not notify about changes:", e);
+                        }
+                    }
+                }
+            });
+
+            if (window.initialContent) {
+                setContent(window.initialContent);
+            }
+        });
+        """
+        
+    def get_initial_html(self):
+        return self.get_editor_html('<div><font face="Sans" style="font-size: 11pt;"><br></font></div>')
+    
+    # Show Caret in the window (for new and fresh start)
+    def set_initial_focus(self, win):
+        """Set focus to the WebView and its editor element after window is shown"""
+        try:
+            # First grab focus on the WebView widget itself
+            win.webview.grab_focus()
+            
+            # Then focus the editor element inside the WebView
+            js_code = """
+            (function() {
+                const editor = document.getElementById('editor');
+                if (!editor) return false;
+                
+                editor.focus();
+                
+                // Set cursor position
+                try {
+                    const range = document.createRange();
+                    const sel = window.getSelection();
+                    
+                    // Find or create a text node to place cursor
+                    let textNode = null;
+                    let firstDiv = editor.querySelector('div');
+                    
+                    if (!firstDiv) {
+                        editor.innerHTML = '<div><br></div>';
+                        firstDiv = editor.querySelector('div');
+                    }
+                    
+                    if (firstDiv) {
+                        range.setStart(firstDiv, 0);
+                        range.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                    }
+                } catch (e) {
+                    console.log("Error setting cursor position:", e);
+                }
+                
+                return true;
+            })();
+            """
+            
+            win.webview.evaluate_javascript(js_code, -1, None, None, None, None, None)
+            return False  # Don't call again
+        except Exception as e:
+            print(f"Error setting initial focus: {e}")
+            return False  # Don't call again
