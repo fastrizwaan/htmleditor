@@ -337,10 +337,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         """JavaScript for insert link and related functionality"""
         return """ """
 
-    # Python handler for table insertion
-    def on_insert_table_clicked(self, win, btn):
-        """Handle table insertion button click"""
-        return
+    # Python handler for insertion
 
     def on_insert_text_box_clicked(self, win, btn):
         """Handle text box insertion button click, textbox"""
@@ -608,35 +605,75 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         self.on_close_other_windows(None, None)
         return True
 
+######### get_editor_html and it's sub methods;                 
+
     def get_editor_html(self, content=""):
-        content = content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+        """Return HTML for the editor with improved table and text box styles"""
+        content = self._prepare_content(content)
+        
         return f"""
-    <!DOCTYPE html>
-    <html style="height: 100%;">
-    <head>
-        <title>HTML Editor</title>
-        <style>
-            html, body {{
+        <!DOCTYPE html>
+        <html style="height: 100%;">
+        <head>
+            {self._get_editor_head(content)}
+        </head>
+        <body>
+            {self._get_editor_body()}
+        </body>
+        </html>
+        """
+
+    def _prepare_content(self, content):
+        """Prepare content for HTML embedding by escaping special characters"""
+        return content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+
+    def _get_editor_head(self, content):
+        """Return the head section of the editor HTML"""
+        return f"""
+            <title>HTML Editor</title>
+            <style>
+                {self._get_base_styles()}
+                {self._get_table_styles()}
+                {self._get_floating_table_styles()}
+                {self._get_text_box_styles()}
+                {self._get_selection_styles()}
+                {self._get_dark_mode_styles()}
+                {self._get_light_mode_styles()}
+            </style>
+            <script>
+                window.initialContent = "{content or '<div><font face="Sans" style="font-size: 11pt;"><br></font></div>'}";
+                {self.get_editor_js()}
+            </script>
+        """
+
+    def _get_editor_body(self):
+        """Return the body section of the editor HTML"""
+        return """
+            <div id="editor" contenteditable="true"></div>
+        """
+
+    def _get_base_styles(self):
+        """Return base CSS styles for the editor"""
+        return """
+            html, body {
                 height: 100%;
-                /*margin: 40px; */ /*Change this for page border*/
                 padding: 0;
                 font-family: Sans;
-            }}
-            #editor {{
-                /*border: 1px solid #ccc;*/
+            }
+            #editor {
                 padding: 0px;
                 outline: none;
-                /*min-height: 200px; */ /* Reduced fallback minimum height */
-                height: 100%; /* Allow it to expand fully */
-                /*box-sizing: border-box; */ /* Include padding/border in height */
+                height: 100%;
                 font-family: Sans;
                 font-size: 11pt;
-            }}
-            #editor div {{
+                position: relative; /* Important for absolute positioning of floating tables */
+                min-height: 300px;  /* Ensure there's space to drag tables */
+            }
+            #editor div {
                 margin: 0;
                 padding: 0;
-            }}
-            #editor:empty:not(:focus):before {{
+            }
+            #editor:empty:not(:focus):before {
                 content: "Type here to start editing...";
                 color: #aaa;
                 font-style: italic;
@@ -644,30 +681,154 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
                 pointer-events: none;
                 top: 10px;
                 left: 10px;
-            }}
-            @media (prefers-color-scheme: dark) {{
-                html, body {{
+            }
+        """
+
+    def _get_table_styles(self):
+        """Return CSS styles for tables"""
+        return """
+            /* Table styles */
+            table {
+                border-collapse: collapse;
+                margin: 0 0 10px 0;  /* Changed from margin: 10px 0 */
+                position: relative;  /* Important for internal handles */
+                resize: both;
+                overflow: visible;   /* Changed from auto to visible to ensure handles are not clipped */
+                min-width: 30px;
+                min-height: 30px;
+            }
+            table.left-align {
+                float: left;
+                margin-right: 10px;
+                margin-top: 0;  /* Ensure no top margin for floated tables */
+                clear: none;
+            }
+            table.right-align {
+                float: right;
+                margin-left: 10px;
+                margin-top: 0;  /* Ensure no top margin for floated tables */
+                clear: none;
+            }
+            table.center-align {
+                display: table;  /* Ensure block behavior is correct */
+                margin-left: auto !important;
+                margin-right: auto !important;
+                margin-top: 0;
+                float: none !important;
+                clear: both;
+                position: relative;
+            }
+            table.no-wrap {
+                float: none;
+                clear: both;
+                width: 100%;
+                margin-top: 0;
+            }
+            table td {
+                padding: 5px;
+                min-width: 30px;
+                position: relative;
+            }
+            table th {
+                padding: 5px;
+                min-width: 30px;
+                background-color: #f0f0f0;
+            }
+        """
+
+    def _get_floating_table_styles(self):
+        """Return CSS styles for floating tables"""
+        return """
+            /* Floating table styles - border removed from CSS and applied conditionally via JS */
+            table.floating-table {
+                position: absolute !important;
+                z-index: 50;
+                box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+                background-color: rgba(255, 255, 255, 0.95);
+                cursor: grab;
+            }
+            
+            table.floating-table:active {
+                cursor: grabbing;
+            }
+            
+            table.floating-table .table-drag-handle {
+                width: 20px !important;
+                height: 20px !important;
+                border-radius: 3px;
+                opacity: 0.9;
+            }
+        """
+
+    def _get_text_box_styles(self):
+        """Return CSS styles for text box tables"""
+        return """
+            /* Text box styles (enhanced table) */
+            table.text-box-table {
+                border: 1px solid #ccc !important;
+                border-radius: 4px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                background-color: #fff;
+                width: 80px;  /* Initial width */
+                height: 80px; /* Initial height */
+                min-width: 80px;
+                min-height: 80px;
+                resize: both !important; /* Ensure resizability */
+            }
+            
+            table.text-box-table td {
+                vertical-align: top;
+            }
+        """
+
+    def _get_selection_styles(self):
+        """Return CSS styles for text selection"""
+        return """
+            /* Ensure text boxes handle selection properly */
+            #editor ::selection {
+                background-color: #b5d7ff;
+                color: inherit;
+            }
+        """
+
+    def _get_dark_mode_styles(self):
+        """Return CSS styles for dark mode"""
+        return """
+            @media (prefers-color-scheme: dark) {
+                html, body {
                     background-color: #1e1e1e;
                     color: #c0c0c0;
-                }}
-            }}
-            @media (prefers-color-scheme: light) {{
-                html, body {{
+                }
+                table th {
+                    background-color: #2a2a2a;
+                }
+                table.text-box-table {
+                    border-color: #444 !important;
+                    background-color: #2d2d2d;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                }
+                table.floating-table {
+                    background-color: rgba(45, 45, 45, 0.95);
+                    box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+                }
+                #editor ::selection {
+                    background-color: #264f78;
+                    color: inherit;
+                }
+            }
+        """
+
+    def _get_light_mode_styles(self):
+        """Return CSS styles for light mode"""
+        return """
+            @media (prefers-color-scheme: light) {
+                html, body {
                     background-color: #ffffff;
                     color: #000000;
-                }}
-            }}
-        </style>
-        <script>
-            window.initialContent = "{content or '<div><font face=\"Sans\" style=\"font-size: 11pt;\"><br></font></div>'}";
-            {self.get_editor_js()}
-        </script>
-    </head>
-    <body>
-        <div id="editor" contenteditable="true"></div>
-    </body>
-    </html>
-    """
+                }
+            }
+        """
+################ /get_editor_html 
 
     def get_editor_js(self):
         """Return the combined JavaScript logic for the editor."""
@@ -2284,29 +2445,6 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         
         dialog.close()
 
-    def save_preferences(self, dialog, win, auto_save_enabled, auto_save_interval):
-        """Save preferences settings"""
-        previous_auto_save = win.auto_save_enabled
-        
-        win.auto_save_enabled = auto_save_enabled
-        win.auto_save_interval = auto_save_interval
-        
-        # Update auto-save timer if needed
-        if auto_save_enabled != previous_auto_save:
-            if auto_save_enabled:
-                self.start_auto_save_timer(win)
-                win.statusbar.set_text("Auto-save enabled")
-            else:
-                self.stop_auto_save_timer(win)
-                win.statusbar.set_text("Auto-save disabled")
-        elif auto_save_enabled:
-            # Restart timer with new interval
-            self.stop_auto_save_timer(win)
-            self.start_auto_save_timer(win)
-            win.statusbar.set_text(f"Auto-save interval set to {auto_save_interval} seconds")
-        
-        dialog.close()
-
     def start_auto_save_timer(self, win):
         """Start auto-save timer for a window"""
         if win.auto_save_source_id:
@@ -2551,6 +2689,11 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         para_spacing_dialog_action = Gio.SimpleAction.new("paragraph-spacing-dialog", None)
         para_spacing_dialog_action.connect("activate", lambda action, param: self.on_paragraph_spacing_clicked(win, action, param))
         win.add_action(para_spacing_dialog_action)
+        
+        # Column layout actions
+        column_action = Gio.SimpleAction.new("set-columns", GLib.VariantType.new("s"))
+        column_action.connect("activate", lambda action, param: self.apply_column_layout(win, int(param.get_string())))
+        win.add_action(column_action)   
 
     def on_paragraph_spacing_clicked(self, win, action, param):
         """Show dialog to adjust paragraph spacing for individual or all paragraphs"""
@@ -3027,30 +3170,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         """      
         
 ############ column
-    def setup_spacing_actions(self, win):
-        """Setup actions for paragraph and line spacing"""
-        # Line spacing actions
-        line_spacing_action = Gio.SimpleAction.new("line-spacing", GLib.VariantType.new("s"))
-        line_spacing_action.connect("activate", lambda action, param: self.apply_quick_line_spacing(win, float(param.get_string())))
-        win.add_action(line_spacing_action)
-        
-        line_spacing_dialog_action = Gio.SimpleAction.new("line-spacing-dialog", None)
-        line_spacing_dialog_action.connect("activate", lambda action, param: self.on_line_spacing_clicked(win, action, param))
-        win.add_action(line_spacing_dialog_action)
-        
-        # Paragraph spacing actions
-        para_spacing_action = Gio.SimpleAction.new("paragraph-spacing", GLib.VariantType.new("s"))
-        para_spacing_action.connect("activate", lambda action, param: self.apply_quick_paragraph_spacing(win, int(param.get_string())))
-        win.add_action(para_spacing_action)
-        
-        para_spacing_dialog_action = Gio.SimpleAction.new("paragraph-spacing-dialog", None)
-        para_spacing_dialog_action.connect("activate", lambda action, param: self.on_paragraph_spacing_clicked(win, action, param))
-        win.add_action(para_spacing_dialog_action)
-        
-        # Column layout actions
-        column_action = Gio.SimpleAction.new("set-columns", GLib.VariantType.new("s"))
-        column_action.connect("activate", lambda action, param: self.apply_column_layout(win, int(param.get_string())))
-        win.add_action(column_action)        
+     
 
     def apply_column_layout(self, win, columns):
         """Apply column layout to the selected content"""
@@ -4444,175 +4564,14 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         """
         self.execute_js(win, js_code)
         win.statusbar.set_text(f"Applied {side} margin: {value}px")   
-                 
-    def get_editor_html(self, content=""):
-        """Return HTML for the editor with improved table and text box styles"""
-        content = content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
-        return f"""
-        <!DOCTYPE html>
-        <html style="height: 100%;">
-        <head>
-            <title>HTML Editor</title>
-            <style>
-                html, body {{
-                    height: 100%;
-                    padding: 0;
-                    font-family: Sans;
-                }}
-                #editor {{
-                    padding: 0px;
-                    outline: none;
-                    height: 100%;
-                    font-family: Sans;
-                    font-size: 11pt;
-                    position: relative; /* Important for absolute positioning of floating tables */
-                    min-height: 300px;  /* Ensure there's space to drag tables */
-                }}
-                #editor div {{
-                    margin: 0;
-                    padding: 0;
-                }}
-                #editor:empty:not(:focus):before {{
-                    content: "Type here to start editing...";
-                    color: #aaa;
-                    font-style: italic;
-                    position: absolute;
-                    pointer-events: none;
-                    top: 10px;
-                    left: 10px;
-                }}
-                /* Table styles */
-                table {{
-                    border-collapse: collapse;
-                    margin: 0 0 10px 0;  /* Changed from margin: 10px 0 */
-                    position: relative;  /* Important for internal handles */
-                    resize: both;
-                    overflow: visible;   /* Changed from auto to visible to ensure handles are not clipped */
-                    min-width: 30px;
-                    min-height: 30px;
-                }}
-                table.left-align {{
-                    float: left;
-                    margin-right: 10px;
-                    margin-top: 0;  /* Ensure no top margin for floated tables */
-                    clear: none;
-                }}
-                table.right-align {{
-                    float: right;
-                    margin-left: 10px;
-                    margin-top: 0;  /* Ensure no top margin for floated tables */
-                    clear: none;
-                }}
-                table.center-align {{
-                    display: table;  /* Ensure block behavior is correct */
-                    margin-left: auto !important;
-                    margin-right: auto !important;
-                    margin-top: 0;
-                    float: none !important;
-                    clear: both;
-                    position: relative;
-                }}
-                table.no-wrap {{
-                    float: none;
-                    clear: both;
-                    width: 100%;
-                    margin-top: 0;
-                }}
-                table td {{
-                    padding: 5px;
-                    min-width: 30px;
-                    position: relative;
-                }}
-                table th {{
-                    padding: 5px;
-                    min-width: 30px;
-                    background-color: #f0f0f0;
-                }}
-                
-                /* Floating table styles - border removed from CSS and applied conditionally via JS */
-                table.floating-table {{
-                    position: absolute !important;
-                    z-index: 50;
-                    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
-                    background-color: rgba(255, 255, 255, 0.95);
-                    cursor: grab;
-                }}
-                
-                table.floating-table:active {{
-                    cursor: grabbing;
-                }}
-                
-                table.floating-table .table-drag-handle {{
-                    width: 20px !important;
-                    height: 20px !important;
-                    border-radius: 3px;
-                    opacity: 0.9;
-                }}
-                
-                /* Table handles are now defined in JavaScript for better control */
-                
-                /* Text box styles (enhanced table) */
-                table.text-box-table {{
-                    border: 1px solid #ccc !important;
-                    border-radius: 4px;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                    background-color: #fff;
-                    width: 80px;  /* Initial width */
-                    height: 80px; /* Initial height */
-                    min-width: 80px;
-                    min-height: 80px;
-                    resize: both !important; /* Ensure resizability */
-                }}
-                
-                table.text-box-table td {{
-                    vertical-align: top;
-                }}
-                
-                /* Ensure text boxes handle selection properly */
-                #editor ::selection {{
-                    background-color: #b5d7ff;
-                    color: inherit;
-                }}
-                
-                @media (prefers-color-scheme: dark) {{
-                    html, body {{
-                        background-color: #1e1e1e;
-                        color: #c0c0c0;
-                    }}
-                    table th {{
-                        background-color: #2a2a2a;
-                    }}
-                    table.text-box-table {{
-                        border-color: #444 !important;
-                        background-color: #2d2d2d;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                    }}
-                    table.floating-table {{
-                        background-color: rgba(45, 45, 45, 0.95);
-                        box-shadow: 0 3px 10px rgba(0,0,0,0.5);
-                    }}
-                    #editor ::selection {{
-                        background-color: #264f78;
-                        color: inherit;
-                    }}
-                }}
-                @media (prefers-color-scheme: light) {{
-                    html, body {{
-                        background-color: #ffffff;
-                        color: #000000;
-                    }}
-                }}
-            </style>
-            <script>
-                window.initialContent = "{content or '<div><font face=\"Sans\" style=\"font-size: 11pt;\"><br></font></div>'}";
-                {self.get_editor_js()}
-            </script>
-        </head>
-        <body>
-            <div id="editor" contenteditable="true"></div>
-        </body>
-        </html>
-        """
+
+    def on_table_float_clicked(self, win):
+        """Make table float freely in the editor"""
+        js_code = "setTableFloating();"
+        self.execute_js(win, js_code)
+        win.statusbar.set_text("Table is now floating")
+
+
 ############################# /TABLE RELATED HTMLEDITOR METHODS
 
 #################### DIRECT COPY PASTE from TABLE52
