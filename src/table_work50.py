@@ -4817,7 +4817,135 @@ class HTMLEditorApp(Adw.Application):
         });
         """            
 
+    def table_event_handlers_js(self):
+        """JavaScript for table event handlers"""
+        return """
+        // Function to save editor state
+        function saveState() {
+            const editor = document.getElementById('editor');
+            if (!editor) return;
+            
+            window.undoStack.push(editor.innerHTML);
+            if (window.undoStack.length > 100) {
+                window.undoStack.shift();
+            }
+        }
+        
+        // Function to handle dark mode changes
+        function handleColorSchemeChange(e) {
+            const tables = document.querySelectorAll('table');
+            tables.forEach(updateTableThemeColors);
+        }
+        
+        // Add event handlers for table interactions
+        document.addEventListener('DOMContentLoaded', function() {
+            const editor = document.getElementById('editor');
+            
+            // Add the custom style for table handles
+            addTableHandleStyles();
+            
+            // Handle mouse down events
+            editor.addEventListener('mousedown', function(e) {
+                // Prevent selection of table handles
+                if (e.target.classList.contains('table-handle') || 
+                    e.target.classList.contains('table-drag-handle')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+                
+                let tableElement = findParentTable(e.target);
+                
+                if (e.target.classList.contains('table-drag-handle')) {
+                    if (e.button === 0) { // Left mouse button
+                        startTableDrag(e, findParentTable(e.target));
+                    }
+                }
+                
+                if (e.target.classList.contains('table-handle')) {
+                    startTableResize(e, findParentTable(e.target));
+                }
+            });
+            
+            // Handle mouse move events
+            document.addEventListener('mousemove', function(e) {
+                if (isDragging && activeTable) {
+                    moveTable(e);
+                }
+                if (isResizing && activeTable) {
+                    resizeTable(e);
+                }
+            });
+            
+            // Handle mouse up events
+            document.addEventListener('mouseup', function() {
+                if (isDragging || isResizing) {
+                    isDragging = false;
+                    isResizing = false;
+                    document.body.style.cursor = '';
+                    
+                    if (activeTable) {
+                        try {
+                            window.webkit.messageHandlers.contentChanged.postMessage('changed');
+                        } catch(e) {
+                            console.log("Could not notify about content change:", e);
+                        }
+                    }
+                }
+            });
+            
+            // Handle click events for table selection
+            editor.addEventListener('click', function(e) {
+                let tableElement = findParentTable(e.target);
+                
+                if (!tableElement) {
+                    // We clicked outside any table
+                    if (activeTable) {
+                        // If there was a previously active table, deactivate it
+                        deactivateAllTables();
+                    } else {
+                        // Even if there was no active table, still send the deactivation message
+                        // This ensures the toolbar is hidden even if the activeTable reference was lost
+                        try {
+                            window.webkit.messageHandlers.tablesDeactivated.postMessage('tables-deactivated');
+                        } catch(e) {
+                            console.log("Could not notify about table deactivation:", e);
+                        }
+                    }
+                } else if (tableElement !== activeTable) {
+                    // We clicked on a different table than the currently active one
+                    deactivateAllTables();
+                    activateTable(tableElement);
+                    try {
+                        window.webkit.messageHandlers.tableClicked.postMessage('table-clicked');
+                    } catch(e) {
+                        console.log("Could not notify about table click:", e);
+                    }
+                }
+            });
 
+            // Add a document-level click handler that will deactivate tables when clicking outside the editor
+            document.addEventListener('click', function(e) {
+                // Check if the click is outside the editor
+                if (!editor.contains(e.target) && activeTable) {
+                    deactivateAllTables();
+                }
+            });
+
+            // Listen for color scheme changes
+            if (window.matchMedia) {
+                const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                // Modern approach (newer browsers)
+                if (colorSchemeQuery.addEventListener) {
+                    colorSchemeQuery.addEventListener('change', handleColorSchemeChange);
+                } 
+                // Legacy approach (older browsers)
+                else if (colorSchemeQuery.addListener) {
+                    colorSchemeQuery.addListener(handleColorSchemeChange);
+                }
+            }
+        });"""
+        
             
 def main():
     app = HTMLEditorApp()
