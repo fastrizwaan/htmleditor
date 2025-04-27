@@ -3484,7 +3484,9 @@ class HTMLEditorApp(Adw.Application):
         except Exception as e:
             print(f"Error copying to clipboard: {e}")
             win.statusbar.set_text(f"Error copying to clipboard: {e}")
-##########################  /show html     
+##########################  /show html  
+
+## table from here?   
     def set_theme_colors_js(self):
         """JavaScript to update theme colors with enhanced debugging."""
         return """
