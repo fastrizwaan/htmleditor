@@ -200,114 +200,64 @@ class HTMLEditorApp(Adw.Application):
 
     # Python handler for table insertion
     def on_insert_table_clicked(self, win, btn):
-        """Handle table insertion button click"""
-        win.statusbar.set_text("Inserting table...")
+        # Create an Adw.Dialog (libadwaita 1.7)
+        dialog = Adw.Dialog(title="Insert Table")
         
-        # Create a dialog to configure the table
-        dialog = Adw.Dialog()
-        dialog.set_title("Insert Table")
-        dialog.set_content_width(350)
+        # Create a vertical box for content
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        content_box.set_margin_top(12)
+        content_box.set_margin_bottom(12)
+        content_box.set_margin_start(12)
+        content_box.set_margin_end(12)
         
-        # Create layout for dialog content
-        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-        content_box.set_margin_top(24)
-        content_box.set_margin_bottom(24)
-        content_box.set_margin_start(24)
-        content_box.set_margin_end(24)
-        
-        # Rows input
-        rows_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        # Add input fields using a grid
         rows_label = Gtk.Label(label="Rows:")
         rows_label.set_halign(Gtk.Align.START)
-        rows_label.set_hexpand(True)
+        rows_entry = Gtk.SpinButton.new_with_range(1, 100, 1)
+        rows_entry.set_value(3)  # Default value
         
-        rows_adjustment = Gtk.Adjustment(value=3, lower=1, upper=20, step_increment=1)
-        rows_spin = Gtk.SpinButton()
-        rows_spin.set_adjustment(rows_adjustment)
-        
-        rows_box.append(rows_label)
-        rows_box.append(rows_spin)
-        content_box.append(rows_box)
-        
-        # Columns input
-        cols_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         cols_label = Gtk.Label(label="Columns:")
         cols_label.set_halign(Gtk.Align.START)
-        cols_label.set_hexpand(True)
+        cols_entry = Gtk.SpinButton.new_with_range(1, 100, 1)
+        cols_entry.set_value(3)  # Default value
         
-        cols_adjustment = Gtk.Adjustment(value=3, lower=1, upper=10, step_increment=1)
-        cols_spin = Gtk.SpinButton()
-        cols_spin.set_adjustment(cols_adjustment)
-        
-        cols_box.append(cols_label)
-        cols_box.append(cols_spin)
-        content_box.append(cols_box)
-        
-        # Header row checkbox
         header_check = Gtk.CheckButton(label="Include header row")
-        header_check.set_active(True)
-        content_box.append(header_check)
+        header_check.set_active(True)  # Default checked
         
-        # Border options
-        border_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        border_label = Gtk.Label(label="Border width:")
-        border_label.set_halign(Gtk.Align.START)
-        border_label.set_hexpand(True)
+        grid = Gtk.Grid()
+        grid.set_column_spacing(12)
+        grid.set_row_spacing(6)
+        grid.attach(rows_label, 0, 0, 1, 1)
+        grid.attach(rows_entry, 1, 0, 1, 1)
+        grid.attach(cols_label, 0, 1, 1, 1)
+        grid.attach(cols_entry, 1, 1, 1, 1)
+        grid.attach(header_check, 0, 2, 2, 1)
         
-        border_adjustment = Gtk.Adjustment(value=1, lower=0, upper=5, step_increment=1)
-        border_spin = Gtk.SpinButton()
-        border_spin.set_adjustment(border_adjustment)
+        content_box.append(grid)
         
-        border_box.append(border_label)
-        border_box.append(border_spin)
-        content_box.append(border_box)
-        
-        # Table width options
-        width_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        width_label = Gtk.Label(label="Table width:")
-        width_label.set_halign(Gtk.Align.START)
-        width_label.set_hexpand(True)
-        
-        width_combo = Gtk.DropDown()
-        width_options = Gtk.StringList()
-        width_options.append("Auto")
-        width_options.append("100%")
-        width_options.append("75%")
-        width_options.append("50%")
-        width_combo.set_model(width_options)
-        width_combo.set_selected(1)  # Default to 100%
-        
-        width_box.append(width_label)
-        width_box.append(width_combo)
-        content_box.append(width_box)
-        
-        # Button box
-        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        button_box.set_halign(Gtk.Align.END)
-        button_box.set_margin_top(16)
-        
-        cancel_button = Gtk.Button(label="Cancel")
-        cancel_button.connect("clicked", lambda btn: dialog.close())
-        
-        insert_button = Gtk.Button(label="Insert")
-        insert_button.add_css_class("suggested-action")
-        insert_button.connect("clicked", lambda btn: self.on_table_dialog_response(
-            win, dialog, 
-            rows_spin.get_value_as_int(), 
-            cols_spin.get_value_as_int(),
-            header_check.get_active(),
-            border_spin.get_value_as_int(),
-            width_options.get_string(width_combo.get_selected())
-        ))
-        
-        button_box.append(cancel_button)
-        button_box.append(insert_button)
-        content_box.append(button_box)
-        
-        # Set dialog content and present
+        # Set the custom content
         dialog.set_child(content_box)
+        
+        # Add buttons to the dialog
+        dialog.add_response("cancel", "_Cancel")
+        dialog.add_response("insert", "_Insert")
+        dialog.set_response_appearance("insert", Adw.ResponseAppearance.SUGGESTED)  # Highlight Insert button
+        
+        # Define the response handler
+        def on_response(dialog, response_id, _data):
+            if response_id == "insert":
+                rows = rows_entry.get_value_as_int()
+                cols = cols_entry.get_value_as_int()
+                has_header = header_check.get_active()
+                js_code = f"insertTable({rows}, {cols}, {has_header});"
+                win.webview.evaluate_javascript(js_code, -1, None, None, None, None, None)
+            dialog.close()
+        
+        # Connect the response signal
+        dialog.connect("response", on_response, None)
+        
+        # Present the dialog
         dialog.present(win)
-
     def on_table_dialog_response(self, win, dialog, rows, cols, has_header, border_width, width_option):
         """Handle response from the table dialog"""
         dialog.close()
