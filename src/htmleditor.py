@@ -1005,147 +1005,185 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         """
 
     def setup_tab_key_handler_js(self):
-            """JavaScript to handle tab key behavior in the editor."""
-            return """
-            function setupTabKeyHandler(editor) {
-                editor.addEventListener('keydown', function(e) {
-                    if (e.key === 'Tab') {
-                        // Check if we're inside a table cell
-                        const selection = window.getSelection();
-                        if (selection.rangeCount > 0) {
-                            let node = selection.anchorNode;
-                            
-                            // Find parent cell (TD or TH)
-                            while (node && node !== editor) {
-                                if (node.tagName === 'TD' || node.tagName === 'TH') {
-                                    // We're in a table cell
-                                    e.preventDefault();
-                                    
-                                    if (e.shiftKey) {
-                                        // Shift+Tab: Navigate to previous cell
-                                        navigateToPreviousCell(node);
-                                    } else {
-                                        // Tab: Navigate to next cell
-                                        navigateToNextCell(node);
-                                    }
-                                    
-                                    return; // Don't insert a tab character
+        """JavaScript to handle tab key behavior in the editor."""
+        return """
+        function setupTabKeyHandler(editor) {
+            editor.addEventListener('keydown', function(e) {
+                if (e.key === 'Tab') {
+                    // Check if we're inside a table cell
+                    const selection = window.getSelection();
+                    if (selection.rangeCount > 0) {
+                        let node = selection.anchorNode;
+                        
+                        // Find parent cell (TD or TH)
+                        while (node && node !== editor) {
+                            if (node.tagName === 'TD' || node.tagName === 'TH') {
+                                // We're in a table cell
+                                e.preventDefault();
+                                
+                                if (e.shiftKey) {
+                                    // Shift+Tab: Navigate to previous cell
+                                    navigateToPreviousCell(node);
+                                } else {
+                                    // Tab: Navigate to next cell
+                                    navigateToNextCell(node);
                                 }
-                                node = node.parentNode;
+                                
+                                return; // Don't insert a tab character
+                            }
+                            node = node.parentNode;
+                        }
+                    }
+                    
+                    // Not in a table cell - insert tab as normal
+                    e.preventDefault();
+                    document.execCommand('insertHTML', false, '<span class="Apple-tab-span" style="white-space:pre">\\t</span>');
+                    
+                    // Trigger input event to register the change for undo/redo
+                    const event = new Event('input', {
+                        bubbles: true,
+                        cancelable: true
+                    });
+                    editor.dispatchEvent(event);
+                }
+            });
+        }
+        
+        // Function to navigate to the next table cell
+        function navigateToNextCell(currentCell) {
+            const currentRow = currentCell.parentNode;
+            const currentTable = currentRow.closest('table');
+            
+            // Find next cell in the same row
+            const nextCell = currentCell.nextElementSibling;
+            
+            if (nextCell) {
+                // Move to next cell in same row
+                focusCell(nextCell);
+            } else {
+                // End of row - move to first cell of next row
+                const nextRow = currentRow.nextElementSibling;
+                if (nextRow) {
+                    const firstCell = nextRow.firstElementChild;
+                    if (firstCell) {
+                        focusCell(firstCell);
+                    }
+                } else {
+                    // End of table - create a new row
+                    const newRow = currentTable.insertRow(-1);
+                    
+                    // Create cells based on the current row's cell count
+                    for (let i = 0; i < currentRow.cells.length; i++) {
+                        const newCell = newRow.insertCell(i);
+                        newCell.innerHTML = '&nbsp;';
+                        
+                        // Copy styles from the current row
+                        const currentRowCell = currentRow.cells[i];
+                        if (currentRowCell) {
+                            // Copy border style
+                            if (currentRowCell.style.border) {
+                                newCell.style.border = currentRowCell.style.border;
+                            } else {
+                                newCell.style.border = '1px solid ' + getBorderColor();
+                            }
+                            // Copy padding style
+                            if (currentRowCell.style.padding) {
+                                newCell.style.padding = currentRowCell.style.padding;
+                            } else {
+                                newCell.style.padding = '5px';
+                            }
+                            // Copy background color if any
+                            if (currentRowCell.style.backgroundColor) {
+                                newCell.style.backgroundColor = currentRowCell.style.backgroundColor;
                             }
                         }
-                        
-                        // Not in a table cell - insert tab as normal
-                        e.preventDefault();
-                        document.execCommand('insertHTML', false, '<span class="Apple-tab-span" style="white-space:pre">\\t</span>');
-                        
-                        // Trigger input event to register the change for undo/redo
-                        const event = new Event('input', {
-                            bubbles: true,
-                            cancelable: true
-                        });
-                        editor.dispatchEvent(event);
                     }
-                });
+                    
+                    // Focus the first cell of the new row
+                    if (newRow.firstElementChild) {
+                        focusCell(newRow.firstElementChild);
+                    }
+                    
+                    // Notify that content changed
+                    try {
+                        window.webkit.messageHandlers.contentChanged.postMessage('changed');
+                    } catch(e) {
+                        console.log("Could not notify about content change:", e);
+                    }
+                }
+            }
+        }
+        
+        // Function to navigate to the previous table cell
+        function navigateToPreviousCell(currentCell) {
+            const currentRow = currentCell.parentNode;
+            const currentTable = currentRow.closest('table');
+            
+            // Find previous cell in the same row
+            const previousCell = currentCell.previousElementSibling;
+            
+            if (previousCell) {
+                // Move to previous cell in same row
+                focusCell(previousCell);
+            } else {
+                // Beginning of row - move to last cell of previous row
+                const previousRow = currentRow.previousElementSibling;
+                if (previousRow) {
+                    const lastCell = previousRow.lastElementChild;
+                    if (lastCell) {
+                        focusCell(lastCell);
+                    }
+                } else {
+                    // Beginning of table - stay in current cell
+                    focusCell(currentCell);
+                }
+            }
+        }
+        
+        // Function to focus a table cell and position cursor at beginning
+        function focusCell(cell) {
+            // Create a range at the beginning of the cell
+            const range = document.createRange();
+            const selection = window.getSelection();
+            
+            // Try to find the first text node in the cell
+            let firstNode = cell;
+            let firstTextNode = null;
+            
+            function findFirstTextNode(node) {
+                if (node.nodeType === Node.TEXT_NODE && node.textContent.trim().length > 0) {
+                    return node;
+                }
+                for (let child of node.childNodes) {
+                    const result = findFirstTextNode(child);
+                    if (result) return result;
+                }
+                return null;
             }
             
-            // Function to navigate to the next table cell
-            function navigateToNextCell(currentCell) {
-                const currentRow = currentCell.parentNode;
-                const currentTable = currentRow.closest('table');
-                
-                // Find next cell in the same row
-                const nextCell = currentCell.nextElementSibling;
-                
-                if (nextCell) {
-                    // Move to next cell in same row
-                    focusCell(nextCell);
-                } else {
-                    // End of row - move to first cell of next row
-                    const nextRow = currentRow.nextElementSibling;
-                    if (nextRow) {
-                        const firstCell = nextRow.firstElementChild;
-                        if (firstCell) {
-                            focusCell(firstCell);
-                        }
-                    } else {
-                        // End of table - create a new row if desired, or stay in current cell
-                        // For now, just stay in current cell
-                        focusCell(currentCell);
-                    }
-                }
+            firstTextNode = findFirstTextNode(cell);
+            
+            if (firstTextNode) {
+                // Place cursor at the beginning of the text
+                range.setStart(firstTextNode, 0);
+                range.setEnd(firstTextNode, 0);
+            } else {
+                // No text node found - place cursor at the beginning of the cell
+                range.setStart(cell, 0);
+                range.setEnd(cell, 0);
             }
             
-            // Function to navigate to the previous table cell
-            function navigateToPreviousCell(currentCell) {
-                const currentRow = currentCell.parentNode;
-                const currentTable = currentRow.closest('table');
-                
-                // Find previous cell in the same row
-                const previousCell = currentCell.previousElementSibling;
-                
-                if (previousCell) {
-                    // Move to previous cell in same row
-                    focusCell(previousCell);
-                } else {
-                    // Beginning of row - move to last cell of previous row
-                    const previousRow = currentRow.previousElementSibling;
-                    if (previousRow) {
-                        const lastCell = previousRow.lastElementChild;
-                        if (lastCell) {
-                            focusCell(lastCell);
-                        }
-                    } else {
-                        // Beginning of table - stay in current cell
-                        focusCell(currentCell);
-                    }
-                }
-            }
+            // Clear any existing selection and apply the new range
+            selection.removeAllRanges();
+            selection.addRange(range);
             
-            // Function to focus a table cell and position cursor at beginning
-            function focusCell(cell) {
-                // Create a range at the beginning of the cell
-                const range = document.createRange();
-                const selection = window.getSelection();
-                
-                // Try to find the first text node in the cell
-                let firstNode = cell;
-                let firstTextNode = null;
-                
-                function findFirstTextNode(node) {
-                    if (node.nodeType === Node.TEXT_NODE && node.textContent.trim().length > 0) {
-                        return node;
-                    }
-                    for (let child of node.childNodes) {
-                        const result = findFirstTextNode(child);
-                        if (result) return result;
-                    }
-                    return null;
-                }
-                
-                firstTextNode = findFirstTextNode(cell);
-                
-                if (firstTextNode) {
-                    // Place cursor at the beginning of the text
-                    range.setStart(firstTextNode, 0);
-                    range.setEnd(firstTextNode, 0);
-                } else {
-                    // No text node found - place cursor at the beginning of the cell
-                    range.setStart(cell, 0);
-                    range.setEnd(cell, 0);
-                }
-                
-                // Clear any existing selection and apply the new range
-                selection.removeAllRanges();
-                selection.addRange(range);
-                
-                // Scroll the cell into view if needed
-                cell.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                
-                // Ensure the cell has focus
-                cell.focus();
-            }
-            """
+            // Scroll the cell into view if needed
+            cell.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            
+            // Ensure the cell has focus
+            cell.focus();
+        }
+        """
 
     def setup_first_focus_handler_js(self):
         """JavaScript to handle the first focus event."""
@@ -1193,6 +1231,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
             });
         }
         """
+        
     def dom_content_loaded_handler_js(self):
         """JavaScript to handle DOMContentLoaded event and initialize the editor."""
         return """
@@ -4392,6 +4431,20 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         except Exception as e:
             print(f"Error updating margin controls: {e}")
 
+    def on_margin_changed(self, win, side, value):
+        """Apply margin change to the active table"""
+        js_code = f"""
+        (function() {{
+            // Pass all four sides with the updated value for the specified side
+            const margins = getTableMargins() || {{ top: 0, right: 0, bottom: 0, left: 0 }};
+            margins.{side} = {value};
+            setTableMargins(margins.top, margins.right, margins.bottom, margins.left);
+            return true;
+        }})();
+        """
+        self.execute_js(win, js_code)
+        win.statusbar.set_text(f"Applied {side} margin: {value}px")   
+                 
     def get_editor_html(self, content=""):
         """Return HTML for the editor with improved table and text box styles"""
         content = content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
@@ -5374,6 +5427,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
             }
         }
         """
+
     def table_event_handlers_js(self):
         """JavaScript for table event handlers with handle hiding during editing and tab navigation"""
         return """

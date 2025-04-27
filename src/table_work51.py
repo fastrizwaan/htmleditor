@@ -1800,6 +1800,27 @@ class HTMLEditorApp(Adw.Application):
             lambda webview, result, data: self._update_margin_controls(win, webview, result),
             None
         )
+        
+    def on_margin_changed(self, win, side, value):
+        """Apply margin change to the active table"""
+        js_code = f"""
+        (function() {{
+            // Pass all four sides with the updated value for the specified side
+            const margins = getTableMargins() || {{ top: 0, right: 0, bottom: 0, left: 0 }};
+            margins.{side} = {value};
+            setTableMargins(margins.top, margins.right, margins.bottom, margins.left);
+            return true;
+        }})();
+        """
+        self.execute_js(win, js_code)
+        win.statusbar.set_text(f"Applied {side} margin: {value}px")   
+                 
+
+    def execute_js(self, win, script):
+        """Execute JavaScript in the WebView"""
+        win.webview.evaluate_javascript(script, -1, None, None, None, None, None)
+
+        
     def _update_margin_controls(self, win, webview, result):
         """Update margin spin buttons with current table margins"""
         try:
@@ -5109,7 +5130,6 @@ class HTMLEditorApp(Adw.Application):
         
         # Get current properties to initialize the dialogs
         self._initialize_table_properties(win, popover)
-
 
 
 
