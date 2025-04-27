@@ -1756,64 +1756,7 @@ class HTMLEditorApp(Adw.Application):
         return toolbar
 
 
-    def on_table_button_clicked(self, win, button):
-        """Show the table properties popup with tabs"""
-        # Create a popover for table properties
-        popover = Gtk.Popover()
-        popover.set_parent(button)
-        
-        # Create the content box
-        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        content_box.set_margin_start(12)
-        content_box.set_margin_end(12)
-        content_box.set_margin_top(12)
-        content_box.set_margin_bottom(12)
-        content_box.set_size_request(350, 250)  # More compact size
-        
-        # Create header with title and close button
-        header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        header_box.set_margin_bottom(8)
-        
-        # Add title label
-        title_label = Gtk.Label(label="<b>Table Properties</b>")
-        title_label.set_use_markup(True)
-        title_label.set_halign(Gtk.Align.START)
-        title_label.set_hexpand(True)
-        header_box.append(title_label)
-        
-        # Add close button [x]
-        close_button = Gtk.Button.new_from_icon_name("window-close-symbolic")
-        close_button.set_tooltip_text("Close")
-        close_button.add_css_class("flat")
-        close_button.connect("clicked", lambda btn: popover.popdown())
-        header_box.append(close_button)
-        
-        content_box.append(header_box)
-        
-        # Create tab view
-        tab_view = Gtk.Notebook()
-        tab_view.set_vexpand(True)
-        
-        # Create Border tab
-        border_page = self._create_border_tab(win, popover)
-        tab_view.append_page(border_page, Gtk.Label(label="Border"))
-        
-        # Create Margin tab
-        margin_page = self._create_margin_tab(win, popover)
-        tab_view.append_page(margin_page, Gtk.Label(label="Margin"))
-        
-        # Create Color tab
-        color_page = self._create_color_tab(win, popover)
-        tab_view.append_page(color_page, Gtk.Label(label="Color"))
-        
-        content_box.append(tab_view)
-        
-        # Set the content and show the popover
-        popover.set_child(content_box)
-        popover.popup()
-        
-        # Get current properties to initialize the dialogs
-        self._initialize_table_properties(win, popover)
+
         
     # Add the handler for the float button click
     def on_table_float_clicked(self, win):
@@ -3300,165 +3243,6 @@ class HTMLEditorApp(Adw.Application):
 
 
 
-    def table_color_js(self):
-        """JavaScript for table color operations with theme preservation"""
-        return """
-        // Function to set table background color
-        function setTableBackgroundColor(color) {
-            if (!activeTable) return false;
-            
-            activeTable.style.backgroundColor = color;
-            
-            // Store the background color
-            activeTable.setAttribute('data-bg-color', color);
-            
-            // Notify that content changed
-            try {
-                window.webkit.messageHandlers.contentChanged.postMessage('changed');
-            } catch(e) {
-                console.log("Could not notify about content change:", e);
-            }
-            
-            return true;
-        }
-        
-        // Function to set header background color
-        function setHeaderBackgroundColor(color) {
-            if (!activeTable) return false;
-            
-            const headers = activeTable.querySelectorAll('th');
-            headers.forEach(header => {
-                header.style.backgroundColor = color;
-            });
-            
-            // Store the header color
-            activeTable.setAttribute('data-header-color', color);
-            
-            // Notify that content changed
-            try {
-                window.webkit.messageHandlers.contentChanged.postMessage('changed');
-            } catch(e) {
-                console.log("Could not notify about content change:", e);
-            }
-            
-            return true;
-        }
-        
-        // Function to set cell background color (only for the active cell)
-        function setCellBackgroundColor(color) {
-            if (!activeTable) return false;
-            
-            // Get the current selection
-            const selection = window.getSelection();
-            if (!selection.rangeCount) return false;
-            
-            // Find the active cell
-            let activeCell = selection.anchorNode;
-            
-            // If the selection is in a text node, get the parent element
-            if (activeCell.nodeType === Node.TEXT_NODE) {
-                activeCell = activeCell.parentElement;
-            }
-            
-            // Find the closest td or th element
-            while (activeCell && activeCell.tagName !== 'TD' && activeCell.tagName !== 'TH') {
-                activeCell = activeCell.parentElement;
-            }
-            
-            // If we found a cell and it belongs to our active table
-            if (activeCell && activeTable.contains(activeCell)) {
-                activeCell.style.backgroundColor = color;
-                
-                // Store the color on the cell itself
-                activeCell.setAttribute('data-cell-color', color);
-                
-                // Notify that content changed
-                try {
-                    window.webkit.messageHandlers.contentChanged.postMessage('changed');
-                } catch(e) {
-                    console.log("Could not notify about content change:", e);
-                }
-                
-                return true;
-            }
-            
-            return false;
-        }
-        
-        // Function to get current table colors
-        function getTableColors() {
-            if (!activeTable) return null;
-            
-            // Get stored values
-            const bgColor = activeTable.getAttribute('data-bg-color') || activeTable.style.backgroundColor || '';
-            const headerColor = activeTable.getAttribute('data-header-color') || '';
-            const borderColor = activeTable.getAttribute('data-border-color') || '';
-            
-            // Get active cell color if there's a selection
-            let cellColor = '';
-            const selection = window.getSelection();
-            if (selection.rangeCount) {
-                let activeCell = selection.anchorNode;
-                if (activeCell.nodeType === Node.TEXT_NODE) {
-                    activeCell = activeCell.parentElement;
-                }
-                while (activeCell && activeCell.tagName !== 'TD' && activeCell.tagName !== 'TH') {
-                    activeCell = activeCell.parentElement;
-                }
-                if (activeCell && activeTable.contains(activeCell)) {
-                    cellColor = activeCell.getAttribute('data-cell-color') || activeCell.style.backgroundColor || '';
-                }
-            }
-            
-            return {
-                background: bgColor,
-                header: headerColor,
-                cell: cellColor,
-                border: borderColor
-            };
-        }
-        
-        // Function to preserve table colors during theme changes
-        function preserveTableColors() {
-            const tables = document.querySelectorAll('table');
-            tables.forEach(table => {
-                // Preserve background color
-                const bgColor = table.getAttribute('data-bg-color');
-                if (bgColor) {
-                    table.style.backgroundColor = bgColor;
-                }
-                
-                // Preserve header colors
-                const headerColor = table.getAttribute('data-header-color');
-                const headers = table.querySelectorAll('th');
-                headers.forEach(header => {
-                    if (headerColor) {
-                        header.style.backgroundColor = headerColor;
-                    } else if (!header.getAttribute('data-cell-color')) {
-                        // Set default header color based on theme
-                        header.style.backgroundColor = getHeaderBgColor();
-                    }
-                });
-                
-                // Preserve cell colors
-                const cells = table.querySelectorAll('td, th');
-                cells.forEach(cell => {
-                    const cellColor = cell.getAttribute('data-cell-color');
-                    if (cellColor) {
-                        cell.style.backgroundColor = cellColor;
-                    }
-                });
-                
-                // Preserve border colors
-                const borderColor = table.getAttribute('data-border-color');
-                if (borderColor) {
-                    cells.forEach(cell => {
-                        cell.style.borderColor = borderColor;
-                    });
-                }
-            });
-        }
-        """
         
     def _initialize_table_properties(self, win, popover):
         """Initialize the table properties popup with current values"""
@@ -3831,97 +3615,6 @@ class HTMLEditorApp(Adw.Application):
 
 
 
-    # 1. Updated _create_color_tab with proper GTK4 color dialogs
-    def _create_color_tab(self, win, popover):
-        """Create the color properties tab with GTK4 compatible color handling"""
-        color_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        color_box.set_margin_start(12)
-        color_box.set_margin_end(12)
-        color_box.set_margin_top(12)
-        color_box.set_margin_bottom(12)
-        
-        # Helper function to create color button with custom color picker
-        def create_color_button_row(label_text, apply_function):
-            row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-            label = Gtk.Label(label=label_text)
-            label.set_halign(Gtk.Align.START)
-            label.set_hexpand(True)
-            
-            # Create a button with color icon instead of ColorButton
-            color_button = Gtk.Button()
-            color_button.set_size_request(40, 24)
-            
-            # Create a DrawingArea for color display
-            color_display = Gtk.DrawingArea()
-            color_display.set_size_request(30, 18)
-            color_button.set_child(color_display)
-            
-            # Default color
-            color_button.current_color = "#000000"
-            
-            # Draw function for color display
-            def draw_color(area, cr, width, height, data):
-                rgba = self._parse_color_string(color_button.current_color)
-                if rgba:
-                    cr.set_source_rgba(rgba.red, rgba.green, rgba.blue, rgba.alpha)
-                else:
-                    cr.set_source_rgba(0, 0, 0, 1)  # Default to black
-                cr.rectangle(2, 2, width - 4, height - 4)
-                cr.fill()
-                
-                # Draw border
-                cr.set_source_rgba(0.5, 0.5, 0.5, 1)
-                cr.rectangle(2, 2, width - 4, height - 4)
-                cr.set_line_width(1)
-                cr.stroke()
-            
-            color_display.set_draw_func(draw_color, None)
-            
-            # Connect click handler to show color dialog
-            color_button.connect("clicked", lambda btn: self._show_color_dialog(win, btn, apply_function))
-            
-            row_box.append(label)
-            row_box.append(color_button)
-            return row_box, color_button
-        
-        # Border color row
-        border_color_box, border_color_button = create_color_button_row(
-            "Border Color:", self._apply_border_color)
-        color_box.append(border_color_box)
-        
-        # Table background color row
-        table_color_box, table_color_button = create_color_button_row(
-            "Table Color:", self._apply_table_color)
-        color_box.append(table_color_box)
-        
-        # Header color row
-        header_color_box, header_color_button = create_color_button_row(
-            "Header Color:", self._apply_header_color)
-        color_box.append(header_color_box)
-        
-        # Cell color row
-        cell_color_box, cell_color_button = create_color_button_row(
-            "Current Cell Color:", self._apply_cell_color)
-        color_box.append(cell_color_box)
-        
-        # Add separator
-        separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        separator.set_margin_top(8)
-        separator.set_margin_bottom(8)
-        color_box.append(separator)
-        
-        # Add default button
-        default_button = Gtk.Button(label="Reset to Default Colors")
-        default_button.connect("clicked", lambda btn: self._reset_default_colors(win))
-        color_box.append(default_button)
-        
-        # Store color buttons for later initialization
-        color_box.border_color_button = border_color_button
-        color_box.table_color_button = table_color_button
-        color_box.header_color_button = header_color_button
-        color_box.cell_color_button = cell_color_button
-        
-        return color_box
 
     # 2. Custom color dialog function
     def _show_color_dialog(self, win, color_button, apply_function):
@@ -5283,6 +4976,455 @@ class HTMLEditorApp(Adw.Application):
         
         # Get current properties to initialize the dialogs
         self._initialize_table_properties(win, popover)
+
+
+    def on_table_button_clicked(self, win, button):
+        """Show the table properties popup with tabs"""
+        # Create a popover for table properties
+        popover = Gtk.Popover()
+        popover.set_parent(button)
+        
+        # Create the content box with reduced margins and spacing
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        content_box.set_margin_start(8)
+        content_box.set_margin_end(8)
+        content_box.set_margin_top(8)
+        content_box.set_margin_bottom(8)
+        content_box.set_size_request(320, 280)  # Increased height for ViewSwitcher
+        
+        # Create header with title and close button
+        header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        header_box.set_margin_bottom(6)
+        
+        # Add title label
+        title_label = Gtk.Label(label="<b>Table Properties</b>")
+        title_label.set_use_markup(True)
+        title_label.set_halign(Gtk.Align.START)
+        title_label.set_hexpand(True)
+        header_box.append(title_label)
+        
+        # Add close button [x]
+        close_button = Gtk.Button.new_from_icon_name("window-close-symbolic")
+        close_button.set_tooltip_text("Close")
+        close_button.add_css_class("flat")
+        close_button.connect("clicked", lambda btn: popover.popdown())
+        header_box.append(close_button)
+        
+        content_box.append(header_box)
+        
+        # Create ViewStack and ViewSwitcher
+        stack = Adw.ViewStack()
+        stack.set_vexpand(True)
+        
+        # Create ViewSwitcher for the stack
+        view_switcher = Adw.ViewSwitcher()
+        view_switcher.set_stack(stack)
+        view_switcher.set_policy(Adw.ViewSwitcherPolicy.WIDE)  # WIDE for always showing labels
+        content_box.append(view_switcher)
+        
+        # Create Border tab
+        border_page = self._create_border_tab(win, popover)
+        stack.add_titled(border_page, "border", "Border")
+        
+        # Create Margin tab
+        margin_page = self._create_margin_tab(win, popover)
+        stack.add_titled(margin_page, "margin", "Margin")
+        
+        # Create Color tab
+        color_page = self._create_color_tab(win, popover)
+        stack.add_titled(color_page, "color", "Color")
+        
+        content_box.append(stack)
+        
+        # Set the content and show the popover
+        popover.set_child(content_box)
+        popover.popup()
+        
+        # Get current properties to initialize the dialogs
+        self._initialize_table_properties(win, popover)
+
+
+    # Alternative using ViewSwitcherBar (appears at the bottom)
+    def on_table_button_clicked(self, win, button):
+        """Show the table properties popup with tabs"""
+        # Create a popover for table properties
+        popover = Gtk.Popover()
+        popover.set_parent(button)
+        
+        # Create the content box with reduced margins and spacing
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        content_box.set_margin_start(8)
+        content_box.set_margin_end(8)
+        content_box.set_margin_top(8)
+        content_box.set_margin_bottom(8)
+        content_box.set_size_request(320, 280)
+        
+        # Create header with title and close button
+        header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        header_box.set_margin_bottom(6)
+        
+        # Add title label
+        title_label = Gtk.Label(label="<b>Table Properties</b>")
+        title_label.set_use_markup(True)
+        title_label.set_halign(Gtk.Align.START)
+        title_label.set_hexpand(True)
+        header_box.append(title_label)
+        
+        # Add close button [x]
+        close_button = Gtk.Button.new_from_icon_name("window-close-symbolic")
+        close_button.set_tooltip_text("Close")
+        close_button.add_css_class("flat")
+        close_button.connect("clicked", lambda btn: popover.popdown())
+        header_box.append(close_button)
+        
+        content_box.append(header_box)
+        
+        # Create ViewStack
+        stack = Adw.ViewStack()
+        stack.set_vexpand(True)
+        
+        # Create Border tab
+        border_page = self._create_border_tab(win, popover)
+        stack.add_titled(border_page, "border", "Border")
+        
+        # Create Margin tab
+        margin_page = self._create_margin_tab(win, popover)
+        stack.add_titled(margin_page, "margin", "Margin")
+        
+        # Create Color tab
+        color_page = self._create_color_tab(win, popover)
+        stack.add_titled(color_page, "color", "Color")
+        
+        content_box.append(stack)
+        
+        # Create ViewSwitcherBar at the bottom
+        view_switcher_bar = Adw.ViewSwitcherBar()
+        view_switcher_bar.set_stack(stack)
+        view_switcher_bar.set_reveal(True)  # Always show the switcher
+        content_box.append(view_switcher_bar)
+        
+        # Set the content and show the popover
+        popover.set_child(content_box)
+        popover.popup()
+        
+        # Get current properties to initialize the dialogs
+        self._initialize_table_properties(win, popover)
+
+    def on_add_row_above_clicked(self, win):
+        """Add a row above the current row in the active table"""
+        js_code = """
+        (function() {
+            if (!activeTable) return;
+            
+            // Get the current row index
+            let selection = window.getSelection();
+            if (selection.rangeCount < 1) {
+                // If no selection, add at the beginning
+                addTableRow(activeTable, 0);
+                return;
+            }
+            
+            let range = selection.getRangeAt(0);
+            let cell = range.startContainer;
+            
+            // Find the TD/TH parent
+            while (cell && cell.tagName !== 'TD' && cell.tagName !== 'TH' && cell !== activeTable) {
+                cell = cell.parentNode;
+            }
+            
+            if (!cell || (cell.tagName !== 'TD' && cell.tagName !== 'TH')) {
+                // If no cell is selected, add at the beginning
+                addTableRow(activeTable, 0);
+                return;
+            }
+            
+            // Find the TR parent
+            let row = cell;
+            while (row && row.tagName !== 'TR') {
+                row = row.parentNode;
+            }
+            
+            if (!row) {
+                addTableRow(activeTable, 0);
+                return;
+            }
+            
+            // Find the row index - this is the simple approach
+            let rowIndex = Array.from(activeTable.rows).indexOf(row);
+            
+            // If we're at the first row, we need to insert at position 0
+            if (rowIndex === 0) {
+                // Create a new row directly at the start of the table
+                const newRow = activeTable.insertRow(0);
+                
+                // Create cells matching the current row's cells
+                for (let i = 0; i < row.cells.length; i++) {
+                    const cell = row.cells[i];
+                    const newCell = newRow.insertCell(i);
+                    
+                    // Copy cell type (TD or TH)
+                    if (cell.tagName === 'TH') {
+                        const headerCell = document.createElement('th');
+                        headerCell.innerHTML = '&nbsp;';
+                        // Copy styles
+                        headerCell.style.border = cell.style.border || '1px solid ' + getBorderColor();
+                        headerCell.style.padding = cell.style.padding || '5px';
+                        headerCell.style.backgroundColor = cell.style.backgroundColor || getHeaderBgColor();
+                        newRow.replaceChild(headerCell, newCell);
+                    } else {
+                        newCell.innerHTML = '&nbsp;';
+                        newCell.style.border = cell.style.border || '1px solid ' + getBorderColor();
+                        newCell.style.padding = cell.style.padding || '5px';
+                    }
+                }
+            } else {
+                // For other rows, use the regular addTableRow function
+                addTableRow(activeTable, rowIndex);
+            }
+            
+            try {
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            } catch(e) {
+                console.log("Could not notify about content change:", e);
+            }
+        })();
+        """
+        self.execute_js(win, js_code)
+
+    def table_row_column_js(self):
+        """JavaScript for table row and column operations"""
+        return """
+        // Function to add a row to the table
+        function addTableRow(tableElement, position) {
+            if (!tableElement && activeTable) {
+                tableElement = activeTable;
+            }
+            
+            if (!tableElement) return;
+            
+            const borderColor = getBorderColor();
+            const rows = tableElement.rows;
+            
+            if (rows.length === 0) {
+                // Handle empty table case
+                const newRow = tableElement.insertRow(0);
+                const cell = newRow.insertCell(0);
+                cell.innerHTML = '&nbsp;';
+                cell.style.border = '1px solid ' + borderColor;
+                cell.style.padding = '5px';
+                return;
+            }
+            
+            // If position is provided, use it, otherwise append at the end
+            const rowIndex = (position !== undefined) ? position : rows.length;
+            
+            // Insert the row at the specified position
+            const newRow = tableElement.insertRow(rowIndex);
+            
+            // Get reference to the row we're copying from (either the current row or first row)
+            const referenceRow = (rowIndex > 0 && rowIndex < rows.length) ? rows[rowIndex - 1] : rows[0];
+            
+            // Create cells matching the reference row
+            for (let i = 0; i < referenceRow.cells.length; i++) {
+                const refCell = referenceRow.cells[i];
+                const cell = newRow.insertCell(i);
+                
+                // Check if we should create a TH instead of TD
+                if (refCell.tagName === 'TH') {
+                    const headerCell = document.createElement('th');
+                    headerCell.innerHTML = '&nbsp;';
+                    
+                    // Copy styles
+                    if (refCell.style.border) {
+                        headerCell.style.border = refCell.style.border;
+                    } else {
+                        headerCell.style.border = '1px solid ' + borderColor;
+                    }
+                    
+                    if (refCell.style.padding) {
+                        headerCell.style.padding = refCell.style.padding;
+                    } else {
+                        headerCell.style.padding = '5px';
+                    }
+                    
+                    // Apply header background color
+                    headerCell.style.backgroundColor = getHeaderBgColor();
+                    
+                    // Replace the TD with our TH
+                    newRow.replaceChild(headerCell, cell);
+                } else {
+                    cell.innerHTML = '&nbsp;';
+                    
+                    // Copy styles from reference cell
+                    if (refCell.style.border) {
+                        cell.style.border = refCell.style.border;
+                    } else {
+                        cell.style.border = '1px solid ' + borderColor;
+                    }
+                    
+                    if (refCell.style.padding) {
+                        cell.style.padding = refCell.style.padding;
+                    } else {
+                        cell.style.padding = '5px';
+                    }
+                }
+            }
+            
+            try {
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            } catch(e) {
+                console.log("Could not notify about content change:", e);
+            }
+        }
+        
+        // Function to add a column to the table
+        function addTableColumn(tableElement, position) {
+            if (!tableElement && activeTable) {
+                tableElement = activeTable;
+            }
+            
+            if (!tableElement) return;
+            
+            const borderColor = getBorderColor();
+            const headerBgColor = getHeaderBgColor();
+            const rows = tableElement.rows;
+            for (let i = 0; i < rows.length; i++) {
+                // If position is provided, use it, otherwise append at the end
+                const cellIndex = (position !== undefined) ? position : rows[i].cells.length;
+                const cell = rows[i].insertCell(cellIndex);
+                cell.innerHTML = '&nbsp;';
+                
+                // Default styles based on theme
+                let cellStyle = {
+                    border: '1px solid ' + borderColor,
+                    padding: '5px'
+                };
+                
+                // Copy styles from adjacent cells if available
+                if (rows[i].cells.length > 1) {
+                    const refCell = cellIndex > 0 ? 
+                                    rows[i].cells[cellIndex - 1] : 
+                                    rows[i].cells[cellIndex + 1];
+                                    
+                    if (refCell) {
+                        if (refCell.style.border) {
+                            cellStyle.border = refCell.style.border;
+                        }
+                        if (refCell.style.padding) {
+                            cellStyle.padding = refCell.style.padding;
+                        }
+                        
+                        // If it's a header cell, make new cell a header too
+                        if (refCell.tagName === 'TH' && cell.tagName === 'TD') {
+                            const headerCell = document.createElement('th');
+                            headerCell.innerHTML = cell.innerHTML;
+                            
+                            // Apply all styles
+                            Object.assign(headerCell.style, cellStyle);
+                            headerCell.style.backgroundColor = headerBgColor;
+                            
+                            cell.parentNode.replaceChild(headerCell, cell);
+                        } else {
+                            // Apply styles to normal cell
+                            Object.assign(cell.style, cellStyle);
+                        }
+                    }
+                } else {
+                    // Apply default styles if no reference cells
+                    Object.assign(cell.style, cellStyle);
+                    
+                    // If this is the first row, it might be a header
+                    if (i === 0 && rows[0].cells[0].tagName === 'TH') {
+                        const headerCell = document.createElement('th');
+                        headerCell.innerHTML = cell.innerHTML;
+                        Object.assign(headerCell.style, cellStyle);
+                        headerCell.style.backgroundColor = headerBgColor;
+                        cell.parentNode.replaceChild(headerCell, cell);
+                    }
+                }
+            }
+            
+            try {
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            } catch(e) {
+                console.log("Could not notify about content change:", e);
+            }
+        }
+        
+        // Function to delete a row from the table
+        function deleteTableRow(tableElement, rowIndex) {
+            if (!tableElement && activeTable) {
+                tableElement = activeTable;
+            }
+            
+            if (!tableElement) return;
+            
+            const rows = tableElement.rows;
+            if (rows.length > 1) {
+                // If rowIndex is provided, delete that row, otherwise delete the last row
+                const indexToDelete = (rowIndex !== undefined) ? rowIndex : rows.length - 1;
+                if (indexToDelete >= 0 && indexToDelete < rows.length) {
+                    tableElement.deleteRow(indexToDelete);
+                }
+            }
+            
+            try {
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            } catch(e) {
+                console.log("Could not notify about content change:", e);
+            }
+        }
+        
+        // Function to delete a column from the table
+        function deleteTableColumn(tableElement, colIndex) {
+            if (!tableElement && activeTable) {
+                tableElement = activeTable;
+            }
+            
+            if (!tableElement) return;
+            
+            const rows = tableElement.rows;
+            if (rows.length > 0 && rows[0].cells.length > 1) {
+                // If colIndex is provided, delete that column, otherwise delete the last column
+                const indexToDelete = (colIndex !== undefined) ? colIndex : rows[0].cells.length - 1;
+                
+                for (let i = 0; i < rows.length; i++) {
+                    if (indexToDelete >= 0 && indexToDelete < rows[i].cells.length) {
+                        rows[i].deleteCell(indexToDelete);
+                    }
+                }
+            }
+            
+            try {
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            } catch(e) {
+                console.log("Could not notify about content change:", e);
+            }
+        }
+        
+        // Function to delete a table
+        function deleteTable(tableElement) {
+            if (!tableElement && activeTable) {
+                tableElement = activeTable;
+            }
+            
+            if (!tableElement) return;
+            
+            // Remove the table from the DOM
+            tableElement.parentNode.removeChild(tableElement);
+            
+            // Reset activeTable reference
+            activeTable = null;
+            
+            // Notify the app
+            try {
+                window.webkit.messageHandlers.tableDeleted.postMessage('table-deleted');
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            } catch(e) {
+                console.log("Could not notify about table deletion:", e);
+            }
+        }
+        """
 
             
 def main():

@@ -1756,64 +1756,7 @@ class HTMLEditorApp(Adw.Application):
         return toolbar
 
 
-    def on_table_button_clicked(self, win, button):
-        """Show the table properties popup with tabs"""
-        # Create a popover for table properties
-        popover = Gtk.Popover()
-        popover.set_parent(button)
-        
-        # Create the content box
-        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        content_box.set_margin_start(12)
-        content_box.set_margin_end(12)
-        content_box.set_margin_top(12)
-        content_box.set_margin_bottom(12)
-        content_box.set_size_request(350, 250)  # More compact size
-        
-        # Create header with title and close button
-        header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        header_box.set_margin_bottom(8)
-        
-        # Add title label
-        title_label = Gtk.Label(label="<b>Table Properties</b>")
-        title_label.set_use_markup(True)
-        title_label.set_halign(Gtk.Align.START)
-        title_label.set_hexpand(True)
-        header_box.append(title_label)
-        
-        # Add close button [x]
-        close_button = Gtk.Button.new_from_icon_name("window-close-symbolic")
-        close_button.set_tooltip_text("Close")
-        close_button.add_css_class("flat")
-        close_button.connect("clicked", lambda btn: popover.popdown())
-        header_box.append(close_button)
-        
-        content_box.append(header_box)
-        
-        # Create tab view
-        tab_view = Gtk.Notebook()
-        tab_view.set_vexpand(True)
-        
-        # Create Border tab
-        border_page = self._create_border_tab(win, popover)
-        tab_view.append_page(border_page, Gtk.Label(label="Border"))
-        
-        # Create Margin tab
-        margin_page = self._create_margin_tab(win, popover)
-        tab_view.append_page(margin_page, Gtk.Label(label="Margin"))
-        
-        # Create Color tab
-        color_page = self._create_color_tab(win, popover)
-        tab_view.append_page(color_page, Gtk.Label(label="Color"))
-        
-        content_box.append(tab_view)
-        
-        # Set the content and show the popover
-        popover.set_child(content_box)
-        popover.popup()
-        
-        # Get current properties to initialize the dialogs
-        self._initialize_table_properties(win, popover)
+
         
     # Add the handler for the float button click
     def on_table_float_clicked(self, win):
@@ -3300,165 +3243,6 @@ class HTMLEditorApp(Adw.Application):
 
 
 
-    def table_color_js(self):
-        """JavaScript for table color operations with theme preservation"""
-        return """
-        // Function to set table background color
-        function setTableBackgroundColor(color) {
-            if (!activeTable) return false;
-            
-            activeTable.style.backgroundColor = color;
-            
-            // Store the background color
-            activeTable.setAttribute('data-bg-color', color);
-            
-            // Notify that content changed
-            try {
-                window.webkit.messageHandlers.contentChanged.postMessage('changed');
-            } catch(e) {
-                console.log("Could not notify about content change:", e);
-            }
-            
-            return true;
-        }
-        
-        // Function to set header background color
-        function setHeaderBackgroundColor(color) {
-            if (!activeTable) return false;
-            
-            const headers = activeTable.querySelectorAll('th');
-            headers.forEach(header => {
-                header.style.backgroundColor = color;
-            });
-            
-            // Store the header color
-            activeTable.setAttribute('data-header-color', color);
-            
-            // Notify that content changed
-            try {
-                window.webkit.messageHandlers.contentChanged.postMessage('changed');
-            } catch(e) {
-                console.log("Could not notify about content change:", e);
-            }
-            
-            return true;
-        }
-        
-        // Function to set cell background color (only for the active cell)
-        function setCellBackgroundColor(color) {
-            if (!activeTable) return false;
-            
-            // Get the current selection
-            const selection = window.getSelection();
-            if (!selection.rangeCount) return false;
-            
-            // Find the active cell
-            let activeCell = selection.anchorNode;
-            
-            // If the selection is in a text node, get the parent element
-            if (activeCell.nodeType === Node.TEXT_NODE) {
-                activeCell = activeCell.parentElement;
-            }
-            
-            // Find the closest td or th element
-            while (activeCell && activeCell.tagName !== 'TD' && activeCell.tagName !== 'TH') {
-                activeCell = activeCell.parentElement;
-            }
-            
-            // If we found a cell and it belongs to our active table
-            if (activeCell && activeTable.contains(activeCell)) {
-                activeCell.style.backgroundColor = color;
-                
-                // Store the color on the cell itself
-                activeCell.setAttribute('data-cell-color', color);
-                
-                // Notify that content changed
-                try {
-                    window.webkit.messageHandlers.contentChanged.postMessage('changed');
-                } catch(e) {
-                    console.log("Could not notify about content change:", e);
-                }
-                
-                return true;
-            }
-            
-            return false;
-        }
-        
-        // Function to get current table colors
-        function getTableColors() {
-            if (!activeTable) return null;
-            
-            // Get stored values
-            const bgColor = activeTable.getAttribute('data-bg-color') || activeTable.style.backgroundColor || '';
-            const headerColor = activeTable.getAttribute('data-header-color') || '';
-            const borderColor = activeTable.getAttribute('data-border-color') || '';
-            
-            // Get active cell color if there's a selection
-            let cellColor = '';
-            const selection = window.getSelection();
-            if (selection.rangeCount) {
-                let activeCell = selection.anchorNode;
-                if (activeCell.nodeType === Node.TEXT_NODE) {
-                    activeCell = activeCell.parentElement;
-                }
-                while (activeCell && activeCell.tagName !== 'TD' && activeCell.tagName !== 'TH') {
-                    activeCell = activeCell.parentElement;
-                }
-                if (activeCell && activeTable.contains(activeCell)) {
-                    cellColor = activeCell.getAttribute('data-cell-color') || activeCell.style.backgroundColor || '';
-                }
-            }
-            
-            return {
-                background: bgColor,
-                header: headerColor,
-                cell: cellColor,
-                border: borderColor
-            };
-        }
-        
-        // Function to preserve table colors during theme changes
-        function preserveTableColors() {
-            const tables = document.querySelectorAll('table');
-            tables.forEach(table => {
-                // Preserve background color
-                const bgColor = table.getAttribute('data-bg-color');
-                if (bgColor) {
-                    table.style.backgroundColor = bgColor;
-                }
-                
-                // Preserve header colors
-                const headerColor = table.getAttribute('data-header-color');
-                const headers = table.querySelectorAll('th');
-                headers.forEach(header => {
-                    if (headerColor) {
-                        header.style.backgroundColor = headerColor;
-                    } else if (!header.getAttribute('data-cell-color')) {
-                        // Set default header color based on theme
-                        header.style.backgroundColor = getHeaderBgColor();
-                    }
-                });
-                
-                // Preserve cell colors
-                const cells = table.querySelectorAll('td, th');
-                cells.forEach(cell => {
-                    const cellColor = cell.getAttribute('data-cell-color');
-                    if (cellColor) {
-                        cell.style.backgroundColor = cellColor;
-                    }
-                });
-                
-                // Preserve border colors
-                const borderColor = table.getAttribute('data-border-color');
-                if (borderColor) {
-                    cells.forEach(cell => {
-                        cell.style.borderColor = borderColor;
-                    });
-                }
-            });
-        }
-        """
         
     def _initialize_table_properties(self, win, popover):
         """Initialize the table properties popup with current values"""
@@ -3831,97 +3615,6 @@ class HTMLEditorApp(Adw.Application):
 
 
 
-    # 1. Updated _create_color_tab with proper GTK4 color dialogs
-    def _create_color_tab(self, win, popover):
-        """Create the color properties tab with GTK4 compatible color handling"""
-        color_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        color_box.set_margin_start(12)
-        color_box.set_margin_end(12)
-        color_box.set_margin_top(12)
-        color_box.set_margin_bottom(12)
-        
-        # Helper function to create color button with custom color picker
-        def create_color_button_row(label_text, apply_function):
-            row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-            label = Gtk.Label(label=label_text)
-            label.set_halign(Gtk.Align.START)
-            label.set_hexpand(True)
-            
-            # Create a button with color icon instead of ColorButton
-            color_button = Gtk.Button()
-            color_button.set_size_request(40, 24)
-            
-            # Create a DrawingArea for color display
-            color_display = Gtk.DrawingArea()
-            color_display.set_size_request(30, 18)
-            color_button.set_child(color_display)
-            
-            # Default color
-            color_button.current_color = "#000000"
-            
-            # Draw function for color display
-            def draw_color(area, cr, width, height, data):
-                rgba = self._parse_color_string(color_button.current_color)
-                if rgba:
-                    cr.set_source_rgba(rgba.red, rgba.green, rgba.blue, rgba.alpha)
-                else:
-                    cr.set_source_rgba(0, 0, 0, 1)  # Default to black
-                cr.rectangle(2, 2, width - 4, height - 4)
-                cr.fill()
-                
-                # Draw border
-                cr.set_source_rgba(0.5, 0.5, 0.5, 1)
-                cr.rectangle(2, 2, width - 4, height - 4)
-                cr.set_line_width(1)
-                cr.stroke()
-            
-            color_display.set_draw_func(draw_color, None)
-            
-            # Connect click handler to show color dialog
-            color_button.connect("clicked", lambda btn: self._show_color_dialog(win, btn, apply_function))
-            
-            row_box.append(label)
-            row_box.append(color_button)
-            return row_box, color_button
-        
-        # Border color row
-        border_color_box, border_color_button = create_color_button_row(
-            "Border Color:", self._apply_border_color)
-        color_box.append(border_color_box)
-        
-        # Table background color row
-        table_color_box, table_color_button = create_color_button_row(
-            "Table Color:", self._apply_table_color)
-        color_box.append(table_color_box)
-        
-        # Header color row
-        header_color_box, header_color_button = create_color_button_row(
-            "Header Color:", self._apply_header_color)
-        color_box.append(header_color_box)
-        
-        # Cell color row
-        cell_color_box, cell_color_button = create_color_button_row(
-            "Current Cell Color:", self._apply_cell_color)
-        color_box.append(cell_color_box)
-        
-        # Add separator
-        separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        separator.set_margin_top(8)
-        separator.set_margin_bottom(8)
-        color_box.append(separator)
-        
-        # Add default button
-        default_button = Gtk.Button(label="Reset to Default Colors")
-        default_button.connect("clicked", lambda btn: self._reset_default_colors(win))
-        color_box.append(default_button)
-        
-        # Store color buttons for later initialization
-        color_box.border_color_button = border_color_button
-        color_box.table_color_button = table_color_button
-        color_box.header_color_button = header_color_button
-        color_box.cell_color_button = cell_color_button
-        
-        return color_box
 
     # 2. Custom color dialog function
     def _show_color_dialog(self, win, color_button, apply_function):
@@ -5283,6 +4976,143 @@ class HTMLEditorApp(Adw.Application):
         
         # Get current properties to initialize the dialogs
         self._initialize_table_properties(win, popover)
+
+
+    def on_table_button_clicked(self, win, button):
+        """Show the table properties popup with tabs"""
+        # Create a popover for table properties
+        popover = Gtk.Popover()
+        popover.set_parent(button)
+        
+        # Create the content box with reduced margins and spacing
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        content_box.set_margin_start(8)
+        content_box.set_margin_end(8)
+        content_box.set_margin_top(8)
+        content_box.set_margin_bottom(8)
+        content_box.set_size_request(320, 280)  # Increased height for ViewSwitcher
+        
+        # Create header with title and close button
+        header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        header_box.set_margin_bottom(6)
+        
+        # Add title label
+        title_label = Gtk.Label(label="<b>Table Properties</b>")
+        title_label.set_use_markup(True)
+        title_label.set_halign(Gtk.Align.START)
+        title_label.set_hexpand(True)
+        header_box.append(title_label)
+        
+        # Add close button [x]
+        close_button = Gtk.Button.new_from_icon_name("window-close-symbolic")
+        close_button.set_tooltip_text("Close")
+        close_button.add_css_class("flat")
+        close_button.connect("clicked", lambda btn: popover.popdown())
+        header_box.append(close_button)
+        
+        content_box.append(header_box)
+        
+        # Create ViewStack and ViewSwitcher
+        stack = Adw.ViewStack()
+        stack.set_vexpand(True)
+        
+        # Create ViewSwitcher for the stack
+        view_switcher = Adw.ViewSwitcher()
+        view_switcher.set_stack(stack)
+        view_switcher.set_policy(Adw.ViewSwitcherPolicy.WIDE)  # WIDE for always showing labels
+        content_box.append(view_switcher)
+        
+        # Create Border tab
+        border_page = self._create_border_tab(win, popover)
+        stack.add_titled(border_page, "border", "Border")
+        
+        # Create Margin tab
+        margin_page = self._create_margin_tab(win, popover)
+        stack.add_titled(margin_page, "margin", "Margin")
+        
+        # Create Color tab
+        color_page = self._create_color_tab(win, popover)
+        stack.add_titled(color_page, "color", "Color")
+        
+        content_box.append(stack)
+        
+        # Set the content and show the popover
+        popover.set_child(content_box)
+        popover.popup()
+        
+        # Get current properties to initialize the dialogs
+        self._initialize_table_properties(win, popover)
+
+
+    # Alternative using ViewSwitcherBar (appears at the bottom)
+    def on_table_button_clicked(self, win, button):
+        """Show the table properties popup with tabs"""
+        # Create a popover for table properties
+        popover = Gtk.Popover()
+        popover.set_parent(button)
+        
+        # Create the content box with reduced margins and spacing
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        content_box.set_margin_start(8)
+        content_box.set_margin_end(8)
+        content_box.set_margin_top(8)
+        content_box.set_margin_bottom(8)
+        content_box.set_size_request(320, 280)
+        
+        # Create header with title and close button
+        header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        header_box.set_margin_bottom(6)
+        
+        # Add title label
+        title_label = Gtk.Label(label="<b>Table Properties</b>")
+        title_label.set_use_markup(True)
+        title_label.set_halign(Gtk.Align.START)
+        title_label.set_hexpand(True)
+        header_box.append(title_label)
+        
+        # Add close button [x]
+        close_button = Gtk.Button.new_from_icon_name("window-close-symbolic")
+        close_button.set_tooltip_text("Close")
+        close_button.add_css_class("flat")
+        close_button.connect("clicked", lambda btn: popover.popdown())
+        header_box.append(close_button)
+        
+        content_box.append(header_box)
+        
+        # Create ViewStack
+        stack = Adw.ViewStack()
+        stack.set_vexpand(True)
+        
+        # Create Border tab
+        border_page = self._create_border_tab(win, popover)
+        stack.add_titled(border_page, "border", "Border")
+        
+        # Create Margin tab
+        margin_page = self._create_margin_tab(win, popover)
+        stack.add_titled(margin_page, "margin", "Margin")
+        
+        # Create Color tab
+        color_page = self._create_color_tab(win, popover)
+        stack.add_titled(color_page, "color", "Color")
+        
+        content_box.append(stack)
+        
+        # Create ViewSwitcherBar at the bottom
+        view_switcher_bar = Adw.ViewSwitcherBar()
+        view_switcher_bar.set_stack(stack)
+        view_switcher_bar.set_reveal(True)  # Always show the switcher
+        content_box.append(view_switcher_bar)
+        
+        # Set the content and show the popover
+        popover.set_child(content_box)
+        popover.popup()
+        
+        # Get current properties to initialize the dialogs
+        self._initialize_table_properties(win, popover)
+
+
+
+
 
             
 def main():
