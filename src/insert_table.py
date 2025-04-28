@@ -3522,4 +3522,82 @@ def _apply_combined_borders(self, win, width_spin, border_types):
     # Update status message
     border_text = " + ".join(border_types)
     win.statusbar.set_text(f"Applied {border_text} borders")
+    
+    
+#############
+def on_border_width_changed(self, win, style, width):
+    """Apply border width change immediately while preserving other properties and border display"""
+    # Execute JavaScript to apply the border width while preserving style and display option
+    js_code = f"""
+    (function() {{
+        // Get current border properties first
+        const currentStyle = getTableBorderStyle();
+        const currentBorderStyle = currentStyle ? currentStyle.style : '{style}';
+        const currentColor = currentStyle ? currentStyle.color : getBorderColor();
+        
+        // Apply with preserved values
+        setTableBorderStyle(currentBorderStyle, {width}, currentColor);
+        
+        // Re-apply the current border option
+        const borderOption = activeTable ? (activeTable.getAttribute('data-border-option') || 'all') : 'all';
+        
+        // Handle JSON array format for combined options
+        if (borderOption.startsWith('[')) {{
+            try {{
+                const parsedOption = JSON.parse(borderOption);
+                applyTableBorderSides(parsedOption);
+            }} catch(e) {{
+                console.error("Error parsing border option:", e);
+                applyTableBorderSides(['all']);
+            }}
+        }} else {{
+            // Simple string option
+            applyTableBorderSides([borderOption]);
+        }}
+        
+        return true;
+    }})();
+    """
+    win.webview.evaluate_javascript(js_code, -1, None, None, None, None, None)
+    
+    # Update status message
+    win.statusbar.set_text(f"Applied {width}px border width")
+        
+def on_border_display_option_clicked(self, win, popover, width_spin, option):
+    """Apply the selected border display option while preserving style and width"""
+    js_code = f"""
+    (function() {{
+        // Get current border properties
+        const currentStyle = getTableBorderStyle();
+        let style = currentStyle ? currentStyle.style : 'solid';
+        let width = currentStyle ? currentStyle.width : {width_spin.get_value()};
+        let color = currentStyle ? currentStyle.color : getBorderColor();
+        
+        // Ensure we have valid values
+        if (!style || style === 'none') {{
+            style = 'solid';
+        }}
+        
+        // First apply the current style, width, and color
+        setTableBorderStyle(style, width, color);
+        
+        // Then apply the border option
+        applyTableBorderSides(['{option}']);
+        
+        // Store the selected border option for future reference
+        if (activeTable) {{
+            activeTable.setAttribute('data-border-option', '{option}');
+        }}
+        
+        return true;
+    }})();
+    """
+    win.webview.evaluate_javascript(js_code, -1, None, None, None, None, None)
+    
+    # Update status message
+    win.statusbar.set_text(f"Applied {option} borders")
+    
+    # Close the popover if provided
+    if popover:
+        popover.popdown()
 

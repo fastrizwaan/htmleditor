@@ -5427,7 +5427,542 @@ class HTMLEditorApp(Adw.Application):
             }
         }
         """
+############
+    def table_border_style_js(self):
+        """JavaScript for table border style manipulation with combined borders"""
+        return """
+        // Function to set table border style
+        function setTableBorderStyle(style, width, color) {
+            if (!activeTable) return false;
+            
+            // Get all cells in the table
+            const cells = activeTable.querySelectorAll('th, td');
+            
+            // First try to get current values from table attributes
+            let currentStyle = activeTable.getAttribute('data-border-style');
+            let currentWidth = activeTable.getAttribute('data-border-width');
+            let currentColor = activeTable.getAttribute('data-border-color');
+            
+            // If not stored, get from the first cell
+            if (!currentStyle || !currentWidth || !currentColor) {
+                if (cells.length > 0) {
+                    const firstCell = cells[0];
+                    currentStyle = currentStyle || firstCell.style.borderStyle || 'solid';
+                    currentWidth = currentWidth || parseInt(firstCell.style.borderWidth) || 1;
+                    currentColor = currentColor || firstCell.style.borderColor || getBorderColor();
+                } else {
+                    // Default values if no cells exist
+                    currentStyle = currentStyle || 'solid';
+                    currentWidth = currentWidth || 1;
+                    currentColor = currentColor || getBorderColor();
+                }
+            }
+            
+            // Use provided values or fall back to current/default values
+            const newStyle = style !== null && style !== undefined ? style : currentStyle;
+            const newWidth = width !== null && width !== undefined ? width : currentWidth;
+            const newColor = color !== null && color !== undefined ? color : currentColor;
+            
+            // Update border style for all cells
+            cells.forEach(cell => {
+                // Always set all three properties to ensure consistency
+                cell.style.borderStyle = newStyle;
+                cell.style.borderWidth = newWidth + 'px';
+                cell.style.borderColor = newColor;
+            });
+            
+            // Store the current border settings as attributes on the table for later reference
+            activeTable.setAttribute('data-border-style', newStyle);
+            activeTable.setAttribute('data-border-width', newWidth);
+            activeTable.setAttribute('data-border-color', newColor);
+            
+            // Get and reapply current border display setting
+            const borderDisplay = activeTable.getAttribute('data-border-display') || 'all';
+            applyTableBorderSides([borderDisplay]);
+            
+            // Notify that content changed
+            try {
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            } catch(e) {
+                console.log("Could not notify about content change:", e);
+            }
+            
+            return true;
+        }
+        
+        // Function to set table border color
+        function setTableBorderColor(color) {
+            return setTableBorderStyle(null, null, color);
+        }
+        
+        // Function to set table border width
+        function setTableBorderWidth(width) {
+            return setTableBorderStyle(null, width, null);
+        }
+        
+        // Function to get current table border style
+        function getTableBorderStyle() {
+            if (!activeTable) return null;
+            
+            // First try to get from stored data attributes
+            const storedStyle = activeTable.getAttribute('data-border-style');
+            const storedWidth = activeTable.getAttribute('data-border-width');
+            const storedColor = activeTable.getAttribute('data-border-color');
+            
+            if (storedStyle && storedWidth && storedColor) {
+                return {
+                    style: storedStyle,
+                    width: parseInt(storedWidth),
+                    color: storedColor
+                };
+            }
+            
+            // If not stored, get from the first cell
+            const firstCell = activeTable.querySelector('td, th');
+            if (!firstCell) return {
+                style: 'solid',
+                width: 1,
+                color: getBorderColor()
+            };
+            
+            // Get computed style to ensure we get actual values
+            const computedStyle = window.getComputedStyle(firstCell);
+            
+            const result = {
+                style: firstCell.style.borderStyle || computedStyle.borderStyle || 'solid',
+                width: parseInt(firstCell.style.borderWidth) || parseInt(computedStyle.borderWidth) || 1,
+                color: firstCell.style.borderColor || computedStyle.borderColor || getBorderColor()
+            };
+            
+            // Store these values for future use
+            activeTable.setAttribute('data-border-style', result.style);
+            activeTable.setAttribute('data-border-width', result.width);
+            activeTable.setAttribute('data-border-color', result.color);
+            
+            return result;
+        }
+        
+        // Function to get current border display setting
+        function getTableBorderDisplay() {
+            if (!activeTable) return 'all'; // Default
+            
+            // Get stored border display setting or default to 'all'
+            return activeTable.getAttribute('data-border-display') || 'all';
+        }
+        
+        // Function to get current table border properties (including shadow)
+        function getTableBorderProperties() {
+            if (!activeTable) return null;
+            
+            const borderStyle = getTableBorderStyle();
+            const hasShadow = activeTable.getAttribute('data-border-shadow') === 'true' || 
+                             (window.getComputedStyle(activeTable).boxShadow !== 'none' && 
+                              window.getComputedStyle(activeTable).boxShadow !== '');
+            
+            return {
+                ...borderStyle,
+                shadow: hasShadow,
+                display: getTableBorderDisplay()
+            };
+        }
+        
+        // Function to set table margins
+        function setTableMargins(top, right, bottom, left) {
+            if (!activeTable) return false;
+            
+            // Set margins individually if provided
+            if (top !== undefined && top !== null) {
+                activeTable.style.marginTop = top + 'px';
+            }
+            if (right !== undefined && right !== null) {
+                activeTable.style.marginRight = right + 'px';
+            }
+            if (bottom !== undefined && bottom !== null) {
+                activeTable.style.marginBottom = bottom + 'px';
+            }
+            if (left !== undefined && left !== null) {
+                activeTable.style.marginLeft = left + 'px';
+            }
+            
+            // Store margin values as attributes for later reference
+            activeTable.setAttribute('data-margin-top', parseInt(activeTable.style.marginTop) || 0);
+            activeTable.setAttribute('data-margin-right', parseInt(activeTable.style.marginRight) || 0);
+            activeTable.setAttribute('data-margin-bottom', parseInt(activeTable.style.marginBottom) || 0);
+            activeTable.setAttribute('data-margin-left', parseInt(activeTable.style.marginLeft) || 0);
+            
+            // Notify that content changed
+            try {
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            } catch(e) {
+                console.log("Could not notify about content change:", e);
+            }
+            
+            return true;
+        }
+        
+        // Function to get current table margins
+        function getTableMargins() {
+            if (!activeTable) return null;
+            
+            // Try to get from stored attributes first
+            const storedTop = activeTable.getAttribute('data-margin-top');
+            const storedRight = activeTable.getAttribute('data-margin-right');
+            const storedBottom = activeTable.getAttribute('data-margin-bottom');
+            const storedLeft = activeTable.getAttribute('data-margin-left');
+            
+            if (storedTop !== null || storedRight !== null || storedBottom !== null || storedLeft !== null) {
+                return {
+                    top: parseInt(storedTop) || 0,
+                    right: parseInt(storedRight) || 0,
+                    bottom: parseInt(storedBottom) || 0,
+                    left: parseInt(storedLeft) || 0
+                };
+            }
+            
+            // Otherwise get from computed style
+            const computedStyle = window.getComputedStyle(activeTable);
+            
+            return {
+                top: parseInt(computedStyle.marginTop) || 0,
+                right: parseInt(computedStyle.marginRight) || 0,
+                bottom: parseInt(computedStyle.marginBottom) || 0,
+                left: parseInt(computedStyle.marginLeft) || 0
+            };
+        }
+        
+        // Enhanced function to apply border to specific sides of the table
+        // Now supports combined options like 'outer' + 'horizontal'
+        function applyTableBorderSides(sides) {
+            if (!activeTable) return false;
+            
+            const cells = activeTable.querySelectorAll('td, th');
+            const currentStyle = getTableBorderStyle();
+            
+            if (!currentStyle) return false;
+            
+            // Create the border string with preserved style, width and color
+            const borderValue = `${currentStyle.width}px ${currentStyle.style} ${currentStyle.color}`;
+            
+            // Check for special combined cases
+            const hasOuter = sides.includes('outer');
+            const hasInner = sides.includes('inner');
+            const hasHorizontal = sides.includes('horizontal');
+            const hasVertical = sides.includes('vertical');
+            
+            // Apply borders based on selected sides
+            cells.forEach(cell => {
+                // Get row and column position
+                const row = cell.parentElement;
+                const rowIndex = row.rowIndex;
+                const cellIndex = cell.cellIndex;
+                const isFirstRow = rowIndex === 0;
+                const isLastRow = rowIndex === activeTable.rows.length - 1;
+                const isFirstColumn = cellIndex === 0;
+                const isLastColumn = cellIndex === row.cells.length - 1;
+                
+                // Reset all borders first
+                cell.style.borderTop = 'none';
+                cell.style.borderRight = 'none';
+                cell.style.borderBottom = 'none';
+                cell.style.borderLeft = 'none';
+                
+                // Apply borders based on sides parameter and cell position
+                if (sides.includes('all')) {
+                    cell.style.border = borderValue;
+                    // Store the border setting
+                    activeTable.setAttribute('data-border-display', 'all');
+                } else if (sides.includes('none')) {
+                    cell.style.border = 'none';
+                    // Store the border setting
+                    activeTable.setAttribute('data-border-display', 'none');
+                } else {
+                    // Outer + Inner Horizontal: Apply outer borders on all 4 sides PLUS inner horizontal borders
+                    if (hasOuter && hasInner && hasHorizontal && !hasVertical) {
+                        // Apply outer borders (all 4 sides)
+                        if (isFirstRow) cell.style.borderTop = borderValue;
+                        if (isLastRow) cell.style.borderBottom = borderValue;
+                        if (isFirstColumn) cell.style.borderLeft = borderValue;
+                        if (isLastColumn) cell.style.borderRight = borderValue;
+                        
+                        // Plus inner horizontal borders
+                        if (!isLastRow) cell.style.borderBottom = borderValue;
+                        
+                        // Store the combined setting
+                        activeTable.setAttribute('data-border-display', 'outer-inner-horizontal');
+                    }
+                    // Outer + Inner Vertical: Apply outer borders on all 4 sides PLUS inner vertical borders
+                    else if (hasOuter && hasInner && hasVertical && !hasHorizontal) {
+                        // Apply outer borders (all 4 sides)
+                        if (isFirstRow) cell.style.borderTop = borderValue;
+                        if (isLastRow) cell.style.borderBottom = borderValue;
+                        if (isFirstColumn) cell.style.borderLeft = borderValue;
+                        if (isLastColumn) cell.style.borderRight = borderValue;
+                        
+                        // Plus inner vertical borders
+                        if (!isLastColumn) cell.style.borderRight = borderValue;
+                        
+                        // Store the combined setting
+                        activeTable.setAttribute('data-border-display', 'outer-inner-vertical');
+                    }
+                    // Handle outer borders
+                    else if (hasOuter) {
+                        if (isFirstRow) cell.style.borderTop = borderValue;
+                        if (isLastRow) cell.style.borderBottom = borderValue;
+                        if (isFirstColumn) cell.style.borderLeft = borderValue;
+                        if (isLastColumn) cell.style.borderRight = borderValue;
+                        
+                        // If outer + horizontal, add only top and bottom outer borders
+                        if (hasHorizontal && !hasVertical) {
+                            if (isFirstRow) cell.style.borderTop = borderValue;
+                            if (isLastRow) cell.style.borderBottom = borderValue;
+                            cell.style.borderLeft = 'none';
+                            cell.style.borderRight = 'none';
+                            
+                            // Store the combined setting
+                            activeTable.setAttribute('data-border-display', 'outer-horizontal');
+                        }
+                        
+                        // If outer + vertical, add only left and right outer borders
+                        else if (hasVertical && !hasHorizontal) {
+                            cell.style.borderTop = 'none';
+                            cell.style.borderBottom = 'none';
+                            if (isFirstColumn) cell.style.borderLeft = borderValue;
+                            if (isLastColumn) cell.style.borderRight = borderValue;
+                            
+                            // Store the combined setting
+                            activeTable.setAttribute('data-border-display', 'outer-vertical');
+                        }
+                        else {
+                            // Store the setting
+                            activeTable.setAttribute('data-border-display', 'outer');
+                        }
+                    }
+                    
+                    // Handle inner borders
+                    else if (hasInner) {
+                        if (!isLastRow) cell.style.borderBottom = borderValue;
+                        if (!isLastColumn) cell.style.borderRight = borderValue;
+                        
+                        // If inner + horizontal, add only horizontal inner borders
+                        if (hasHorizontal && !hasVertical) {
+                            if (!isLastRow) cell.style.borderBottom = borderValue;
+                            cell.style.borderRight = 'none';
+                            
+                            // Store the combined setting
+                            activeTable.setAttribute('data-border-display', 'inner-horizontal');
+                        }
+                        
+                        // If inner + vertical, add only vertical inner borders
+                        else if (hasVertical && !hasHorizontal) {
+                            cell.style.borderBottom = 'none';
+                            if (!isLastColumn) cell.style.borderRight = borderValue;
+                            
+                            // Store the combined setting
+                            activeTable.setAttribute('data-border-display', 'inner-vertical');
+                        }
+                        else {
+                            // Store the setting
+                            activeTable.setAttribute('data-border-display', 'inner');
+                        }
+                    }
+                    
+                    // Handle standalone horizontal/vertical if not combined with outer/inner
+                    else {
+                        if (hasHorizontal) {
+                            cell.style.borderTop = borderValue;
+                            cell.style.borderBottom = borderValue;
+                            
+                            // Store the setting
+                            activeTable.setAttribute('data-border-display', 'horizontal');
+                        }
+                        
+                        if (hasVertical) {
+                            cell.style.borderLeft = borderValue;
+                            cell.style.borderRight = borderValue;
+                            
+                            // Store the setting
+                            activeTable.setAttribute('data-border-display', 'vertical');
+                        }
+                    }
+                }
+            });
+            
+            // Notify that content changed
+            try {
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            } catch(e) {
+                console.log("Could not notify about content change:", e);
+            }
+            
+            return true;
+        }
+        """
+        
+    def _update_border_display_ui(self, win, webview, result, border_page):
+        """Update the border display UI based on current table border settings"""
+        try:
+            js_result = webview.evaluate_javascript_finish(result)
+            border_display = None
+            
+            if hasattr(js_result, 'get_js_value'):
+                border_display = js_result.get_js_value().to_string()
+            else:
+                border_display = js_result.to_string()
+            
+            if border_display:
+                # Strip any quotes from the result
+                border_display = border_display.strip('"\'')
+                
+                # Find the border buttons in the UI and update their appearance
+                for child in border_page.get_children():
+                    if isinstance(child, Gtk.Box):
+                        for box in child.get_children():
+                            if not isinstance(box, Gtk.Box):
+                                continue
+                                
+                            for button in box.get_children():
+                                if not isinstance(button, Gtk.Button):
+                                    continue
+                                    
+                                # Check button purpose based on icon name or tooltip
+                                icon_name = None
+                                if button.get_icon_name:
+                                    icon_name = button.get_icon_name()
+                                
+                                tooltip = button.get_tooltip_text()
+                                
+                                # Match button to border display setting
+                                matches = False
+                                
+                                if border_display == 'all' and (
+                                    icon_name == 'table-border-all-symbolic' or 
+                                    tooltip == 'All Borders'):
+                                    matches = True
+                                elif border_display == 'none' and (
+                                    icon_name == 'table-border-none-symbolic' or 
+                                    tooltip == 'No Borders'):
+                                    matches = True
+                                elif border_display == 'outer' and (
+                                    icon_name == 'table-border-outer-symbolic' or 
+                                    tooltip == 'Outer Borders'):
+                                    matches = True
+                                elif border_display == 'inner' and (
+                                    icon_name == 'table-border-inner-symbolic' or 
+                                    tooltip == 'Inner Borders'):
+                                    matches = True
+                                elif border_display == 'horizontal' and (
+                                    icon_name == 'table-border-horizontal-symbolic' or 
+                                    tooltip == 'Horizontal Borders'):
+                                    matches = True
+                                elif border_display == 'vertical' and (
+                                    icon_name == 'table-border-vertical-symbolic' or 
+                                    tooltip == 'Vertical Borders'):
+                                    matches = True
+                                elif border_display == 'outer-horizontal' and (
+                                    icon_name == 'table-border-outer-horizontal-symbolic' or 
+                                    tooltip == 'Outer Horizontal Borders'):
+                                    matches = True
+                                elif border_display == 'outer-vertical' and (
+                                    icon_name == 'table-border-outer-vertical-symbolic' or 
+                                    tooltip == 'Outer Vertical Borders'):
+                                    matches = True
+                                elif border_display == 'inner-horizontal' and (
+                                    icon_name == 'table-border-inner-horizontal-symbolic' or 
+                                    tooltip == 'Inner Horizontal Borders'):
+                                    matches = True
+                                elif border_display == 'inner-vertical' and (
+                                    icon_name == 'table-border-inner-vertical-symbolic' or 
+                                    tooltip == 'Inner Vertical Borders'):
+                                    matches = True
+                                elif border_display == 'outer-inner-horizontal' and (
+                                    icon_name == 'table-border-outer-inner-horizontal-symbolic' or 
+                                    tooltip == 'Outer + Inner Horizontal Borders'):
+                                    matches = True
+                                elif border_display == 'outer-inner-vertical' and (
+                                    icon_name == 'table-border-outer-inner-vertical-symbolic' or 
+                                    tooltip == 'Outer + Inner Vertical Borders'):
+                                    matches = True
+                                
+                                # Update button state
+                                if matches:
+                                    # Highlight this button - GTK4 uses CSS classes
+                                    button.add_css_class('suggested-action')
+                                else:
+                                    # Remove highlight
+                                    button.remove_css_class('suggested-action')
+        except Exception as e:
+            print(f"Error updating border display UI: {e}")
 
+    def _initialize_table_properties(self, win, popover):
+        """Initialize the table properties popup with current values"""
+        # Get current table properties
+        js_code = """
+        (function() {
+            const borderProps = getTableBorderProperties();
+            const margins = getTableMargins();
+            const colors = getTableColors();
+            
+            return JSON.stringify({
+                border: borderProps,
+                margins: margins,
+                colors: colors
+            });
+        })();
+        """
+        
+        win.webview.evaluate_javascript(
+            js_code,
+            -1, None, None, None,
+            lambda webview, result, data: self._on_get_table_properties(win, webview, result, popover),
+            None
+        )
+        
+        # Get the border display setting separately
+        border_display_js = """
+        (function() {
+            return getTableBorderDisplay();
+        })();
+        """
+        
+        # Find the notebook or view stack in the popover
+        content_box = popover.get_child()
+        notebook = None
+        
+        for child in content_box.get_children():
+            if isinstance(child, Gtk.Notebook):
+                notebook = child
+                break
+            elif isinstance(child, Adw.ViewStack):
+                notebook = child
+                break
+        
+        if notebook:
+            # Get the border page
+            border_page = None
+            if isinstance(notebook, Gtk.Notebook):
+                border_page = notebook.get_nth_page(0)  # Assuming border is first tab
+            elif isinstance(notebook, Adw.ViewStack):
+                border_page = notebook.get_child_by_name("border")  # Assuming you used "border" as the name
+            
+            if border_page:
+                # Update border display UI
+                win.webview.evaluate_javascript(
+                    border_display_js,
+                    -1, None, None, None,
+                    lambda webview, result, data: self._update_border_display_ui(win, webview, result, border_page),
+                    None
+                )
+    def _update_border_display_ui(self, win, webview, result, border_page):
+        try:
+            js_result = webview.evaluate_javascript_finish(result)
+            if js_result:
+                border_display = js_result.to_string()
+                
+                # Update UI based on border display setting
+                # This would depend on your specific UI implementation
+                # For example, update which buttons appear selected
+        except Exception as e:
+            print(f"Error updating border display UI: {e}")
             
 def main():
     app = HTMLEditorApp()
