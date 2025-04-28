@@ -2011,11 +2011,11 @@ def on_insert_table_clicked(self, win, btn):
     
     # ADDED: Floating option checkbox
     float_check = Gtk.CheckButton(label="Free-floating (text wraps around)")
-    float_check.set_active(True)  # Enabled by default
+    float_check.set_active(False)  # Enabled by default
     content_box.append(float_check)
     
     # Set initial width based on floating setting (Auto for floating tables)
-    width_combo.set_selected(0)  # Start with Auto since floating is active by default
+    width_combo.set_selected(1)  # Start with Auto since floating is active by default
     
     # Connect change handler for float check to update width combo
     def on_float_check_toggled(check_button):
