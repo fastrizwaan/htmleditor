@@ -146,7 +146,8 @@ class HTMLEditorApp(Adw.Application):
             '_on_color_dialog_response', '_apply_border_color', '_apply_table_color',
             '_apply_header_color', '_apply_cell_color', '_apply_row_color', '_apply_column_color',
             '_reset_default_colors', '_update_color_buttons_after_reset', 
-            'on_border_display_option_clicked', '_apply_combined_borders',
+            'on_border_display_option_clicked', '_apply_combined_borders', 'table_z_index_js',
+            'on_bring_forward_clicked', 'on_send_backward_clicked', 
         ]
 
         # Import methods from insert_table module
@@ -889,6 +890,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         {self.table_border_style_js()}
         {self.table_color_js()}
         {self.insert_text_box_js()}
+        {self.table_z_index_js()}
         {self.insert_image_js()}
         {self.insert_link_js()}
         {self.init_editor_js()}
@@ -4515,12 +4517,11 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
 ##########################  /show html           
 
 ############# Additional methods
+ 
 
- 
- 
- 
- 
- 
+     
+     
+     
  
  
  

@@ -111,6 +111,65 @@ def insert_table_js(self):
     {self.table_event_handlers_js()}
     """
 
+def table_z_index_js(self):
+    return """
+    // Function to change z-index of active element (bring forward)
+    function bringElementForward() {
+        if (!activeTable) return false;
+        
+        // Only apply to floating elements
+        if (!activeTable.classList.contains('floating-table')) {
+            // Make the element floating first
+            activeTable.classList.add('floating-table');
+            setTableFloating(activeTable);
+        }
+        
+        // Get current z-index
+        let currentZ = parseInt(activeTable.style.zIndex) || 50;
+        
+        // Increase z-index
+        currentZ += 10;
+        activeTable.style.zIndex = currentZ;
+        
+        // Notify that content changed
+        try {
+            window.webkit.messageHandlers.contentChanged.postMessage('changed');
+        } catch(e) {
+            console.log("Could not notify about content change:", e);
+        }
+        
+        return true;
+    }
+    
+    // Function to change z-index of active element (send backward)
+    function sendElementBackward() {
+        if (!activeTable) return false;
+        
+        // Only apply to floating elements
+        if (!activeTable.classList.contains('floating-table')) {
+            // Make the element floating first
+            activeTable.classList.add('floating-table');
+            setTableFloating(activeTable);
+        }
+        
+        // Get current z-index
+        let currentZ = parseInt(activeTable.style.zIndex) || 50;
+        
+        // Decrease z-index but keep it above 0
+        currentZ = Math.max(currentZ - 10, 10);
+        activeTable.style.zIndex = currentZ;
+        
+        // Notify that content changed
+        try {
+            window.webkit.messageHandlers.contentChanged.postMessage('changed');
+        } catch(e) {
+            console.log("Could not notify about content change:", e);
+        }
+        
+        return true;
+    }
+"""
+
 def table_theme_helpers_js(self):
     """JavaScript helper functions for theme detection and colors"""
     return """
@@ -1913,6 +1972,37 @@ def create_table_toolbar(self, win):
     float_button.set_margin_start(5)
     float_button.connect("clicked", lambda btn: self.on_table_float_clicked(win))
     toolbar.append(float_button)
+
+    # Z-index controls - NEW
+    # Separator for layer controls
+    separator4 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+    separator4.set_margin_start(10)
+    separator4.set_margin_end(10)
+    toolbar.append(separator4)
+    
+    # Layer control options
+    layer_label = Gtk.Label(label="Layer:")
+    layer_label.set_margin_end(5)
+    toolbar.append(layer_label)
+    
+    # Create a group for layer control buttons
+    layer_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
+    layer_group.add_css_class("linked")
+    
+    # Bring forward button (increase z-index)
+    bring_forward_button = Gtk.Button(icon_name="go-up-symbolic")
+    bring_forward_button.set_tooltip_text("Bring Forward (place above other elements)")
+    bring_forward_button.connect("clicked", lambda btn: self.on_bring_forward_clicked(win, btn))
+    layer_group.append(bring_forward_button)
+    
+    # Send backward button (decrease z-index)
+    send_backward_button = Gtk.Button(icon_name="go-down-symbolic")
+    send_backward_button.set_tooltip_text("Send Backward (place beneath other elements)")
+    send_backward_button.connect("clicked", lambda btn: self.on_send_backward_clicked(win, btn))
+    layer_group.append(send_backward_button)
+    
+    # Add layer control group to toolbar
+    toolbar.append(layer_group)
     
     # Spacer
     spacer = Gtk.Box()
@@ -3600,4 +3690,18 @@ def on_border_display_option_clicked(self, win, popover, width_spin, option):
     # Close the popover if provided
     if popover:
         popover.popdown()
+        
+# Z-index control handlers
+def on_bring_forward_clicked(self, win, btn):
+    """Bring the selected element forward in the z-order"""
+    js_code = "bringElementForward();"
+    self.execute_js(win, js_code)
+    win.statusbar.set_text("Element brought forward")
+
+def on_send_backward_clicked(self, win, btn):
+    """Send the selected element backward in the z-order"""
+    js_code = "sendElementBackward();"
+    self.execute_js(win, js_code)
+    win.statusbar.set_text("Element sent backward")
+
 
