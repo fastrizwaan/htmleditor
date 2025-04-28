@@ -3279,6 +3279,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         status_text = "Column layout removed" if columns <= 1 else f"Applied {columns}-column layout"
         win.statusbar.set_text(status_text)
         
+############# Create Window
     def create_window(self):
         """Create a new window with all initialization"""
         win = Adw.ApplicationWindow(application=self)
@@ -4343,6 +4344,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         self.setup_spacing_actions(win)
         
         return win
+############# /Create Window
 
 ##########################  show html
     def on_show_html_clicked(self, win, btn):

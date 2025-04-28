@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect x="64" y="64" width="384" height="384" rx="40" ry="40" fill="#f5f5f5" stroke="#2d3748" stroke-width="16"/>
+  
+  <!-- HTML Tag Designs -->
+  <g fill="#3b82f6">
+    <!-- Left Bracket -->
+    <path d="M145 160 L105 256 L145 352 L165 352 L125 256 L165 160 Z" />
+    <!-- Right Bracket -->
+    <path d="M365 160 L405 256 L365 352 L345 352 L385 256 L345 160 Z" />
+  </g>
+  
+  <!-- Center Text Element -->
+  <g>
+    <!-- Horizontal Line - Top -->
+    <rect x="185" y="200" width="140" height="16" rx="8" ry="8" fill="#e53e3e"/>
+    
+    <!-- Horizontal Line - Middle -->
+    <rect x="185" y="248" width="180" height="16" rx="8" ry="8" fill="#38a169"/>
+    
+    <!-- Horizontal Line - Bottom -->
+    <rect x="185" y="296" width="120" height="16" rx="8" ry="8" fill="#805ad5"/>
+  </g>
+  
+  <!-- Cursor -->
+  <rect x="165" y="180" width="4" height="150" fill="#2d3748">
+    <animate attributeName="opacity" values="1;0;1" dur="1.5s" repeatCount="indefinite"/>
+  </rect>
+</svg>
