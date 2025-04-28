@@ -799,7 +799,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
             /* Text box styles (enhanced table) */
             table.text-box-table {
                 border: 1px solid #ccc !important;
-                border-radius: 4px;
+                border-radius: 0px;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1);
                 background-color: #fff;
                 width: 80px;  /* Initial width */
@@ -4517,11 +4517,332 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
 ##########################  /show html           
 
 ############# Additional methods
- 
+    def insert_text_box_js(self):
+        """JavaScript for text box insertion and related functionality"""
+        return """
+        // Function to insert a text box at the current cursor position
+        function insertTextBox(width, height, borderWidth, isFloating) {
+            // Get theme-appropriate colors
+            const borderColor = getBorderColor();
+            
+            // Create table HTML for the text box (1x1 table with special styling)
+            let textBoxHTML = '<table cellspacing="0" cellpadding="5" ';
+            
+            // Add class and style attributes
+            textBoxHTML += 'class="editor-table text-box-table" style="';
+            
+            // Only add border if width > 0
+            if (borderWidth > 0) {
+                textBoxHTML += 'border: ' + borderWidth + 'px solid ' + borderColor + '; ';
+            } else {
+                // Explicitly set border to 0 to override any default CSS
+                textBoxHTML += 'border: 0 none transparent !important; outline: 0 none !important; box-shadow: none !important; ';
+            }
+            
+            textBoxHTML += 'width: ' + width + 'px; height: ' + height + 'px; resize: both; overflow: auto; ';
+            
+            // Add default margins
+            textBoxHTML += 'margin: 6px 6px 0 0;">';
+            
+            // Create a single cell with explicit no border
+            if (borderWidth > 0) {
+                textBoxHTML += '<tr><td style="border: none; padding: 5px; vertical-align: top;">Text box content</td></tr>';
+            } else {
+                textBoxHTML += '<tr><td style="border: 0 none transparent !important; outline: 0 none !important; padding: 5px; vertical-align: top;">Text box content</td></tr>';
+            }
+            
+            textBoxHTML += '</table><p></p>';
+            
+            // Insert the text box at the current cursor position
+            document.execCommand('insertHTML', false, textBoxHTML);
+            
+            // Activate the newly inserted text box
+            setTimeout(() => {
+                const textBoxes = document.querySelectorAll('table.text-box-table');
+                const newTextBox = textBoxes[textBoxes.length - 1];
+                if (newTextBox) {
+                    // Ensure classes are present
+                    if (!newTextBox.classList.contains('editor-table')) {
+                        newTextBox.classList.add('editor-table');
+                    }
+                    
+                    // Set default margins
+                    newTextBox.style.marginTop = '6px';
+                    newTextBox.style.marginRight = '6px';
+                    newTextBox.style.marginBottom = '0px';
+                    newTextBox.style.marginLeft = '0px';
+                    
+                    // Store margin values as attributes
+                    newTextBox.setAttribute('data-margin-top', '6');
+                    newTextBox.setAttribute('data-margin-right', '6');
+                    newTextBox.setAttribute('data-margin-bottom', '0');
+                    newTextBox.setAttribute('data-margin-left', '0');
+                    
+                    // Store border properties for table properties dialog
+                    newTextBox.setAttribute('data-border-width', borderWidth);
+                    newTextBox.setAttribute('data-border-style', 'solid');
+                    newTextBox.setAttribute('data-border-color', borderColor);
+                    
+                    // Mark as a text box for special handling
+                    newTextBox.setAttribute('data-element-type', 'text-box');
+                    
+                    // Make text box floating if requested
+                    if (isFloating) {
+                        newTextBox.classList.add('floating-table');
+                        setTableFloating(newTextBox);
+                    }
+                    
+                    // Important: Ensure there are absolutely no borders when borderWidth is 0
+                    if (borderWidth === 0) {
+                        // Apply !important to override any CSS
+                        newTextBox.style.cssText += `
+                            border: 0 none transparent !important;
+                            outline: 0 none transparent !important;
+                            box-shadow: none !important;
+                        `;
+                        
+                        // Also ensure all cells have no border
+                        const cells = newTextBox.querySelectorAll('td, th');
+                        cells.forEach(cell => {
+                            cell.style.cssText += `
+                                border: 0 none transparent !important;
+                                outline: 0 none transparent !important;
+                            `;
+                        });
+                    }
+                    
+                    activateTable(newTextBox);
+                    try {
+                        window.webkit.messageHandlers.tableClicked.postMessage('table-clicked');
+                    } catch(e) {
+                        console.log("Could not notify about text box click:", e);
+                    }
+                }
+            }, 10);
+        }
+        
+        // Extend the existing setTableBorderStyle function to handle text boxes properly
+        const originalSetTableBorderStyle = window.setTableBorderStyle || function(){};
+        window.setTableBorderStyle = function(style, width, color) {
+            if (!activeTable) return false;
+            
+            // Check if this is a text box
+            const isTextBox = activeTable.classList.contains('text-box-table') || 
+                              activeTable.getAttribute('data-element-type') === 'text-box';
+                              
+            if (isTextBox) {
+                // For text boxes with zero width, be very aggressive about removing all border styling
+                if (width === 0) {
+                    // Remove all border properties with !important
+                    activeTable.style.cssText += `
+                        border: 0 none transparent !important;
+                        outline: 0 none transparent !important;
+                        box-shadow: none !important;
+                    `;
+                    
+                    // Also remove any border classes that might be applied
+                    activeTable.classList.remove('bordered-table');
+                    
+                    // Ensure cells have no border
+                    const cells = activeTable.querySelectorAll('td, th');
+                    cells.forEach(cell => {
+                        cell.style.cssText += `
+                            border: 0 none transparent !important;
+                            outline: 0 none transparent !important;
+                        `;
+                    });
+                    
+                    // Only update the width, keep style and color for when border is re-enabled
+                    activeTable.setAttribute('data-border-width', '0');
+                } else {
+                    // Apply border to the table
+                    activeTable.style.border = width + 'px ' + style + ' ' + color;
+                    
+                    // Remove borders from the cells (text boxes shouldn't have internal borders)
+                    const cells = activeTable.querySelectorAll('td, th');
+                    cells.forEach(cell => {
+                        cell.style.border = 'none';
+                    });
+                    
+                    // Update all stored properties
+                    activeTable.setAttribute('data-border-width', width);
+                    activeTable.setAttribute('data-border-style', style);
+                    activeTable.setAttribute('data-border-color', color);
+                }
+                
+                // Notify that content changed
+                try {
+                    window.webkit.messageHandlers.contentChanged.postMessage('changed');
+                } catch(e) {
+                    console.log("Could not notify about content change:", e);
+                }
+                
+                return true;
+            } else {
+                // For regular tables, check if it's a zero width first
+                if (width === 0) {
+                    // Apply the same aggressive border removal to regular tables
+                    const cells = activeTable.querySelectorAll('td, th');
+                    cells.forEach(cell => {
+                        cell.style.cssText += `
+                            border: 0 none transparent !important;
+                            outline: 0 none transparent !important;
+                        `;
+                    });
+                    
+                    activeTable.style.cssText += `
+                        border: 0 none transparent !important;
+                        outline: 0 none transparent !important;
+                        box-shadow: none !important;
+                    `;
+                    
+                    // Only update the width, keep style and color
+                    activeTable.setAttribute('data-border-width', '0');
+                    
+                    // Notify that content changed
+                    try {
+                        window.webkit.messageHandlers.contentChanged.postMessage('changed');
+                    } catch(e) {
+                        console.log("Could not notify about content change:", e);
+                    }
+                    
+                    return true;
+                } else if (typeof originalSetTableBorderStyle === 'function') {
+                    // Use the original function for regular tables with borders
+                    return originalSetTableBorderStyle(style, width, color);
+                } else {
+                    // Fallback implementation if original function doesn't exist
+                    // Apply the style to all cells
+                    const cells = activeTable.querySelectorAll('td, th');
+                    cells.forEach(cell => {
+                        cell.style.borderStyle = style;
+                        cell.style.borderWidth = width + 'px';
+                        cell.style.borderColor = color;
+                    });
+                    
+                    // Update stored properties
+                    activeTable.setAttribute('data-border-width', width);
+                    activeTable.setAttribute('data-border-style', style);
+                    activeTable.setAttribute('data-border-color', color);
+                    
+                    // Notify that content changed
+                    try {
+                        window.webkit.messageHandlers.contentChanged.postMessage('changed');
+                    } catch(e) {
+                        console.log("Could not notify about content change:", e);
+                    }
+                    
+                    return true;
+                }
+            }
+        };
+        """
+    def on_insert_text_box_clicked(self, win, btn):
+        """Handle text box insertion button click"""
+        win.statusbar.set_text("Inserting text box...")
+        
+        # Create a dialog to configure the text box
+        dialog = Adw.Dialog()
+        dialog.set_title("Insert Text Box")
+        dialog.set_content_width(350)
+        
+        # Create layout for dialog content
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        content_box.set_margin_top(24)
+        content_box.set_margin_bottom(24)
+        content_box.set_margin_start(24)
+        content_box.set_margin_end(24)
+        
+        # Width input
+        width_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        width_label = Gtk.Label(label="Width (px):")
+        width_label.set_halign(Gtk.Align.START)
+        width_label.set_hexpand(True)
+        
+        width_adjustment = Gtk.Adjustment(value=150, lower=50, upper=500, step_increment=10)
+        width_spin = Gtk.SpinButton()
+        width_spin.set_adjustment(width_adjustment)
+        
+        width_box.append(width_label)
+        width_box.append(width_spin)
+        content_box.append(width_box)
+        
+        # Height input
+        height_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        height_label = Gtk.Label(label="Height (px):")
+        height_label.set_halign(Gtk.Align.START)
+        height_label.set_hexpand(True)
+        
+        height_adjustment = Gtk.Adjustment(value=100, lower=50, upper=500, step_increment=10)
+        height_spin = Gtk.SpinButton()
+        height_spin.set_adjustment(height_adjustment)
+        
+        height_box.append(height_label)
+        height_box.append(height_spin)
+        content_box.append(height_box)
+        
+        # Border options
+        border_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        border_label = Gtk.Label(label="Border width:")
+        border_label.set_halign(Gtk.Align.START)
+        border_label.set_hexpand(True)
+        
+        border_adjustment = Gtk.Adjustment(value=1, lower=0, upper=5, step_increment=1)
+        border_spin = Gtk.SpinButton()
+        border_spin.set_adjustment(border_adjustment)
+        
+        border_box.append(border_label)
+        border_box.append(border_spin)
+        content_box.append(border_box)
+        
+        # Floating option checkbox
+        float_check = Gtk.CheckButton(label="Free-floating (text wraps around)")
+        float_check.set_active(True)  # Floating is enabled by default for text boxes
+        content_box.append(float_check)
+        
+        # Button box
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        button_box.set_halign(Gtk.Align.END)
+        button_box.set_margin_top(16)
+        
+        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button.connect("clicked", lambda btn: dialog.close())
+        
+        insert_button = Gtk.Button(label="Insert")
+        insert_button.add_css_class("suggested-action")
+        insert_button.connect("clicked", lambda btn: self.on_text_box_dialog_response(
+            win, dialog, 
+            width_spin.get_value_as_int(), 
+            height_spin.get_value_as_int(),
+            border_spin.get_value_as_int(),
+            float_check.get_active()
+        ))
+        
+        button_box.append(cancel_button)
+        button_box.append(insert_button)
+        content_box.append(button_box)
+        
+        # Set dialog content and present
+        dialog.set_child(content_box)
+        dialog.present(win)
 
-     
-     
-     
+    def on_text_box_dialog_response(self, win, dialog, width, height, border_width, is_floating):
+        """Handle response from the text box dialog"""
+        dialog.close()
+        
+        # Execute JavaScript to insert the text box
+        js_code = f"""
+        (function() {{
+            insertTextBox({width}, {height}, {border_width}, {str(is_floating).lower()});
+            return true;
+        }})();
+        """
+        self.execute_js(win, js_code)
+        
+        # Update status message based on text box type
+        border_text = " with border" if border_width > 0 else " without border"
+        position_text = "Floating" if is_floating else "Fixed"
+        win.statusbar.set_text(f"{position_text} text box{border_text} inserted")     
  
  
  
