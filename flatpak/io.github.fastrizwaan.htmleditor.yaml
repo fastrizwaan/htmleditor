@@ -47,7 +47,7 @@ modules:
     buildsystem: simple
     build-commands:
       - install -Dm755 htmleditor.py /app/bin/htmleditor
-      - install -Dm755 file_operations.py find.py formatting_operations.py insert_table.py show_html.py /app/bin/
+      - install -Dm755 file_operations.py find.py formatting_operations.py insert_table.py show_html.py keyboard_shortcuts.py /app/bin/
       - mkdir -p /app/share/icons/hicolor/scalable/apps
       - mkdir -p /app/share/applications
       - install -Dm755 io.github.fastrizwaan.htmleditor.desktop /app/share/applications
@@ -66,6 +66,8 @@ modules:
         path: find.py
       - type: file
         path: show_html.py
+      - type: file
+        path: keyboard_shortcuts.py
       - type: file
         path: io.github.fastrizwaan.htmleditor.desktop
       - type: file

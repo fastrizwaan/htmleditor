@@ -106,13 +106,13 @@ def on_webview_key_pressed(self, controller, keyval, keycode, state):
             self.on_align_justify_shortcut(win)
             return True
 
-        elif keyval == Gdk.KEY_plus:
+        elif keyval == Gdk.KEY_KP_Add:
             self.on_zoom_in_shortcut(win)
             return True
         elif keyval == Gdk.KEY_KP_Subtract:
             self.on_zoom_out_shortcut(win)
             return True
-        elif keyval == Gdk.KEY_0:
+        elif keyval == Gdk.KEY_KP_0 or keyval == Gdk.KEY_KP_Insert:
             self.on_zoom_reset_shortcut(win)
             return True
 
