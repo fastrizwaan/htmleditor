@@ -10,6 +10,7 @@ os.environ['WEBKIT_DISABLE_COMPOSITING_MODE'] = '1'
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 gi.require_version('WebKit', '6.0')
+import show_html
 
 from gi.repository import Gtk, Adw, Gdk, WebKit, GLib, Gio, Pango, PangoCairo, Gdk
 
@@ -31,7 +32,19 @@ class HTMLEditorApp(Adw.Application):
         self.current_file = None
         self.auto_save_source_id = None
         
- 
+        # Import methods from show_html module
+        show_html_methods = [
+            # File opening methods
+            'on_show_html_clicked', 'show_html_dialog',
+            'apply_html_changes', 'copy_html_to_clipboard',
+            'handle_apply_html_result', 
+        ]
+        
+        # Import methods from show_html
+        for method_name in show_html_methods:
+            if hasattr(show_html, method_name):
+                setattr(self, method_name, getattr(show_html, method_name).__get__(self, HTMLEditorApp))
+                 
         
     def do_startup(self):
         """Initialize application and set up CSS provider"""
@@ -149,6 +162,13 @@ class HTMLEditorApp(Adw.Application):
         insert_group.append(link_button)
         # Add insert group to toolbar
         file_toolbar.append(insert_group)
+
+        # --- Add the Show HTML button ---
+        show_html_button = Gtk.Button(icon_name="text-x-generic-symbolic")
+        show_html_button.set_tooltip_text("Show HTML")
+        show_html_button.set_margin_start(10)
+        show_html_button.connect("clicked", lambda btn: self.on_show_html_clicked(win, btn))
+        file_toolbar.append(show_html_button)
 
 
         # Add spacer (expanding box) at the end
@@ -546,7 +566,10 @@ class HTMLEditorApp(Adw.Application):
 
 
     #####################
-
+    def execute_js(self, win, script):
+        """Execute JavaScript in the WebView"""
+        win.webview.evaluate_javascript(script, -1, None, None, None, None, None)
+        
     def get_editor_html(self, content=""):
         """Return HTML for the editor with improved table and text box styles"""
         content = content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
@@ -604,6 +627,7 @@ class HTMLEditorApp(Adw.Application):
         </body>
         </html>
         """##################
+
 
          
 def main():
