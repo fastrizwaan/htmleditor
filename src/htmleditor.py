@@ -55,7 +55,8 @@ class HTMLEditorApp(Adw.Application):
             
             
             # Format-specific save methods
-            'save_as_mhtml', 'save_webkit_callback', 'save_as_html',
+            'save_as_mhtml', '_restore_editable_after_save', '_restore_editable_state', 
+            '_do_mhtml_save_with_non_editable_content', 'save_webkit_callback', 'save_as_html',
             'save_as_text','save_as_markdown', '_simple_markdown_to_html',
 
             # Save as PDF
@@ -72,6 +73,8 @@ class HTMLEditorApp(Adw.Application):
             # webkit
             '_on_editor_ready_for_mhtml', '_check_mhtml_load_status', 
             '_handle_mhtml_load_check', '_check_mhtml_load_error',
+            '_ensure_content_editable', '_ensure_mhtml_content_editable',
+            '_handle_editable_status', '_inject_editable_script',
             'load_mhtml_with_webkit', '_load_mhtml_file', '_process_mhtml_resources',
             '_extract_mhtml_content', '_on_mhtml_content_extracted',
         ]
@@ -3885,10 +3888,10 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         font_color_popover.set_has_arrow(False)
 
         font_color_box_menu = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        font_color_box_menu.set_margin_start(6)
-        font_color_box_menu.set_margin_end(6)
-        font_color_box_menu.set_margin_top(6)
-        font_color_box_menu.set_margin_bottom(6)
+        font_color_box_menu.set_margin_start(0)
+        font_color_box_menu.set_margin_end(0)
+        font_color_box_menu.set_margin_top(0)
+        font_color_box_menu.set_margin_bottom(0)
 
         # Add "Automatic" option at the top
         automatic_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -3902,6 +3905,11 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         automatic_button.set_child(automatic_row)
         automatic_button.connect("clicked", lambda btn: self.on_font_color_automatic_clicked(win, font_color_popover))
         font_color_box_menu.append(automatic_button)
+
+        # Add separator
+        fg_separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        fg_separator.set_margin_bottom(0)
+        font_color_box_menu.append(fg_separator)
 
         # Create color grid
         font_color_grid = Gtk.Grid()
@@ -3938,7 +3946,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
 
         # Add "More Colors..." button
         more_colors_button = Gtk.Button(label="More Colors...")
-        more_colors_button.set_margin_top(6)
+        more_colors_button.set_margin_top(0)
         more_colors_button.connect("clicked", lambda btn: self.on_more_font_colors_clicked(win, font_color_popover))
         font_color_box_menu.append(more_colors_button)
 
@@ -4001,7 +4009,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
 
         # Add separator
         bg_separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        bg_separator.set_margin_bottom(6)
+        bg_separator.set_margin_bottom(0)
         bg_color_box_menu.append(bg_separator)
 
         # Create color grid
@@ -4691,8 +4699,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         border_text = " with border" if border_width > 0 else " without border"
         position_text = "Floating" if is_floating else "Fixed"
         win.statusbar.set_text(f"{position_text} text box{border_text} inserted")     
- 
- 
+  
  
 def main():
     app = HTMLEditorApp()

@@ -14,7 +14,7 @@ def on_show_html_clicked(self, win, btn):
     """Handle Show HTML button click"""
     win.statusbar.set_text("Getting HTML content...")
     
-    # Execute JavaScript to get the full HTML content
+    # Execute JavaScript to get the full HTML content with error handling
     js_code = """
     (function() {
         try {
@@ -28,10 +28,16 @@ def on_show_html_clicked(self, win, btn):
             // Get the HTML content of the entire document
             const htmlContent = doctypeString + document.documentElement.outerHTML;
             
-            // Alternatively, get just the editor content with structure
-            const editorContent = document.getElementById('editor').innerHTML;
+            // Try to get editor content, but handle case where it might not exist
+            let editorContent = "";
+            const editorElement = document.getElementById('editor');
+            if (editorElement) {
+                editorContent = editorElement.innerHTML;
+            } else {
+                // If no editor element exists, use the body content as a fallback
+                editorContent = document.body.innerHTML;
+            }
             
-            // Important: Convert each property to string separately to avoid [object Object]
             return JSON.stringify({
                 fullHtml: htmlContent,
                 editorContent: editorContent
@@ -39,8 +45,8 @@ def on_show_html_clicked(self, win, btn):
         } catch (error) {
             return JSON.stringify({
                 error: error.message,
-                fullHtml: "Error getting full HTML",
-                editorContent: document.getElementById('editor').innerHTML || "Error getting editor content"
+                fullHtml: document.documentElement.outerHTML || "Error getting full HTML",
+                editorContent: document.body.innerHTML || "Error getting editor content"
             });
         }
     })();
