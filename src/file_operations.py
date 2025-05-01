@@ -1405,8 +1405,11 @@ def _get_file_path_from_dialog(self, dialog_data):
 def save_as_mhtml(self, win, file):
     """Save document as MHTML using WebKit's save method, ensuring content is not editable"""
     try:
+        # Get the filename to use as title
+        filename = os.path.splitext(os.path.basename(file.get_path()))[0]
         # First, temporarily remove contenteditable attribute from the editor
         win.webview.evaluate_javascript(
+            f"document.title = '{filename}'; " +
             "var editorDiv = document.getElementById('editor'); " +
             "var originalEditable = editorDiv.getAttribute('contenteditable'); " +
             "editorDiv.setAttribute('contenteditable', 'false'); " +
@@ -1560,11 +1563,14 @@ def _on_get_html_content(self, win, webview, result, file):
             else:
                 editor_content = js_result.to_string()
             
+            
+            filename = os.path.splitext(os.path.basename(file.get_path()))[0]
+
             # Wrap the content in a proper HTML document
             html_content = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>HTML Document</title>
+    <title>{filename}</title>
     <meta charset="utf-8">
 </head>
 <body>
