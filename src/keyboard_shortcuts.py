@@ -47,6 +47,16 @@ def on_webview_key_pressed(self, controller, keyval, keycode, state):
             self.on_close_shortcut(win)
             return True
 
+        elif keyval == Gdk.KEY_1:
+            self.on_line_spacing_shortcut(win, 1.0)  # 1.0 for single spacing
+            return True
+        elif keyval == Gdk.KEY_2:
+            self.on_line_spacing_shortcut(win, 2.0)  # 2.0 for double spacing
+            return True
+        elif keyval == Gdk.KEY_5:
+            self.on_line_spacing_shortcut(win, 1.5)  # 1.5 for one-and-half spacing
+            return True
+            
         elif keyval == Gdk.KEY_z and not shift:
             self.on_undo_clicked(win, None)
             return True
@@ -138,7 +148,13 @@ def on_webview_key_pressed(self, controller, keyval, keycode, state):
         elif keyval == Gdk.KEY_asterisk or keyval == Gdk.KEY_8:
             self.on_bullet_list_shortcut(win)
             return True
-
+        elif keyval == Gdk.KEY_greater:  # > key (Shift+.)
+            self.on_font_size_change_shortcut(win, 2)  # Increase by points in the font size list
+            return True
+        elif keyval == Gdk.KEY_less:  # < key (Shift+,)
+            self.on_font_size_change_shortcut(win, -2)  # Decrease by points in the font size list
+            return True
+            
     if keyval == Gdk.KEY_F12 and not shift:
         self.on_numbered_list_shortcut(win)
         return True
@@ -148,7 +164,15 @@ def on_webview_key_pressed(self, controller, keyval, keycode, state):
 
     if keyval == Gdk.KEY_ISO_Left_Tab or (keyval == Gdk.KEY_Tab and shift):
         return True
-
+        
+    if ctrl and not shift and not alt:
+        # Add the font size adjustment with brackets
+        if keyval == Gdk.KEY_bracketleft:  # [ key
+            self.on_font_size_change_shortcut(win, -1)  # Decrease by 1 point
+            return True
+        elif keyval == Gdk.KEY_bracketright:  # ] key
+            self.on_font_size_change_shortcut(win, 1)  # Increase by 1 point
+            return True
    
     # Setup zoom scrolling using ctrl+scroll    
     self.setup_scroll_zoom(win)

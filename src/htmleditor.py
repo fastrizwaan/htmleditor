@@ -139,6 +139,7 @@ class HTMLEditorApp(Adw.Application):
             'on_more_bg_colors_clicked', 'on_bg_color_dialog_response', 'apply_bg_color',
             'set_box_color', 'on_clear_formatting_clicked', 'on_change_case',
             'on_drop_cap_clicked', '_handle_drop_cap_result', 'on_show_formatting_marks_toggled',
+            'on_line_spacing_shortcut', 'on_font_size_change_shortcut',
             
         ]
 

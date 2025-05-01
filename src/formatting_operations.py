@@ -2416,3 +2416,121 @@ def on_show_formatting_marks_toggled(self, win, button):
         win.statusbar.set_text("Showing formatting marks")
     else:
         win.statusbar.set_text("Hiding formatting marks")
+        
+def on_line_spacing_shortcut(self, win, spacing):
+    """Handle Ctrl+1, Ctrl+2, and Ctrl+5 shortcuts for line spacing"""
+    # Create JavaScript code to apply the line spacing to the selected paragraphs
+    js_code = f"""
+    (function() {{
+        // Get the current selection
+        const selection = window.getSelection();
+        if (selection.rangeCount === 0) return false;
+        
+        const range = selection.getRangeAt(0);
+        const startNode = range.startContainer;
+        const endNode = range.endContainer;
+        
+        // Find all affected paragraphs within the selection
+        let affectedParagraphs = [];
+        
+        // Helper function to find the closest paragraph or div parent
+        function findParagraphParent(node) {{
+            while (node && node !== document.body) {{
+                if (node.nodeName === 'P' || 
+                    node.nodeName === 'DIV' || 
+                    node.nodeName === 'H1' || 
+                    node.nodeName === 'H2' || 
+                    node.nodeName === 'H3' || 
+                    node.nodeName === 'H4' || 
+                    node.nodeName === 'H5' || 
+                    node.nodeName === 'H6' || 
+                    node.nodeName === 'LI') {{
+                    return node;
+                }}
+                node = node.parentNode;
+            }}
+            return null;
+        }}
+        
+        // If selection is collapsed (cursor), just get the current paragraph
+        if (range.collapsed) {{
+            const paragraph = findParagraphParent(startNode);
+            if (paragraph) {{
+                affectedParagraphs.push(paragraph);
+            }}
+        }} else {{
+            // Get all paragraph elements in the editor
+            const editor = document.getElementById('editor');
+            const allParagraphs = editor.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6, li');
+            
+            // Determine selection boundaries
+            let started = false;
+            
+            // Check if a node is within the selection
+            function isNodeInSelection(node) {{
+                try {{
+                    const nodeRange = document.createRange();
+                    nodeRange.selectNodeContents(node);
+                    
+                    return (
+                        range.compareBoundaryPoints(Range.START_TO_END, nodeRange) <= 0 &&
+                        range.compareBoundaryPoints(Range.END_TO_START, nodeRange) >= 0
+                    ) || selection.containsNode(node, true);
+                }} catch (e) {{
+                    return false;
+                }}
+            }}
+            
+            // Find paragraphs that are within or intersect with the selection
+            for (const paragraph of allParagraphs) {{
+                if (isNodeInSelection(paragraph)) {{
+                    affectedParagraphs.push(paragraph);
+                }}
+            }}
+            
+            // If no paragraphs found, try to find the containing paragraph
+            if (affectedParagraphs.length === 0) {{
+                const startPara = findParagraphParent(startNode);
+                if (startPara) {{
+                    affectedParagraphs.push(startPara);
+                }}
+            }}
+        }}
+        
+        // Apply line spacing to all affected paragraphs
+        let modified = false;
+        for (const paragraph of affectedParagraphs) {{
+            // Set the line height directly on the style
+            paragraph.style.lineHeight = "{spacing}";
+            modified = true;
+        }}
+        
+        // Signal that the content has changed if we modified anything
+        if (modified) {{
+            try {{
+                window.webkit.messageHandlers.contentChanged.postMessage("changed");
+            }} catch (e) {{
+                console.error("Error signaling content change:", e);
+            }}
+            
+            // Record undo state if the function exists
+            if (typeof saveState === 'function') {{
+                saveState();
+                window.lastContent = document.getElementById('editor').innerHTML;
+                window.redoStack = [];
+            }}
+        }}
+        
+        return modified;
+    }})();
+    """
+    
+    # Execute the JavaScript
+    self.execute_js(win, js_code)
+    
+    # Update status bar
+    spacing_text = "single" if spacing == 1.0 else "double" if spacing == 2.0 else "1.5"
+    win.statusbar.set_text(f"Applied {spacing_text} line spacing")
+    return True
+    
+    
