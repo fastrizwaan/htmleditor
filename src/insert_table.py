@@ -2198,15 +2198,7 @@ def on_tables_deactivated(self, win, manager, message):
     win.table_toolbar_revealer.set_reveal_child(False)
     win.statusbar.set_text("No table selected")
     
-def on_webview_key_pressed(self, controller, keyval, keycode, state):
-    """Handle key press events on the webview"""
-    # Check for Shift+Tab
-    if keyval == Gdk.KEY_ISO_Left_Tab or (keyval == Gdk.KEY_Tab and (state & Gdk.ModifierType.SHIFT_MASK)):
-        # Return True to indicate we've handled the event and prevent default behavior
-        return True
-    
-    # For all other keys, let them pass through normally
-    return False        
+   
 
 # Table operation methods
 def on_add_row_above_clicked(self, win):

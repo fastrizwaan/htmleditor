@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# formatting_operations.py - formatting related methods
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
@@ -73,7 +75,7 @@ def on_strikeout_shortcut(self, win, *args):
         win.strikeout_button.handler_unblock(win.strikeout_handler_id)
     
     win.statusbar.set_text("Strikeout formatting applied")
-    return True  
+    return True
 
 def on_subscript_shortcut(self, win, *args):
     """Handle Ctrl+, shortcut for subscript formatting"""
@@ -1970,16 +1972,33 @@ def on_change_case(self, win, case_type):
     win.statusbar.set_text(status_messages.get(case_type, "Changed text case"))
     win.webview.grab_focus()    
     
-def on_select_all_clicked(self, win, btn):
-    """Handle select all button click"""
-    self.execute_js(win, """
-        (function() {
-            document.execCommand('selectAll');
-            return true;
-        })();
-    """)
-    win.statusbar.set_text("Selected all content")
+def on_select_all_clicked(self, win, *args):
+    """Handle Ctrl+A shortcut for selecting all content"""
+    # Execute JavaScript to select all content in the editor
+    js_code = """
+    (function() {
+        // Get the editor element
+        const editor = document.getElementById('editor');
+        
+        // Focus the editor first to ensure selection works
+        editor.focus();
+        
+        // Create a range to select all content
+        const range = document.createRange();
+        range.selectNodeContents(editor);
+        
+        // Get the selection and apply the range
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        
+        return true;
+    })();
+    """
     
+    self.execute_js(win, js_code)
+    win.statusbar.set_text("Selected all content")
+    return True
 ############### formatting marks, drop cap
 def on_drop_cap_clicked(self, win, button):
     """Handle drop cap button click with inline styles for better compatibility"""

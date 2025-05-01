@@ -19,7 +19,8 @@ import find
 import formatting_operations
 import insert_table
 import show_html
-    
+import keyboard_shortcuts
+ 
 class HTMLEditorApp(Adw.Application):
     def __init__(self, **kwargs):
         super().__init__(application_id='io.github.fastrizwaan.htmleditor',
@@ -77,6 +78,8 @@ class HTMLEditorApp(Adw.Application):
             '_handle_editable_status', '_inject_editable_script',
             'load_mhtml_with_webkit', '_load_mhtml_file', '_process_mhtml_resources',
             '_extract_mhtml_content', '_on_mhtml_content_extracted',
+            '_load_html_with_webkit', '_extract_html_content', '_on_html_content_extracted',
+            
         ]
         
         # Import methods from file_operations
@@ -100,6 +103,23 @@ class HTMLEditorApp(Adw.Application):
         for method_name in find_methods:
             if hasattr(find, method_name):
                 setattr(self, method_name, getattr(find, method_name).__get__(self, HTMLEditorApp))
+
+        # Import methods from keyboard_shortcuts module
+        keyboard_shortcuts_methods = [
+            'on_webview_key_pressed', 
+            'on_replace_shortcut', 'on_paragraph_style_shortcut',
+            'on_numbered_list_shortcut', 'on_bullet_list_shortcut',
+            'on_align_left_shortcut', 'on_align_center_shortcut', 
+            'on_align_right_shortcut', 'on_align_justify_shortcut',
+            'on_zoom_in_shortcut', 'on_zoom_out_shortcut', 'on_zoom_reset_shortcut', 
+            'setup_scroll_zoom', 'on_scroll', 'apply_zoom', 
+        ]
+
+        # Import methods from keyboard_shortcuts module
+        for method_name in keyboard_shortcuts_methods:
+            if hasattr(keyboard_shortcuts, method_name):
+                setattr(self, method_name, getattr(keyboard_shortcuts, method_name).__get__(self,HTMLEditorApp))
+        
 
         # Import methods from formatting_toolbar module
         formatting_toolbar_methods = [
@@ -171,6 +191,9 @@ class HTMLEditorApp(Adw.Application):
         for method_name in show_html_methods:
             if hasattr(show_html, method_name):
                 setattr(self, method_name, getattr(show_html, method_name).__get__(self, HTMLEditorApp))
+
+
+
         
     def do_startup(self):
         """Initialize application and set up CSS provider"""
@@ -502,121 +525,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
 
 
         
-    def setup_keyboard_shortcuts(self, win):
-        """Setup keyboard shortcuts for the window"""
-        # Create a shortcut controller
-        controller = Gtk.ShortcutController()
-        
-        # Create Ctrl+Shift+F shortcut for toggling the file toolbar
-        trigger_file_toolbar = Gtk.ShortcutTrigger.parse_string("<Control><Shift>f")
-        action_file_toolbar = Gtk.CallbackAction.new(lambda *args: self.toggle_file_toolbar(win, *args))
-        shortcut_file_toolbar = Gtk.Shortcut.new(trigger_file_toolbar, action_file_toolbar)
-        controller.add_shortcut(shortcut_file_toolbar)
 
-        # Create Ctrl+P shortcut for print
-        trigger_print = Gtk.ShortcutTrigger.parse_string("<Control>p")
-        action_print = Gtk.CallbackAction.new(lambda *args: self.on_print_clicked(win, None))
-        shortcut_print = Gtk.Shortcut.new(trigger_print, action_print)
-        controller.add_shortcut(shortcut_print)
-        
-        # Create Ctrl+F shortcut for find
-        trigger_find = Gtk.ShortcutTrigger.parse_string("<Control>f")
-        action_find = Gtk.CallbackAction.new(lambda *args: self.on_find_shortcut(win, *args))
-        shortcut_find = Gtk.Shortcut.new(trigger_find, action_find)
-        controller.add_shortcut(shortcut_find)
-        
-        # Create Ctrl+Shift+S shortcut for toggling the statusbar
-        trigger_statusbar = Gtk.ShortcutTrigger.parse_string("<Control><Shift>s")
-        action_statusbar = Gtk.CallbackAction.new(lambda *args: self.toggle_statusbar(win, *args))
-        shortcut_statusbar = Gtk.Shortcut.new(trigger_statusbar, action_statusbar)
-        controller.add_shortcut(shortcut_statusbar)
-        
-        # Create Ctrl+Shift+H shortcut for toggling the headerbar
-        trigger_headerbar = Gtk.ShortcutTrigger.parse_string("<Control><Shift>h")
-        action_headerbar = Gtk.CallbackAction.new(lambda *args: self.toggle_headerbar(win, *args))
-        shortcut_headerbar = Gtk.Shortcut.new(trigger_headerbar, action_headerbar)
-        controller.add_shortcut(shortcut_headerbar)
-        
-        # Create Ctrl+Z shortcut for undo
-        trigger_undo = Gtk.ShortcutTrigger.parse_string("<Control>z")
-        action_undo = Gtk.CallbackAction.new(lambda *args: self.on_undo_shortcut(win, *args))
-        shortcut_undo = Gtk.Shortcut.new(trigger_undo, action_undo)
-        controller.add_shortcut(shortcut_undo)
-        
-        # Create Ctrl+Y shortcut for redo
-        trigger_redo = Gtk.ShortcutTrigger.parse_string("<Control>y")
-        action_redo = Gtk.CallbackAction.new(lambda *args: self.on_redo_shortcut(win, *args))
-        shortcut_redo = Gtk.Shortcut.new(trigger_redo, action_redo)
-        controller.add_shortcut(shortcut_redo)
-        
-        # Create Ctrl+W shortcut for closing current window
-        trigger_close = Gtk.ShortcutTrigger.parse_string("<Control>w")
-        action_close = Gtk.CallbackAction.new(lambda *args: self.on_close_shortcut(win, *args))
-        shortcut_close = Gtk.Shortcut.new(trigger_close, action_close)
-        controller.add_shortcut(shortcut_close)
-        
-        # Create Ctrl+Shift+W shortcut for closing other windows
-        trigger_close_others = Gtk.ShortcutTrigger.parse_string("<Control><Shift>w")
-        action_close_others = Gtk.CallbackAction.new(lambda *args: self.on_close_others_shortcut(win, *args))
-        shortcut_close_others = Gtk.Shortcut.new(trigger_close_others, action_close_others)
-        controller.add_shortcut(shortcut_close_others)
-        
-        # FORMATTING SHORTCUTS
-        
-        # Ctrl+B for Bold
-        trigger_bold = Gtk.ShortcutTrigger.parse_string("<Control>b")
-        action_bold = Gtk.CallbackAction.new(lambda *args: self.on_bold_shortcut(win, *args))
-        shortcut_bold = Gtk.Shortcut.new(trigger_bold, action_bold)
-        controller.add_shortcut(shortcut_bold)
-        
-        # Ctrl+I for Italic
-        trigger_italic = Gtk.ShortcutTrigger.parse_string("<Control>i")
-        action_italic = Gtk.CallbackAction.new(lambda *args: self.on_italic_shortcut(win, *args))
-        shortcut_italic = Gtk.Shortcut.new(trigger_italic, action_italic)
-        controller.add_shortcut(shortcut_italic)
-        
-        # Ctrl+U for Underline
-        trigger_underline = Gtk.ShortcutTrigger.parse_string("<Control>u")
-        action_underline = Gtk.CallbackAction.new(lambda *args: self.on_underline_shortcut(win, *args))
-        shortcut_underline = Gtk.Shortcut.new(trigger_underline, action_underline)
-        controller.add_shortcut(shortcut_underline)       
-        
-        # Ctrl+Shift+X for Strikeout
-        trigger_strikeout = Gtk.ShortcutTrigger.parse_string("<Control><Shift>x")
-        action_strikeout = Gtk.CallbackAction.new(lambda *args: self.on_strikeout_shortcut(win, *args))
-        shortcut_strikeout = Gtk.Shortcut.new(trigger_strikeout, action_strikeout)
-        controller.add_shortcut(shortcut_strikeout)
-
-        # Create Ctrl+= shortcut for subscript (standard shortcut)
-        trigger_subscript = Gtk.ShortcutTrigger.parse_string("<Control>equal")
-        action_subscript = Gtk.CallbackAction.new(lambda *args: self.on_subscript_shortcut(win, *args))
-        shortcut_subscript = Gtk.Shortcut.new(trigger_subscript, action_subscript)
-        controller.add_shortcut(shortcut_subscript)
-        
-        # Create Ctrl++ (or Ctrl+Shift+=) shortcut for superscript (standard shortcut)
-        # We'll add both variants to ensure compatibility across different keyboard layouts
-        
-        # Variant 1: Ctrl++
-        trigger_superscript1 = Gtk.ShortcutTrigger.parse_string("<Control>plus")
-        action_superscript1 = Gtk.CallbackAction.new(lambda *args: self.on_superscript_shortcut(win, *args))
-        shortcut_superscript1 = Gtk.Shortcut.new(trigger_superscript1, action_superscript1)
-        controller.add_shortcut(shortcut_superscript1)
-        
-        # Variant 2: Ctrl+Shift+=
-        trigger_superscript2 = Gtk.ShortcutTrigger.parse_string("<Control><Shift>equal")
-        action_superscript2 = Gtk.CallbackAction.new(lambda *args: self.on_superscript_shortcut(win, *args))
-        shortcut_superscript2 = Gtk.Shortcut.new(trigger_superscript2, action_superscript2)
-        controller.add_shortcut(shortcut_superscript2)
-        
-                
-        # Add controller to the window
-        win.add_controller(controller)
-        
-        # Make it capture events at the capture phase
-        controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
-        
-        # Make shortcut work regardless of who has focus
-        controller.set_scope(Gtk.ShortcutScope.GLOBAL)
 
 
                         
@@ -2338,23 +2247,6 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         ui_header.set_margin_bottom(12)
         ui_header.set_margin_top(24)
         content_box.append(ui_header)
-        
-        # Show Toolbar option
-        formatting_toolbar_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        formatting_toolbar_box.set_margin_start(12)
-        
-        formatting_toolbar_label = Gtk.Label(label="Show Toolbar:")
-        formatting_toolbar_label.set_halign(Gtk.Align.START)
-        formatting_toolbar_label.set_hexpand(True)
-        
-        formatting_toolbar_switch = Gtk.Switch()
-        formatting_toolbar_switch.set_active(active_win.formatting_toolbar_revealer.get_reveal_child())
-        formatting_toolbar_switch.set_valign(Gtk.Align.CENTER)
-        formatting_toolbar_switch.connect("state-set", lambda sw, state: active_win.formatting_toolbar_revealer.set_reveal_child(state))
-        
-        formatting_toolbar_box.append(formatting_toolbar_label)
-        formatting_toolbar_box.append(formatting_toolbar_switch)
-        content_box.append(formatting_toolbar_box)
         
         # Show Statusbar option
         statusbar_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
@@ -4236,8 +4128,8 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         except:
             print("Warning: Could not set up JavaScript message handlers")
         
-        # ADD THIS: Key event controller for table navigation
-        win.key_controller = Gtk.EventControllerKey()
+        # Set up key controller for shortcuts
+        win.key_controller = Gtk.EventControllerKey.new()
         win.key_controller.connect("key-pressed", self.on_webview_key_pressed)
         win.webview.add_controller(win.key_controller)
         
@@ -4354,8 +4246,6 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         win.main_box.append(content_box)
         win.set_content(win.main_box)
 
-        self.setup_keyboard_shortcuts(win)
-        
         # Add case change action to the window
         case_change_action = Gio.SimpleAction.new("change-case", GLib.VariantType.new("s"))
         case_change_action.connect("activate", lambda action, param: self.on_change_case(win, param.get_string()))
@@ -4699,7 +4589,8 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         border_text = " with border" if border_width > 0 else " without border"
         position_text = "Floating" if is_floating else "Fixed"
         win.statusbar.set_text(f"{position_text} text box{border_text} inserted")     
-  
+#######################
+ 
  
 def main():
     app = HTMLEditorApp()
