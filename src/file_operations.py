@@ -50,7 +50,6 @@ LIBREOFFICE_INPUT_FORMATS = {
     ]
 }
 
-
 # Output formats supported by the editor
 OUTPUT_FORMATS = [
     {"extension": ".odt", "name": "OpenDocument Text", "mime": "application/vnd.oasis.opendocument.text"},
@@ -77,7 +76,6 @@ def is_libreoffice_available():
 # Cache the result to avoid repeated checks
 LIBREOFFICE_AVAILABLE = is_libreoffice_available()
 
-# Helper function to show loading dialog
 def show_loading_dialog(self, win, message="Loading document..."):
     """Show a loading dialog with a progress spinner"""
     dialog = Adw.Dialog.new()
@@ -108,7 +106,6 @@ def show_loading_dialog(self, win, message="Loading document..."):
     
     return dialog
 
-# File format utility functions
 def get_all_supported_extensions():
     """Get a list of all supported file extensions"""
     extensions = []
@@ -129,7 +126,6 @@ def is_libreoffice_format(file_path):
     # Check if it's a LibreOffice-convertible format
     return ext in get_all_supported_extensions()
 
-# LibreOffice document conversion
 def convert_with_libreoffice(self, input_file, output_format="html"):
     """
     Convert a document using LibreOffice in headless mode with improved image handling
@@ -146,27 +142,30 @@ def convert_with_libreoffice(self, input_file, output_format="html"):
         return None, None
         
     try:
+        # Early return for PDF files when importing (not for exporting to PDF)
+        file_ext = os.path.splitext(input_file)[1].lower()
+        if file_ext == '.pdf' and output_format != "pdf":
+            print("PDF import is disabled")
+            return None, None
+            
         # Create a temporary directory for the output
         temp_dir = tempfile.mkdtemp()
         
         # Get the absolute path of the input file
         input_abs_path = os.path.abspath(input_file)
-        file_ext = os.path.splitext(input_file)[1].lower()
         
         # Prepare the command - specify the actual output filename
         base_name = os.path.splitext(os.path.basename(input_file))[0]
         
-        # Special handling for PDF files - they need a different filter
-        if file_ext == '.pdf':
-            conversion_format = "html:HTML"
+        # Use the correct command format for LibreOffice
+        # The format should be: output_format:output_filter
+        if output_format == "html":
+            conversion_format = "html:HTML (StarWriter)"
+        elif output_format == "pdf":
+            conversion_format = "pdf:writer_pdf_Export"
         else:
-            # Use the correct command format for LibreOffice
-            # The format should be: output_format:output_filter
-            if output_format == "html":
-                conversion_format = "html:HTML (StarWriter)"
-            else:
-                conversion_format = output_format
-            
+            conversion_format = output_format
+        
         cmd = [
             'libreoffice',
             '--headless',
@@ -174,7 +173,7 @@ def convert_with_libreoffice(self, input_file, output_format="html"):
             '--outdir', temp_dir,
             input_abs_path
         ]
-        
+    
         print(f"Running conversion command: {' '.join(cmd)}")
         
         # Run the conversion process
@@ -183,7 +182,7 @@ def convert_with_libreoffice(self, input_file, output_format="html"):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            timeout=60  # Increased timeout to 60 seconds
+            timeout=60  # 60 second timeout
         )
         
         # Debug output
@@ -192,37 +191,7 @@ def convert_with_libreoffice(self, input_file, output_format="html"):
         
         if process.returncode != 0:
             print(f"LibreOffice conversion failed with return code {process.returncode}: {process.stderr}")
-            
-            # For PDFs, try alternative conversion approach if first method failed
-            if file_ext == '.pdf' and 'Error Area:Io' in process.stderr:
-                print("Trying alternative PDF conversion method...")
-                alt_cmd = [
-                    'libreoffice',
-                    '--headless',
-                    '--infilter="pdf:writer_pdf_import"', 
-                    '--convert-to', "html",
-                    '--outdir', temp_dir,
-                    input_abs_path
-                ]
-                
-                print(f"Running alternative command: {' '.join(alt_cmd)}")
-                
-                alt_process = subprocess.run(
-                    alt_cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    timeout=60
-                )
-                
-                print(f"Alternative stdout: {alt_process.stdout}")
-                print(f"Alternative stderr: {alt_process.stderr}")
-                
-                if alt_process.returncode != 0:
-                    print(f"Alternative PDF conversion also failed")
-                    return None, None
-            else:
-                return None, None
+            return None, None
             
         # Find the converted file - it could be named differently than we expect
         converted_files = [f for f in os.listdir(temp_dir) if f.endswith(f".{output_format}")]
@@ -254,7 +223,7 @@ def convert_with_libreoffice(self, input_file, output_format="html"):
         print(f"Error during LibreOffice conversion: {e}")
         return None, None
 
-# Handle file opening
+# Open operations
 def on_open_clicked(self, win, button):
     """Show open file dialog and decide whether to open in current or new window"""
     dialog = Gtk.FileDialog()
@@ -320,7 +289,6 @@ def on_open_clicked(self, win, button):
     dialog.set_filters(filter_list)
     
     # Set the default filter to "All Supported Files"
-    # Set the "All Supported Files" filter as initial filter
     # In GTK4, we can't directly set the initial filter, but we can ensure it's first in the list
     # The FileDialog will use the first filter as the default
     
@@ -357,636 +325,6 @@ def on_open_current_window_response(self, win, dialog, result):
         if e.domain != 'gtk-dialog-error-quark' or e.code != 2:  # Ignore cancel
             self.show_error_dialog(f"Error opening file: {e}")
 
-# File loading function
-def load_file(self, win, filepath):
-    """Load file content into editor with enhanced format support and image handling"""
-    try:
-        # Check if file exists
-        if not os.path.exists(filepath):
-            self.show_error_dialog("File not found")
-            return
-            
-        # Store the original file path format for reference
-        win.original_format = os.path.splitext(filepath)[1].lower()
-        win.original_filepath = filepath
-        
-        # Process the file based on its format
-        file_ext = os.path.splitext(filepath)[1].lower()
-        
-        # Show loading dialog for potentially slow operations
-        loading_dialog = None
-        if is_libreoffice_format(filepath) and file_ext not in ['.html', '.htm', '.txt', '.md', '.markdown']:
-            loading_dialog = self.show_loading_dialog(win)
-        
-        # Special handling for HTML files
-        if file_ext in ['.html', '.htm']:
-            try:
-                if loading_dialog:
-                    loading_dialog.close()
-                    loading_dialog = None
-                    
-                # For HTML files, we'll use WebKit's native capabilities
-                self._load_html_with_webkit(win, filepath)
-                return
-            except Exception as e:
-                print(f"Error using WebKit to load HTML: {e}")
-                # Fall back to regular loading if WebKit approach fails
-                
-        # Special handling for MHTML files using manual extraction
-        if file_ext in ['.mht', '.mhtml']:
-            try:
-                if loading_dialog:
-                    loading_dialog.close()
-                    loading_dialog = None
-                    
-                # For MHTML files, we need to extract HTML content manually
-                self._load_mhtml_file(win, filepath)
-                return
-            except Exception as e:
-                print(f"Error loading MHTML: {e}")
-                # Fall back to regular loading if MHTML extraction fails
-        
-        # Function to continue loading after potential conversion for other file types
-        def continue_loading(html_content=None, converted_path=None, image_dir=None):
-            try:
-                # Close loading dialog if it was shown
-                if loading_dialog:
-                    try:
-                        loading_dialog.close()
-                    except Exception as e:
-                        print(f"Warning: Could not close loading dialog: {e}")
-                
-                # Initialize content variable
-                content = ""
-                
-                # If we already have HTML content from conversion, use it
-                if html_content:
-                    content = html_content
-                else:
-                    # Try to detect file encoding
-                    encoding = 'utf-8'  # Default encoding
-                    try:
-                        import chardet
-                        with open(filepath, 'rb') as raw_file:
-                            raw_content = raw_file.read()
-                            detected = chardet.detect(raw_content)
-                            if detected['confidence'] > 0.7:
-                                encoding = detected['encoding']
-                    except ImportError:
-                        pass  # Fallback to utf-8 if chardet not available
-                        
-                    # Now read the file with the detected encoding
-                    try:
-                        with open(filepath, 'r', encoding=encoding) as f:
-                            content = f.read()
-                    except UnicodeDecodeError:
-                        # If there's a decode error, try a fallback encoding
-                        with open(filepath, 'r', encoding='latin-1') as f:
-                            content = f.read()
-                
-                # Process content based on file type
-                if file_ext in ['.md', '.markdown']:
-                    # Convert markdown to HTML
-                    if MARKDOWN_AVAILABLE:
-                        try:
-                            # Get available extensions
-                            available_extensions = []
-                            for ext in ['tables', 'fenced_code', 'codehilite', 'nl2br', 'sane_lists', 'smarty', 'attr_list']:
-                                try:
-                                    # Test if extension can be loaded
-                                    markdown.markdown("test", extensions=[ext])
-                                    available_extensions.append(ext)
-                                except (ImportError, ValueError):
-                                    pass
-                            
-                            # Convert markdown to HTML
-                            content = markdown.markdown(content, extensions=available_extensions)
-                        except Exception as e:
-                            print(f"Error converting markdown: {e}")
-                            # Fallback to simple conversion
-                            content = self._simple_markdown_to_html(content)
-                    else:
-                        # Use simplified markdown conversion
-                        content = self._simple_markdown_to_html(content)
-                elif file_ext == '.txt':
-                    # Convert plain text to HTML
-                    content = content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                    content = f"<div>{content.replace(chr(10), '<br>')}</div>"
-                
-                # Process image references for converted LibreOffice documents
-                if converted_path and image_dir and os.path.exists(image_dir):
-                    # Look for an 'images' subfolder that LibreOffice might have created
-                    images_folder = os.path.join(image_dir, 'images')
-                    if os.path.exists(images_folder) and os.path.isdir(images_folder):
-                        print(f"Found images folder: {images_folder}")
-                        # Store the image directory for reference
-                        win.image_dir = images_folder
-                        
-                        # Process the image references in the content
-                        content = self._process_image_references(content, images_folder)
-                    else:
-                        # Check for any image files in the main output directory
-                        image_files = [f for f in os.listdir(image_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp'))]
-                        if image_files:
-                            print(f"Found {len(image_files)} image files in output directory")
-                            win.image_dir = image_dir
-                            content = self._process_image_references(content, image_dir)
-                        else:
-                            print(f"No images folder or image files found in {image_dir}")
-                
-                # Ensure content is properly wrapped in a div if not already
-                if not (content.strip().startswith('<div') or content.strip().startswith('<p') or 
-                       content.strip().startswith('<h')):
-                    content = f"<div>{content}</div>"
-                
-                # Escape for JavaScript
-                content = content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
-                js_code = f'setContent("{content}");'
-                
-                # Check WebView load status and execute JS accordingly
-                def execute_when_ready():
-                    # Get the current load status
-                    load_status = win.webview.get_estimated_load_progress()
-                    
-                    if load_status == 1.0:  # Fully loaded
-                        # Execute directly
-                        self.execute_js(win, js_code)
-                        return False  # Stop the timeout
-                    else:
-                        # Set up a handler for when loading finishes
-                        def on_load_changed(webview, event):
-                            if event == WebKit.LoadEvent.FINISHED:
-                                self.execute_js(win, js_code)
-                                webview.disconnect_by_func(on_load_changed)
-                        
-                        win.webview.connect("load-changed", on_load_changed)
-                        return False  # Stop the timeout
-                
-                # Use GLib timeout to ensure we're not in the middle of another operation
-                GLib.timeout_add(50, execute_when_ready)
-                
-                # Update file information
-                win.current_file = Gio.File.new_for_path(filepath)
-                
-                # Mark as converted document if LibreOffice conversion was used
-                if converted_path and is_libreoffice_format(filepath) and win.original_format not in ['.html', '.htm', '.txt', '.md', '.markdown']:
-                    # Mark as a converted document
-                    win.is_converted_document = True
-                else:
-                    win.is_converted_document = False
-                
-                win.modified = False
-                self.update_window_title(win)
-                win.statusbar.set_text(f"Opened {os.path.basename(filepath)}")
-                        
-            except Exception as e:
-                # Close loading dialog if it was shown
-                if loading_dialog:
-                    try:
-                        loading_dialog.close()
-                    except:
-                        pass
-                print(f"Error processing file content: {str(e)}")
-                win.statusbar.set_text(f"Error processing file: {str(e)}")
-                self.show_error_dialog(f"Error processing file: {e}")
-        
-        # Check if file needs LibreOffice conversion
-        if is_libreoffice_format(filepath) and file_ext not in ['.html', '.htm', '.txt', '.md', '.markdown']:
-            # Start the conversion in a separate thread to keep UI responsive
-            def convert_thread():
-                try:
-                    # Convert the file to HTML using LibreOffice
-                    converted_file, image_dir = self.convert_with_libreoffice(filepath, "html")
-                    
-                    if converted_file:
-                        # Read the converted HTML file
-                        try:
-                            with open(converted_file, 'r', encoding='utf-8') as f:
-                                html_content = f.read()
-                                
-                            # Extract body content
-                            body_match = re.search(r'<body[^>]*>(.*?)</body>', html_content, re.DOTALL | re.IGNORECASE)
-                            if body_match:
-                                html_content = body_match.group(1).strip()
-                            
-                            # Schedule continuing in the main thread with the HTML content
-                            GLib.idle_add(lambda: continue_loading(html_content, converted_file, image_dir))
-                        except Exception as e:
-                            print(f"Error reading converted file: {e}")
-                            GLib.idle_add(lambda: self.show_error_dialog(f"Error reading converted file: {e}"))
-                            GLib.idle_add(lambda: loading_dialog.close() if loading_dialog else None)
-                    else:
-                        # Conversion failed
-                        GLib.idle_add(lambda: self.show_error_dialog("Failed to convert document with LibreOffice. Please check if LibreOffice is installed correctly."))
-                        GLib.idle_add(lambda: loading_dialog.close() if loading_dialog else None)
-                except Exception as e:
-                    print(f"Error in conversion thread: {e}")
-                    GLib.idle_add(lambda: self.show_error_dialog(f"Conversion error: {e}"))
-                    GLib.idle_add(lambda: loading_dialog.close() if loading_dialog else None)
-                
-                return False  # Don't repeat
-            
-            # Start the conversion thread
-            GLib.idle_add(lambda: GLib.Thread.new(None, convert_thread) and False)
-        else:
-            # Continue with normal loading for directly supported formats
-            continue_loading()
-            
-    except Exception as e:
-        # Handle loading dialog error
-        try:
-            # Make sure loading_dialog exists before attempting to close it
-            if 'loading_dialog' in locals() and loading_dialog:
-                loading_dialog.close()
-        except:
-            pass
-            
-        print(f"Error loading file: {str(e)}")
-        win.statusbar.set_text(f"Error loading file: {str(e)}")
-        self.show_error_dialog(f"Error loading file: {e}")
-
-# HTML loading with WebKit
-def _load_html_with_webkit(self, win, filepath):
-    """Load HTML files directly with WebKit and make content editable"""
-    try:
-        # Create file URI
-        file_uri = f"file://{filepath}"
-        filename = os.path.basename(filepath)
-        
-        # Show loading message
-        win.statusbar.set_text(f"Loading HTML file: {filename}")
-        
-        # Set up a handler to extract content after loading
-        def on_file_loaded(webview, event):
-            if event == WebKit.LoadEvent.FINISHED:
-                # Extract the content and make it editable
-                GLib.timeout_add(300, lambda: self._extract_html_content(win, webview, filepath))
-                # Remove the handler
-                webview.disconnect_by_func(on_file_loaded)
-                
-        # Connect the handler
-        win.webview.connect("load-changed", on_file_loaded)
-        
-        # Load the file in WebKit
-        win.webview.load_uri(file_uri)
-        
-        # Update file information
-        win.current_file = Gio.File.new_for_path(filepath)
-        win.is_converted_document = False
-        win.modified = False
-        self.update_window_title(win)
-        
-    except Exception as e:
-        print(f"Error loading HTML with WebKit: {e}")
-        win.statusbar.set_text(f"Error loading HTML file: {e}")
-        self.show_error_dialog(f"Error loading HTML file: {e}")
-
-def _extract_html_content(self, win, webview, filepath):
-    """Extract content from loaded HTML and make it editable"""
-    try:
-        # Get the document body content
-        webview.evaluate_javascript(
-            "document.body.innerHTML",
-            -1, None, None, None,
-            lambda webview, result, data: self._on_html_content_extracted(win, webview, result, filepath),
-            None
-        )
-        return False  # Don't repeat this timeout
-    except Exception as e:
-        print(f"Error extracting HTML content: {e}")
-        win.statusbar.set_text(f"Error loading HTML file: {e}")
-        return False  # Don't repeat this timeout
-
-def _on_html_content_extracted(self, win, webview, result, filepath):
-    """Handle extracted HTML content and make it editable"""
-    try:
-        js_result = webview.evaluate_javascript_finish(result)
-        body_content = ""
-        
-        if js_result:
-            # Get the HTML content
-            if hasattr(js_result, 'get_js_value'):
-                body_content = js_result.get_js_value().to_string()
-            else:
-                body_content = js_result.to_string()
-        
-        if body_content:
-            # Set the content in the editor to make it editable
-            # Escape for JavaScript
-            content = body_content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
-            js_code = f'setContent("{content}");'
-            
-            # Execute the JavaScript to set content
-            webview.evaluate_javascript(
-                js_code,
-                -1, None, None, None,
-                None,
-                None
-            )
-            
-            # Update status
-            win.statusbar.set_text(f"Opened {os.path.basename(filepath)}")
-        else:
-            win.statusbar.set_text("Warning: No content found in HTML file")
-            
-    except Exception as e:
-        print(f"Error processing HTML content: {e}")
-        win.statusbar.set_text(f"Error loading HTML file: {e}")
-
-# MHTML file loading
-def _load_mhtml_file(self, win, filepath):
-    """Load MHTML files by extracting their HTML content"""
-    try:
-        # Try to read the file and extract HTML content
-        with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
-            content = f.read()
-            
-        # Extract HTML content from MHTML
-        html_content = None
-        
-        try:
-            # Try using email module for proper MHTML parsing
-            import email
-            message = email.message_from_string(content)
-            
-            # Find the HTML part
-            for part in message.walk():
-                if part.get_content_type() == 'text/html':
-                    payload = part.get_payload(decode=True)
-                    if isinstance(payload, bytes):
-                        charset = part.get_content_charset() or 'utf-8'
-                        html_content = payload.decode(charset, errors='replace')
-                    else:
-                        html_content = payload
-                    break
-                    
-            # If we couldn't find an HTML part, look for multipart/related with HTML
-            if not html_content:
-                for part in message.walk():
-                    if part.get_content_type() == 'multipart/related':
-                        # The first part is usually the HTML part
-                        for subpart in part.get_payload():
-                            if subpart.get_content_type() == 'text/html':
-                                payload = subpart.get_payload(decode=True)
-                                if isinstance(payload, bytes):
-                                    charset = subpart.get_content_charset() or 'utf-8'
-                                    html_content = payload.decode(charset, errors='replace')
-                                else:
-                                    html_content = payload
-                                break
-                        break
-                        
-        except Exception as e:
-            print(f"Error parsing MHTML with email module: {e}")
-            
-            # Fallback to regex extraction
-            try:
-                # Look for HTML content part
-                match = re.search(r'Content-Type:\s*text/html.*?(?:\r?\n){2}(.*?)(?:\r?\n--|--)(?:[^\r\n]+)(?:\r?\n|$)',
-                                 content, re.DOTALL | re.IGNORECASE)
-                if match:
-                    html_content = match.group(1)
-                else:
-                    # Try another pattern
-                    match = re.search(r'<html.*?>.*?</html>', content, re.DOTALL | re.IGNORECASE)
-                    if match:
-                        html_content = match.group(0)
-            except Exception as regex_err:
-                print(f"Error with regex fallback: {regex_err}")
-                
-        # If we still don't have HTML content, try one more approach
-        if not html_content:
-            try:
-                # Look for <html> tag and extract everything between <html> and </html>
-                match = re.search(r'<html.*?>(.*?)</html>', content, re.DOTALL | re.IGNORECASE)
-                if match:
-                    html_content = f"<html>{match.group(1)}</html>"
-            except Exception as html_err:
-                print(f"Error with HTML tag extraction: {html_err}")
-                
-        # If we have HTML content, load it
-        if html_content:
-            # Create a temporary file with the extracted HTML
-            temp_dir = tempfile.mkdtemp()
-            temp_html_path = os.path.join(temp_dir, "extracted.html")
-            
-            with open(temp_html_path, 'w', encoding='utf-8') as f:
-                f.write(html_content)
-                
-            # Process images and other resources in the HTML content
-            # This will convert image references to data URLs if possible
-            modified_html = self._process_mhtml_resources(html_content, content, temp_dir)
-            
-            with open(temp_html_path, 'w', encoding='utf-8') as f:
-                f.write(modified_html)
-                
-            # Create file URI for the temporary HTML file
-            file_uri = f"file://{temp_html_path}"
-            
-            # Set up a handler to extract content after loading
-            def on_html_loaded(webview, event):
-                if event == WebKit.LoadEvent.FINISHED:
-                    # Extract the content and make it editable
-                    GLib.timeout_add(300, lambda: self._extract_mhtml_content(win, webview, filepath, temp_dir))
-                    # Remove the handler
-                    webview.disconnect_by_func(on_html_loaded)
-                    
-            # Connect the handler
-            win.webview.connect("load-changed", on_html_loaded)
-            
-            # Load the temporary HTML file in WebKit
-            win.webview.load_uri(file_uri)
-            
-            # Update file information
-            win.current_file = Gio.File.new_for_path(filepath)
-            win.is_converted_document = False
-            win.modified = False
-            self.update_window_title(win)
-            win.statusbar.set_text(f"Loading MHTML file: {os.path.basename(filepath)}")
-            
-        else:
-            raise Exception("Could not extract HTML content from MHTML file")
-            
-    except Exception as e:
-        print(f"Error loading MHTML file: {e}")
-        win.statusbar.set_text(f"Error loading MHTML file: {e}")
-        self.show_error_dialog(f"Error loading MHTML file: {e}")
-
-def _extract_mhtml_content(self, win, webview, filepath, temp_dir):
-    """Extract content from loaded MHTML HTML and make it editable"""
-    try:
-        # Get the document body content
-        webview.evaluate_javascript(
-            "document.body.innerHTML",
-            -1, None, None, None,
-            lambda webview, result, data: self._on_mhtml_content_extracted(win, webview, result, filepath, temp_dir),
-            None
-        )
-        return False  # Don't repeat this timeout
-    except Exception as e:
-        print(f"Error extracting MHTML content: {e}")
-        win.statusbar.set_text(f"Error loading MHTML file: {e}")
-        
-        # Clean up temporary directory
-        try:
-            if temp_dir and os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir)
-        except Exception as cleanup_err:
-            print(f"Error cleaning up temp directory: {cleanup_err}")
-            
-        return False  # Don't repeat this timeout
-
-def _on_mhtml_content_extracted(self, win, webview, result, filepath, temp_dir):
-    """Handle extracted MHTML content and make it editable"""
-    try:
-        js_result = webview.evaluate_javascript_finish(result)
-        body_content = ""
-        
-        if js_result:
-            # Get the HTML content
-            if hasattr(js_result, 'get_js_value'):
-                body_content = js_result.get_js_value().to_string()
-            else:
-                body_content = js_result.to_string()
-        
-        if body_content:
-            # Set the content in the editor to make it editable
-            # Escape for JavaScript
-            content = body_content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
-            js_code = f'setContent("{content}");'
-            
-            # Execute the JavaScript to set content
-            webview.evaluate_javascript(
-                js_code,
-                -1, None, None, None,
-                lambda webview, result, data: self._ensure_content_editable(win, webview, filepath),
-                None
-            )
-            
-            # Update status
-            win.statusbar.set_text(f"Opened {os.path.basename(filepath)}")
-        else:
-            win.statusbar.set_text("Warning: No content found in MHTML file")
-        
-        # Clean up temporary directory
-        try:
-            if temp_dir and os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir)
-        except Exception as e:
-            print(f"Error cleaning up temp directory: {e}")
-            
-    except Exception as e:
-        print(f"Error processing MHTML content: {e}")
-        win.statusbar.set_text(f"Error loading MHTML file: {e}")
-        
-        # Clean up temporary directory
-        try:
-            if temp_dir and os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir)
-        except Exception as cleanup_err:
-            print(f"Error cleaning up temp directory: {cleanup_err}")
-
-def _ensure_content_editable(self, win, webview, filepath):
-    """Explicitly ensure that content is editable after loading MHTML"""
-    try:
-        # Make sure the editor has contenteditable="true"
-        webview.evaluate_javascript(
-            "var editor = document.getElementById('editor'); " +
-            "if(editor) { " +
-            "  editor.setAttribute('contenteditable', 'true'); " +
-            "  console.log('Editor is now editable'); " +
-            "} else { " +
-            "  console.log('Editor element not found'); " +
-            "}",
-            -1, None, None, None, None, None
-        )
-        
-        # Also set focus to the editor for better UX
-        webview.evaluate_javascript(
-            "if(document.getElementById('editor')) { " +
-            "  document.getElementById('editor').focus(); " +
-            "}",
-            -1, None, None, None, None, None
-        )
-        
-        # Update status
-        win.statusbar.set_text(f"Opened {os.path.basename(filepath)}")
-    except Exception as e:
-        print(f"Error ensuring content is editable: {e}")
-
-def _process_mhtml_resources(self, html_content, mhtml_content, temp_dir):
-    """Process resources in MHTML file, converting image references to data URLs where possible"""
-    try:
-        # Parse the MHTML content to extract resources
-        resources = {}
-        
-        try:
-            # Get image parts using email module
-            import email
-            import base64
-            
-            message = email.message_from_string(mhtml_content)
-            
-            # Parse Content-Location or Content-ID for resources
-            for part in message.walk():
-                content_type = part.get_content_type()
-                if content_type.startswith('image/'):
-                    # Get the resource ID
-                    resource_id = None
-                    if part.get('Content-Location'):
-                        resource_id = part.get('Content-Location')
-                    elif part.get('Content-ID'):
-                        # Content-ID is usually in <id> format
-                        cid = part.get('Content-ID')
-                        if cid.startswith('<') and cid.endswith('>'):
-                            cid = cid[1:-1]
-                        resource_id = f"cid:{cid}"
-                        
-                    if resource_id:
-                        # Get the content
-                        payload = part.get_payload(decode=True)
-                        if payload:
-                            # Create a data URL
-                            data_url = f"data:{content_type};base64,{base64.b64encode(payload).decode('ascii')}"
-                            resources[resource_id] = data_url
-                            
-                            # Save to temp file as fallback
-                            try:
-                                resource_filename = os.path.basename(resource_id).split('?')[0]
-                                if not resource_filename:
-                                    resource_filename = f"resource_{len(resources)}.{content_type.split('/')[1]}"
-                                
-                                resource_path = os.path.join(temp_dir, resource_filename)
-                                with open(resource_path, 'wb') as f:
-                                    f.write(payload)
-                            except Exception as save_err:
-                                print(f"Error saving resource: {save_err}")
-        except Exception as e:
-            print(f"Error extracting resources with email module: {e}")
-            
-        # Process the HTML to replace resource references
-        processed_html = html_content
-        
-        # Replace image references
-        for resource_id, data_url in resources.items():
-            # Try different patterns for resource references
-            patterns = [
-                f'src=["\']({re.escape(resource_id)})["\']',
-                f'src=["\']({re.escape(resource_id.replace(":", "%3A"))})["\']'
-            ]
-            
-            for pattern in patterns:
-                processed_html = re.sub(pattern, f'src="{data_url}"', processed_html)
-            
-        return processed_html
-        
-    except Exception as e:
-        print(f"Error processing MHTML resources: {e}")
-        return html_content  # Return original content if processing fails
-
-
-
-# Markdown conversion helper
 def _simple_markdown_to_html(content):
     """Static method for simple markdown to HTML conversion as fallback"""
     html = content
@@ -1012,116 +350,7 @@ def _simple_markdown_to_html(content):
     html = '\n'.join(processed_paragraphs)
     return html
 
-# Image processing for documents
-def _process_image_references(self, html_content, image_dir):
-    """Process image references in HTML content converted from LibreOffice documents"""
-    try:
-        import urllib.parse  # Add this import for URL decoding
-        print(f"Processing image references from directory: {image_dir}")
-        
-        # Find all image tags in the HTML
-        image_tags = re.findall(r'<img[^>]+src="([^"]+)"[^>]*>', html_content)
-        print(f"Found {len(image_tags)} image references in HTML")
-        
-        # List all files in the image directory
-        image_files = os.listdir(image_dir)
-        print(f"Found {len(image_files)} files in image directory: {image_files}")
-        
-        # Function to process an image tag
-        def process_image_ref(match):
-            img_tag = match.group(0)
-            src = match.group(1)
-            
-            print(f"Processing image reference: {src}")
-            
-            # Skip already processed or external images
-            if src.startswith(('http://', 'https://', 'data:')):
-                print(f"Skipping external image: {src}")
-                return img_tag
-            
-            # URL decode the source - this is key to handling LibreOffice's encoding
-            decoded_src = urllib.parse.unquote(src)
-            print(f"Decoded source: {decoded_src}")
-                
-            # If the src is relative, try to find the image in the image directory
-            img_path = os.path.join(image_dir, decoded_src)
-            if not os.path.exists(img_path):
-                # Try removing any directory prefix
-                img_path = os.path.join(image_dir, os.path.basename(decoded_src))
-                
-            print(f"Looking for image at: {img_path}")
-            
-            if os.path.exists(img_path):
-                print(f"Found image at: {img_path}")
-                
-                # Convert the image to a data URL to embed it directly
-                try:
-                    with open(img_path, 'rb') as img_file:
-                        import base64
-                        img_data = base64.b64encode(img_file.read()).decode('utf-8')
-                        mime_type = self._get_mime_type(img_path)
-                        data_url = f"data:{mime_type};base64,{img_data}"
-                        
-                        # Replace the src attribute with the data URL
-                        new_tag = img_tag.replace(f'src="{src}"', f'src="{data_url}"')
-                        print(f"Converted image to data URL")
-                        return new_tag
-                except Exception as e:
-                    print(f"Error creating data URL for image {img_path}: {e}")
-            else:
-                # Search for any image file with a similar name pattern
-                base_name = os.path.splitext(os.path.basename(decoded_src))[0].lower()
-                print(f"Image not found, searching for similar names with base: {base_name}")
-                
-                for file in image_files:
-                    if base_name in file.lower():
-                        img_path = os.path.join(image_dir, file)
-                        print(f"Found potential match: {img_path}")
-                        
-                        try:
-                            with open(img_path, 'rb') as img_file:
-                                import base64
-                                img_data = base64.b64encode(img_file.read()).decode('utf-8')
-                                mime_type = self._get_mime_type(img_path)
-                                data_url = f"data:{mime_type};base64,{img_data}"
-                                
-                                # Replace the src attribute with the data URL
-                                new_tag = img_tag.replace(f'src="{src}"', f'src="{data_url}"')
-                                print(f"Used similar image as data URL")
-                                return new_tag
-                        except Exception as e:
-                            print(f"Error creating data URL for similar image {img_path}: {e}")
-                            break
-                
-                print(f"No matching image found for {src}")
-                    
-            # If we couldn't process the image, return the original tag
-            return img_tag
-        
-        # Find and process all image tags
-        processed_html = re.sub(r'<img[^>]+src="([^"]+)"[^>]*>', process_image_ref, html_content)
-        
-        return processed_html
-    except Exception as e:
-        print(f"Error processing image references: {e}")
-        return html_content
-
-def _get_mime_type(self, file_path):
-    """Get MIME type for a file"""
-    # Simple extension-based MIME type detection
-    ext = os.path.splitext(file_path)[1].lower()
-    mime_map = {
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.png': 'image/png',
-        '.gif': 'image/gif',
-        '.bmp': 'image/bmp',
-        '.svg': 'image/svg+xml',
-        '.webp': 'image/webp',
-    }
-    return mime_map.get(ext, 'application/octet-stream')
-
-# Save operations handling
+# Save operations
 def on_save_clicked(self, win, button):
     """Handle save button click by redirecting to Save As for converted documents"""
     # Check if this is a converted document
@@ -1153,6 +382,7 @@ def on_save_clicked(self, win, button):
     else:
         # Show custom save dialog for new file
         self.show_custom_save_dialog(win)
+
 
 def on_save_as_clicked(self, win, button):
     """Show custom save as dialog to save current document with a new filename"""
@@ -1344,18 +574,6 @@ def _on_browse_clicked(self, button, dialog_data):
     file_dialog.select_folder(dialog_data["dialog"], None, 
                          lambda fd, result: self._on_folder_selected(fd, result, dialog_data))
 
-def _on_folder_selected(self, file_dialog, result, dialog_data):
-    """Handle folder selection result"""
-    try:
-        folder = file_dialog.select_folder_finish(result)
-        if folder:
-            dialog_data["current_folder"] = folder.get_path()
-            dialog_data["location_label"].set_text(self._get_shortened_path(dialog_data["current_folder"]))
-    except GLib.Error as e:
-        # Ignore cancellation
-        if e.domain != 'gtk-dialog-error-quark' or e.code != 2:
-            print(f"Error selecting folder: {e}")
-
 def _on_dialog_response(self, dialog, response_id, dialog_data, win):
     """Handle dialog response callback"""
     if response_id == Gtk.ResponseType.ACCEPT:
@@ -1382,6 +600,18 @@ def _on_dialog_response(self, dialog, response_id, dialog_data, win):
     
     # Destroy the dialog when done
     dialog.destroy()
+    
+def _on_folder_selected(self, file_dialog, result, dialog_data):
+    """Handle folder selection result"""
+    try:
+        folder = file_dialog.select_folder_finish(result)
+        if folder:
+            dialog_data["current_folder"] = folder.get_path()
+            dialog_data["location_label"].set_text(self._get_shortened_path(dialog_data["current_folder"]))
+    except GLib.Error as e:
+        # Ignore cancellation
+        if e.domain != 'gtk-dialog-error-quark' or e.code != 2:
+            print(f"Error selecting folder: {e}")
 
 def _get_file_path_from_dialog(self, dialog_data):
     """Get the complete file path from dialog inputs"""
@@ -1401,114 +631,33 @@ def _get_file_path_from_dialog(self, dialog_data):
     # Build full path
     return os.path.join(dialog_data["current_folder"], filename + extension)
 
-# Saving files in different formats
 def save_as_mhtml(self, win, file):
-    """Save document as MHTML using WebKit's save method, ensuring content is not editable"""
+    """Save document as MHTML using WebKit's save method"""
     try:
-        # Get the filename to use as title
-        filename = os.path.splitext(os.path.basename(file.get_path()))[0]
-        # First, temporarily remove contenteditable attribute from the editor
-        win.webview.evaluate_javascript(
-            f"document.title = '{filename}'; " +
-            "var editorDiv = document.getElementById('editor'); " +
-            "var originalEditable = editorDiv.getAttribute('contenteditable'); " +
-            "editorDiv.setAttribute('contenteditable', 'false'); " +
-            "originalEditable;",  # Return the original value so we can restore it
-            -1, None, None, None,
-            lambda webview, result, data: self._do_mhtml_save_with_non_editable_content(win, webview, result, file),
-            None
-        )
+        # Get the file URI
+        file_uri = file.get_uri()
         
-        win.statusbar.set_text(f"Saving MHTML file: {file.get_path()}")
-    except Exception as e:
-        print(f"Error preparing MHTML save: {e}")
-        win.statusbar.set_text(f"Error saving MHTML: {e}")
-        # Fallback to manual saving
-        self.save_as_html(win, file)
-
-def _do_mhtml_save_with_non_editable_content(self, win, webview, result, file):
-    """Actually perform the MHTML save after making content non-editable"""
-    original_editable = None
-    try:
-        # Get result of our previous JS evaluation (the original editable state)
-        js_result = webview.evaluate_javascript_finish(result)
-        if js_result:
-            if hasattr(js_result, 'get_js_value'):
-                original_editable = js_result.get_js_value().to_string()
-            else:
-                original_editable = js_result.to_string()
-    except Exception as e:
-        print(f"Error getting original editable state: {e}")
-        # Continue with the save anyway
-    
-    try:
         # Check which WebKit version and methods are available
         if hasattr(win.webview, 'save_to_file'):
             # WebKit 6.0+ method
             win.webview.save_to_file(file, WebKit.SaveMode.MHTML, None, 
-                                lambda webview, result: self._restore_editable_after_save(win, webview, file, result, original_editable))
+                                  lambda webview, result: self.save_webkit_callback(win, file, result))
         elif hasattr(win.webview, 'save'):
             # Older WebKit method
             win.webview.save(WebKit.SaveMode.MHTML, None,  # No cancellable
-                        lambda webview, result: self._restore_editable_after_save(win, webview, file, result, original_editable))
+                          lambda webview, result: self.save_webkit_callback(win, file, result))
         else:
             # Fallback for even older WebKit versions
             print("WebKit save methods not available, falling back to HTML")
-            # Restore the editable state first
-            self._restore_editable_state(win, original_editable)
             self.save_as_html(win, file)
+            return
+            
+        win.statusbar.set_text(f"Saving MHTML file: {file.get_path()}")
     except Exception as e:
-        print(f"Error during MHTML save: {e}")
-        # Restore editable state
-        self._restore_editable_state(win, original_editable)
+        print(f"Error saving as MHTML: {e}")
         win.statusbar.set_text(f"Error saving MHTML: {e}")
         # Fallback to manual saving
         self.save_as_html(win, file)
-
-def _restore_editable_after_save(self, win, webview, file, result, original_editable):
-    """Restore the contenteditable attribute after MHTML save and handle save result"""
-    # First restore the contenteditable attribute
-    self._restore_editable_state(win, original_editable)
-    
-    # Then handle the save result
-    try:
-        # Check if this is a WebKit 6.0+ result with get_web_error
-        if hasattr(result, 'get_web_error'):
-            error = result.get_web_error()
-            if error is None:
-                # Successful WebKit save
-                win.current_file = file
-                win.modified = False
-                self.update_window_title(win)
-                win.statusbar.set_text(f"Saved: {file.get_path()}")
-            else:
-                # WebKit save failed
-                print(f"WebKit save error: {error.get_message()}")
-                win.statusbar.set_text(f"Error: {error.get_message()}")
-                # Fallback to manual saving
-                self.save_as_html(win, file)
-        else:
-            # For older WebKit versions without detailed error info
-            # Just assume success and update the UI
-            win.current_file = file
-            win.modified = False
-            self.update_window_title(win)
-            win.statusbar.set_text(f"Saved: {file.get_path()}")
-    except Exception as e:
-        print(f"Error in WebKit save callback: {e}")
-        # Fallback to manual saving
-        self.save_as_html(win, file)
-
-def _restore_editable_state(self, win, original_editable):
-    """Helper to restore the original contenteditable state"""
-    # Default to 'true' if we don't know the original state
-    editable_value = original_editable if original_editable else 'true'
-    
-    # Restore the contenteditable attribute
-    win.webview.evaluate_javascript(
-        f"document.getElementById('editor').setAttribute('contenteditable', '{editable_value}');",
-        -1, None, None, None, None, None
-    )
 
 def save_webkit_callback(self, win, file, result):
     """Handle WebKit save result"""
@@ -1539,49 +688,64 @@ def save_webkit_callback(self, win, file, result):
         print(f"Error in WebKit save callback: {e}")
         # Fallback to manual saving
         self.save_as_html(win, file)
-        
+
 def save_as_html(self, win, file):
     """Save document as HTML by extracting just the editor content"""
     # We only want to get the editor content, not the entire HTML document
     win.webview.evaluate_javascript(
         "document.getElementById('editor').innerHTML",
         -1, None, None, None,
+        # Use _on_get_html_content instead of save_html_callback
         lambda webview, result, data: self._on_get_html_content(win, webview, result, file),
         None
     )
     win.statusbar.set_text(f"Saving HTML file: {file.get_path()}")
     return True  # Return success status
+    
 
-def _on_get_html_content(self, win, webview, result, file):
-    """Process HTML content from webview and save to file"""
+        
+def save_as_html_fallback(self, win, file):
+    """Fallback method to save HTML when JavaScript evaluation fails"""
+    try:
+        # Create basic HTML content with the current content
+        win.webview.evaluate_javascript(
+            "document.body.innerHTML",
+            -1, None, None, None,
+            lambda webview, result, data: self.save_html_body_callback(win, webview, result, file),
+            None
+        )
+    except Exception as e:
+        print(f"Error in HTML fallback save: {e}")
+        win.statusbar.set_text(f"Error saving HTML: {e}")
+        self.show_error_dialog(win, f"Could not save file: {e}")
+
+def save_html_body_callback(self, win, webview, result, file):
+    """Process HTML body content and save to file"""
     try:
         js_result = webview.evaluate_javascript_finish(result)
         if js_result:
-            # Get the content based on the available API
+            # Get the body HTML content
             if hasattr(js_result, 'get_js_value'):
-                editor_content = js_result.get_js_value().to_string()
+                body_content = js_result.get_js_value().to_string()
             else:
-                editor_content = js_result.to_string()
+                body_content = js_result.to_string()
             
-            
-            filename = os.path.splitext(os.path.basename(file.get_path()))[0]
-
-            # Wrap the content in a proper HTML document
+            # Create a complete HTML document
             html_content = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>{filename}</title>
+    <title>HTML Document</title>
     <meta charset="utf-8">
 </head>
 <body>
-{editor_content}
+{body_content}
 </body>
 </html>"""
 
             # Convert the string to bytes
             content_bytes = html_content.encode('utf-8')
             
-            # Use the synchronous replace_contents method
+            # Use the simpler replace_contents method
             try:
                 success, etag = file.replace_contents(
                     content_bytes,
@@ -1594,22 +758,20 @@ def _on_get_html_content(self, win, webview, result, file):
                 if success:
                     win.current_file = file
                     win.modified = False
-                    
-                    # If this was a converted document, update the status
-                    if hasattr(win, 'is_converted_document') and win.is_converted_document:
-                        win.is_converted_document = False
-                        
                     self.update_window_title(win)
                     win.statusbar.set_text(f"Saved: {file.get_path()}")
                 else:
                     win.statusbar.set_text("File save was not successful")
                     
             except GLib.Error as e:
-                print(f"Error writing file: {e.message if hasattr(e, 'message') else str(e)}")
-                win.statusbar.set_text(f"Error writing file: {str(e)}")
+                print(f"Error writing file: {e.message}")
+                win.statusbar.set_text(f"Error writing file: {e.message}")
                 
+        else:
+            print("Failed to get HTML content from webview")
+            win.statusbar.set_text("Failed to get HTML content for saving")
     except Exception as e:
-        print(f"Error processing HTML for save: {e}")
+        print(f"Error processing HTML body for save: {e}")
         win.statusbar.set_text(f"Error saving HTML: {e}")
 
 def save_as_text(self, win, file):
@@ -1730,43 +892,45 @@ def save_completion_callback(self, win, file, result):
         print(f"Error completing save: {e}")
         win.statusbar.set_text(f"Error completing save: {e}")
 
-# PDF export functionality
-def save_as_pdf(self, win, file):
-    """Save document as PDF using LibreOffice for conversion"""
-    # First save as HTML to a temporary file
-    temp_dir = tempfile.mkdtemp()
-    temp_html_path = os.path.join(temp_dir, "temp_export.html")
-    temp_html_file = Gio.File.new_for_path(temp_html_path)
+# Legacy aliases for backward compatibility
+def _on_save_response(self, win, dialog, result):
+    """Backward compatibility method"""
+    return self.save_dialog_callback(win, dialog, result)
     
-    win.statusbar.set_text(f"Preparing to save as PDF: {file.get_path()}")
+def _on_save_as_response(self, win, dialog, result):
+    """Backward compatibility method"""
+    return self.save_dialog_callback(win, dialog, result)
     
-    # Show a loading dialog since PDF conversion can take time
-    loading_dialog = self.show_loading_dialog(win, "Converting document to PDF...")
-    
-    # Get the editor content
-    win.webview.evaluate_javascript(
-        "document.documentElement.outerHTML",
-        -1, None, None, None,
-        lambda webview, result, data: self._save_pdf_step1(win, webview, result, file, temp_html_file, temp_dir, loading_dialog),
-        None
-    )
-
-def _save_pdf_step1(self, win, webview, result, target_file, temp_html_file, temp_dir, loading_dialog):
-    """Step 1 of PDF saving - get HTML content and save to temporary file"""
+def _on_get_html_content(self, win, webview, result, file):
+    """Process HTML content from webview and save to file"""
     try:
         js_result = webview.evaluate_javascript_finish(result)
         if js_result:
-            # Get the HTML content
+            # Get the content based on the available API
             if hasattr(js_result, 'get_js_value'):
-                html_content = js_result.get_js_value().to_string()
+                editor_content = js_result.get_js_value().to_string()
             else:
-                html_content = js_result.to_string()
+                editor_content = js_result.to_string()
             
-            # Save the complete HTML to a temporary file
+            # Wrap the content in a proper HTML document
+            html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>HTML Document</title>
+    <meta charset="utf-8">
+</head>
+<body>
+{editor_content}
+</body>
+</html>"""
+
+            # Convert the string to bytes
+            content_bytes = html_content.encode('utf-8')
+            
+            # Use the synchronous replace_contents method
             try:
-                html_bytes = html_content.encode('utf-8')
-                success, etag = temp_html_file.replace_contents(
-                    html_bytes,
+                success, etag = file.replace_contents(
+                    content_bytes,
                     None,  # etag
                     False,  # make_backup
                     Gio.FileCreateFlags.REPLACE_DESTINATION,
@@ -1774,113 +938,320 @@ def _save_pdf_step1(self, win, webview, result, target_file, temp_html_file, tem
                 )
                 
                 if success:
-                    # Now use LibreOffice to convert the temp HTML to PDF
-                    GLib.idle_add(lambda: self._save_pdf_step2(win, temp_html_file.get_path(), target_file, temp_dir, loading_dialog))
+                    win.current_file = file
+                    win.modified = False
+                    
+                    # If this was a converted document, update the status
+                    if hasattr(win, 'is_converted_document') and win.is_converted_document:
+                        win.is_converted_document = False
+                        
+                    self.update_window_title(win)
+                    win.statusbar.set_text(f"Saved: {file.get_path()}")
                 else:
-                    self._pdf_save_cleanup(win, "Failed to create temporary HTML file", temp_dir, loading_dialog)
+                    win.statusbar.set_text("File save was not successful")
+                    
             except GLib.Error as e:
-                self._pdf_save_cleanup(win, f"Error creating temporary file: {str(e)}", temp_dir, loading_dialog)
-        else:
-            self._pdf_save_cleanup(win, "Failed to get document content", temp_dir, loading_dialog)
-    except Exception as e:
-        self._pdf_save_cleanup(win, f"Error preparing PDF conversion: {str(e)}", temp_dir, loading_dialog)
-
-def _save_pdf_step2(self, win, temp_html_path, target_file, temp_dir, loading_dialog):
-    """Step 2 of PDF saving - convert temporary HTML to PDF using LibreOffice"""
-    try:
-        # Run the conversion in a separate thread to keep UI responsive
-        def convert_thread():
-            try:
-                # Convert HTML to PDF using LibreOffice
-                pdf_file, _ = self.convert_with_libreoffice(temp_html_path, "pdf")
+                print(f"Error writing file: {e.message if hasattr(e, 'message') else str(e)}")
+                win.statusbar.set_text(f"Error writing file: {str(e)}")
                 
-                if pdf_file and os.path.exists(pdf_file):
-                    # Copy the PDF to the target location
-                    try:
-                        # Read the PDF file
-                        with open(pdf_file, 'rb') as f:
-                            pdf_content = f.read()
-                        
-                        # Write to the target file
-                        target_path = target_file.get_path()
-                        with open(target_path, 'wb') as f:
-                            f.write(pdf_content)
-                        
-                        # Update the UI in the main thread
-                        GLib.idle_add(lambda: self._pdf_save_success(win, target_file, temp_dir, loading_dialog))
-                    except Exception as e:
-                        GLib.idle_add(lambda: self._pdf_save_cleanup(
-                            win, f"Error saving PDF to target location: {str(e)}", temp_dir, loading_dialog))
-                else:
-                    GLib.idle_add(lambda: self._pdf_save_cleanup(
-                        win, "PDF conversion failed. Please check if LibreOffice is installed correctly.", 
-                        temp_dir, loading_dialog))
-            except Exception as e:
-                GLib.idle_add(lambda: self._pdf_save_cleanup(
-                    win, f"Error during PDF conversion: {str(e)}", temp_dir, loading_dialog))
+    except Exception as e:
+        print(f"Error processing HTML for save: {e}")
+        win.statusbar.set_text(f"Error saving HTML: {e}")
+        
+    
+def _on_file_saved(self, win, file, result):
+    """Backward compatibility method"""
+    return self.save_completion_callback(win, file, result)
+
+def load_file(self, win, filepath):
+    """Load file content into editor with enhanced format support and image handling"""
+    try:
+        # Check if file exists
+        if not os.path.exists(filepath):
+            self.show_error_dialog("File not found")
+            return
             
-            return False  # Don't repeat
+        # Store the original file path format for reference
+        win.original_format = os.path.splitext(filepath)[1].lower()
+        win.original_filepath = filepath
         
-        # Start the conversion thread
-        GLib.Thread.new(None, convert_thread)
-        return False  # Don't repeat this idle callback
+        # Show loading dialog for potentially slow conversions
+        loading_dialog = None
+        if is_libreoffice_format(filepath) and win.original_format not in ['.html', '.htm', '.txt', '.md', '.markdown']:
+            loading_dialog = self.show_loading_dialog(win)
+        
+        # Process the file based on its format
+        file_ext = os.path.splitext(filepath)[1].lower()
+        
+        # Function to continue loading after potential conversion
+        def continue_loading(html_content=None, converted_path=None, image_dir=None):
+            try:
+                # Close loading dialog if it was shown
+                if loading_dialog:
+                    try:
+                        loading_dialog.close()
+                    except Exception as e:
+                        print(f"Warning: Could not close loading dialog: {e}")
+                
+                # Initialize content variable
+                content = ""
+                
+                # If we already have HTML content from conversion, use it
+                if html_content:
+                    content = html_content
+                else:
+                    # Try to detect file encoding
+                    encoding = 'utf-8'  # Default encoding
+                    try:
+                        import chardet
+                        with open(filepath, 'rb') as raw_file:
+                            raw_content = raw_file.read()
+                            detected = chardet.detect(raw_content)
+                            if detected['confidence'] > 0.7:
+                                encoding = detected['encoding']
+                    except ImportError:
+                        pass  # Fallback to utf-8 if chardet not available
+                        
+                    # Now read the file with the detected encoding
+                    try:
+                        with open(filepath, 'r', encoding=encoding) as f:
+                            content = f.read()
+                    except UnicodeDecodeError:
+                        # If there's a decode error, try a fallback encoding
+                        with open(filepath, 'r', encoding='latin-1') as f:
+                            content = f.read()
+                
+                # Process content based on file type
+                if file_ext in ['.mht', '.mhtml']:
+                    # Handle MHTML files - extract the HTML content
+                    try:
+                        import email
+                        message = email.message_from_string(content)
+                        for part in message.walk():
+                            if part.get_content_type() == 'text/html':
+                                content = part.get_payload(decode=True).decode(part.get_content_charset() or 'utf-8')
+                                break
+                    except ImportError:
+                        # Fallback to regex extraction if email module not ideal
+                        body_match = re.search(r'Content-Type: text/html.*?charset=["\']?([\w-]+)["\']?.*?(?:\r?\n){2}(.*?)(?:\r?\n){1,2}--', 
+                                              content, re.DOTALL | re.IGNORECASE)
+                        if body_match:
+                            charset, html_content = body_match.groups()
+                            content = html_content
+                            
+                    # Extract body content from the HTML
+                    body_match = re.search(r'<body[^>]*>(.*?)</body>', content, re.DOTALL | re.IGNORECASE)
+                    if body_match:
+                        content = body_match.group(1).strip()
+                        
+                elif file_ext in ['.html', '.htm']:
+                    # Handle HTML content
+                    body_match = re.search(r'<body[^>]*>(.*?)</body>', content, re.DOTALL | re.IGNORECASE)
+                    if body_match:
+                        content = body_match.group(1).strip()
+                        
+                elif file_ext in ['.md', '.markdown']:
+                    # Convert markdown to HTML
+                    if MARKDOWN_AVAILABLE:
+                        try:
+                            # Get available extensions
+                            available_extensions = []
+                            for ext in ['tables', 'fenced_code', 'codehilite', 'nl2br', 'sane_lists', 'smarty', 'attr_list']:
+                                try:
+                                    # Test if extension can be loaded
+                                    markdown.markdown("test", extensions=[ext])
+                                    available_extensions.append(ext)
+                                except (ImportError, ValueError):
+                                    pass
+                            
+                            # Convert markdown to HTML
+                            content = markdown.markdown(content, extensions=available_extensions)
+                        except Exception as e:
+                            print(f"Error converting markdown: {e}")
+                            # Fallback to simple conversion
+                            content = self._simple_markdown_to_html(content)
+                    else:
+                        # Use simplified markdown conversion
+                        content = self._simple_markdown_to_html(content)
+                elif file_ext == '.txt':
+                    # Convert plain text to HTML
+                    content = content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                    content = f"<div>{content.replace(chr(10), '<br>')}</div>"
+                
+                # Process image references for converted LibreOffice documents
+                if converted_path and image_dir and os.path.exists(image_dir):
+                    # Look for an 'images' subfolder that LibreOffice might have created
+                    images_folder = os.path.join(image_dir, 'images')
+                    if os.path.exists(images_folder) and os.path.isdir(images_folder):
+                        print(f"Found images folder: {images_folder}")
+                        # Store the image directory for reference
+                        win.image_dir = images_folder
+                        
+                        # Process the image references in the content
+                        content = self._process_image_references(content, images_folder)
+                    else:
+                        # Check for any image files in the main output directory
+                        image_files = [f for f in os.listdir(image_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp'))]
+                        if image_files:
+                            print(f"Found {len(image_files)} image files in output directory")
+                            win.image_dir = image_dir
+                            content = self._process_image_references(content, image_dir)
+                        else:
+                            print(f"No images folder or image files found in {image_dir}")
+                
+                # Ensure content is properly wrapped in a div if not already
+                if not (content.strip().startswith('<div') or content.strip().startswith('<p') or 
+                       content.strip().startswith('<h')):
+                    content = f"<div>{content}</div>"
+                
+                # Escape for JavaScript
+                content = content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+                js_code = f'setContent("{content}");'
+                
+                # Check WebView load status and execute JS accordingly
+                def execute_when_ready():
+                    # Get the current load status
+                    load_status = win.webview.get_estimated_load_progress()
+                    
+                    if load_status == 1.0:  # Fully loaded
+                        # Execute directly
+                        self.execute_js(win, js_code)
+                        return False  # Stop the timeout
+                    else:
+                        # Set up a handler for when loading finishes
+                        def on_load_changed(webview, event):
+                            if event == WebKit.LoadEvent.FINISHED:
+                                self.execute_js(win, js_code)
+                                webview.disconnect_by_func(on_load_changed)
+                        
+                        win.webview.connect("load-changed", on_load_changed)
+                        return False  # Stop the timeout
+                
+                # Use GLib timeout to ensure we're not in the middle of another operation
+                GLib.timeout_add(50, execute_when_ready)
+                
+                # Update file information - CHANGED BEHAVIOR HERE
+                if converted_path and is_libreoffice_format(filepath) and win.original_format not in ['.html', '.htm', '.txt', '.md', '.markdown']:
+                    # For LibreOffice files that were converted, use the HTML file as the current file
+                    win.current_file = Gio.File.new_for_path(converted_path)
+                    win.statusbar.set_text(f"Opened {os.path.basename(filepath)} (converted to HTML)")
+                    # Add information for the user about the conversion
+                    GLib.timeout_add(1000, lambda: self.show_conversion_notification(win, filepath, converted_path))
+                else:
+                    # For directly supported formats, use the original file
+                    win.current_file = Gio.File.new_for_path(filepath)
+                    win.statusbar.set_text(f"Opened {os.path.basename(filepath)}")
+                
+                win.modified = False
+                self.update_window_title(win)
+                        
+            except Exception as e:
+                # Close loading dialog if it was shown
+                if loading_dialog:
+                    try:
+                        loading_dialog.close()
+                    except:
+                        pass
+                print(f"Error processing file content: {str(e)}")
+                win.statusbar.set_text(f"Error processing file: {str(e)}")
+                self.show_error_dialog(f"Error processing file: {e}")
+        
+        # Check if file needs LibreOffice conversion
+        if is_libreoffice_format(filepath) and file_ext not in ['.html', '.htm', '.txt', '.md', '.markdown']:
+            # Start the conversion in a separate thread to keep UI responsive
+            def convert_thread():
+                try:
+                    # Convert the file to HTML using LibreOffice
+                    converted_file, image_dir = self.convert_with_libreoffice(filepath, "html")
+                    
+                    if converted_file:
+                        # Read the converted HTML file
+                        try:
+                            with open(converted_file, 'r', encoding='utf-8') as f:
+                                html_content = f.read()
+                                
+                            # Extract body content
+                            body_match = re.search(r'<body[^>]*>(.*?)</body>', html_content, re.DOTALL | re.IGNORECASE)
+                            if body_match:
+                                html_content = body_match.group(1).strip()
+                            
+                            # Schedule continuing in the main thread with the HTML content
+                            GLib.idle_add(lambda: continue_loading(html_content, converted_file, image_dir))
+                        except Exception as e:
+                            print(f"Error reading converted file: {e}")
+                            GLib.idle_add(lambda: self.show_error_dialog(f"Error reading converted file: {e}"))
+                            GLib.idle_add(lambda: loading_dialog.close() if loading_dialog else None)
+                    else:
+                        # Conversion failed
+                        GLib.idle_add(lambda: self.show_error_dialog("Failed to convert document with LibreOffice. Please check if LibreOffice is installed correctly."))
+                        GLib.idle_add(lambda: loading_dialog.close() if loading_dialog else None)
+                except Exception as e:
+                    print(f"Error in conversion thread: {e}")
+                    GLib.idle_add(lambda: self.show_error_dialog(f"Conversion error: {e}"))
+                    GLib.idle_add(lambda: loading_dialog.close() if loading_dialog else None)
+                
+                return False  # Don't repeat
+            
+            # Start the conversion thread
+            GLib.idle_add(lambda: GLib.Thread.new(None, convert_thread) and False)
+        else:
+            # Continue with normal loading for directly supported formats
+            continue_loading()
+            
     except Exception as e:
-        self._pdf_save_cleanup(win, f"Error starting PDF conversion thread: {str(e)}", temp_dir, loading_dialog)
-        return False  # Don't repeat this idle callback
-
-def _pdf_save_success(self, win, file, temp_dir, loading_dialog):
-    """Handle successful PDF save"""
-    try:
-        # Close the loading dialog
         if loading_dialog:
-            loading_dialog.close()
-        
-        # Update the UI
-        win.current_file = file
-        win.modified = False
-        self.update_window_title(win)
-        win.statusbar.set_text(f"Saved PDF: {file.get_path()}")
-        
-        # Clean up temporary directory
-        self._cleanup_temp_dir(temp_dir)
-    except Exception as e:
-        print(f"Error in PDF save success handler: {e}")
-        win.statusbar.set_text(f"PDF saved, but encountered an error: {str(e)}")
+            try:
+                loading_dialog.close()
+            except:
+                pass
+        print(f"Error loading file: {str(e)}")
+        win.statusbar.set_text(f"Error loading file: {str(e)}")
+        self.show_error_dialog(f"Error loading file: {e}")
 
-def _pdf_save_cleanup(self, win, error_message, temp_dir, loading_dialog):
-    """Clean up after PDF save error"""
-    try:
-        # Close the loading dialog
-        if loading_dialog:
-            loading_dialog.close()
-        
-        # Show error
-        print(f"PDF save error: {error_message}")
-        win.statusbar.set_text(f"Error saving PDF: {error_message}")
-        self.show_error_dialog(win, f"Error saving PDF: {error_message}")
-        
-        # Clean up temporary directory
-        self._cleanup_temp_dir(temp_dir)
-    except Exception as e:
-        print(f"Error in PDF save cleanup: {e}")
-
-def _cleanup_temp_dir(self, temp_dir):
-    """Helper to clean up temporary directory"""
-    try:
-        if temp_dir and os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
-    except Exception as e:
-        print(f"Error cleaning up temporary directory: {e}")
-
-# Cleanup and window operations
-def cleanup_temp_files(self, win):
-    """Clean up temporary files when closing a window"""
-    # Clean up image directory if it exists
-    if hasattr(win, 'image_dir') and win.image_dir and os.path.exists(win.image_dir):
-        try:
-            shutil.rmtree(win.image_dir)
-        except Exception as e:
-            print(f"Error cleaning up image directory: {e}")
+def show_conversion_notification(self, win, original_path, html_path):
+    """Show a notification that the file was converted"""
+    original_ext = os.path.splitext(os.path.basename(original_path))[1].upper()
+    
+    dialog = Adw.Dialog.new()
+    dialog.set_title(f"Document Converted from {original_ext}")
+    
+    # Create content box
+    content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+    content_box.set_margin_top(24)
+    content_box.set_margin_bottom(24)
+    content_box.set_margin_start(24)
+    content_box.set_margin_end(24)
+    
+    # Add message label (this replaces format_secondary_text)
+    message_label = Gtk.Label(label=f"The {original_ext} document has been converted to HTML for editing. "
+                                    f"When you save, it will save as an HTML file.\n\n"
+                                    f"Use 'Save As' if you want to save in a different format like PDF.")
+    message_label.set_wrap(True)
+    message_label.set_max_width_chars(40)
+    message_label.set_xalign(0)  # Left-align text
+    content_box.append(message_label)
+    
+    # Add button box
+    button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    button_box.set_halign(Gtk.Align.END)
+    button_box.set_margin_top(12)
+    
+    # Add OK button
+    ok_button = Gtk.Button(label="OK")
+    ok_button.add_css_class("suggested-action")
+    ok_button.connect("clicked", lambda btn: dialog.close())
+    button_box.append(ok_button)
+    
+    # Add button box to content
+    content_box.append(button_box)
+    
+    # Set dialog content
+    dialog.set_child(content_box)
+    
+    # Present the dialog
+    dialog.present(win)
+    
+    return False  # Don't repeat this timeout
 
 def update_window_title(self, win):
     """Update window title to show current file and format"""
@@ -1908,65 +1279,695 @@ def update_window_title(self, win):
     
     win.set_title(title)
 
-def show_conversion_notification(self, win, original_path, html_path):
-    """Show a notification that the file was converted"""
-    original_ext = os.path.splitext(os.path.basename(original_path))[1].upper()
-    
-    dialog = Gtk.MessageDialog(
-        transient_for=win,
-        modal=True,
-        message_type=Gtk.MessageType.INFO,
-        buttons=Gtk.ButtonsType.OK,
-        text=f"Document Converted from {original_ext}"
-    )
-    
-    dialog.format_secondary_text(
-        f"The {original_ext} document has been converted to HTML for editing. "
-        f"When you save, it will save as an HTML file.\n\n"
-        f"Use 'Save As' if you want to save in a different format like PDF."
-    )
-    
-    dialog.connect("response", lambda d, r: d.destroy())
-    dialog.present()
-    
-    return False  # Don't repeat this timeout
+def _process_image_references(self, html_content, image_dir):
+    """Process image references in HTML content converted from LibreOffice documents"""
+    try:
+        import urllib.parse  # Add this import for URL decoding
+        print(f"Processing image references from directory: {image_dir}")
+        
+        # Find all image tags in the HTML
+        image_tags = re.findall(r'<img[^>]+src="([^"]+)"[^>]*>', html_content)
+        print(f"Found {len(image_tags)} image references in HTML")
+        
+        # List all files in the image directory
+        image_files = os.listdir(image_dir)
+        print(f"Found {len(image_files)} files in image directory: {image_files}")
+        
+        # Function to process an image tag
+        def process_image_ref(match):
+            img_tag = match.group(0)
+            src = match.group(1)
+            
+            print(f"Processing image reference: {src}")
+            
+            # Skip already processed or external images
+            if src.startswith(('http://', 'https://', 'data:')):
+                print(f"Skipping external image: {src}")
+                return img_tag
+            
+            # URL decode the source - this is key to handling LibreOffice's encoding
+            decoded_src = urllib.parse.unquote(src)
+            print(f"Decoded source: {decoded_src}")
+                
+            # If the src is relative, try to find the image in the image directory
+            img_path = os.path.join(image_dir, decoded_src)
+            if not os.path.exists(img_path):
+                # Try removing any directory prefix
+                img_path = os.path.join(image_dir, os.path.basename(decoded_src))
+                
+            print(f"Looking for image at: {img_path}")
+            
+            if os.path.exists(img_path):
+                print(f"Found image at: {img_path}")
+                
+                # Convert the image to a data URL to embed it directly
+                try:
+                    with open(img_path, 'rb') as img_file:
+                        import base64
+                        img_data = base64.b64encode(img_file.read()).decode('utf-8')
+                        mime_type = self._get_mime_type(img_path)
+                        data_url = f"data:{mime_type};base64,{img_data}"
+                        
+                        # Replace the src attribute with the data URL
+                        new_tag = img_tag.replace(f'src="{src}"', f'src="{data_url}"')
+                        print(f"Converted image to data URL")
+                        return new_tag
+                except Exception as e:
+                    print(f"Error creating data URL for image {img_path}: {e}")
+            else:
+                # Search for any image file with a similar name pattern
+                base_name = os.path.splitext(os.path.basename(decoded_src))[0].lower()
+                print(f"Image not found, searching for similar names with base: {base_name}")
+                
+                for file in image_files:
+                    if base_name in file.lower():
+                        img_path = os.path.join(image_dir, file)
+                        print(f"Found potential match: {img_path}")
+                        
+                        try:
+                            with open(img_path, 'rb') as img_file:
+                                import base64
+                                img_data = base64.b64encode(img_file.read()).decode('utf-8')
+                                mime_type = self._get_mime_type(img_path)
+                                data_url = f"data:{mime_type};base64,{img_data}"
+                                
+                                # Replace the src attribute with the data URL
+                                new_tag = img_tag.replace(f'src="{src}"', f'src="{data_url}"')
+                                print(f"Used similar image as data URL")
+                                return new_tag
+                        except Exception as e:
+                            print(f"Error creating data URL for similar image {img_path}: {e}")
+                            break
+                
+                print(f"No matching image found for {src}")
+                    
+            # If we couldn't process the image, return the original tag
+            return img_tag
+        
+        # Find and process all image tags
+        processed_html = re.sub(r'<img[^>]+src="([^"]+)"[^>]*>', process_image_ref, html_content)
+        
+        return processed_html
+    except Exception as e:
+        print(f"Error processing image references: {e}")
+        return html_content
 
-def show_save_as_warning_dialog(self, win):
-    """Show a warning dialog when trying to save directly to a LibreOffice format"""
-    dialog = Gtk.MessageDialog(
-        transient_for=win,
-        modal=True,
-        message_type=Gtk.MessageType.WARNING,
-        buttons=Gtk.ButtonsType.NONE,
-        text="Cannot Overwrite Original File"
-    )
+def _get_mime_type(self, file_path):
+    """Get MIME type for a file"""
+    # Simple extension-based MIME type detection
+    ext = os.path.splitext(file_path)[1].lower()
+    mime_map = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.bmp': 'image/bmp',
+        '.svg': 'image/svg+xml',
+        '.webp': 'image/webp',
+    }
+    return mime_map.get(ext, 'application/octet-stream')
+
+def cleanup_temp_files(self, win):
+    """Clean up temporary files when closing a window"""
+    # Clean up image directory if it exists
+    if hasattr(win, 'image_dir') and win.image_dir and os.path.exists(win.image_dir):
+        try:
+            shutil.rmtree(win.image_dir)
+        except Exception as e:
+            print(f"Error cleaning up image directory: {e}")
+
+def save_as_pdf(self, win, file):
+    """Save document as PDF with page setup options"""
+    # First show page setup dialog
+    self.show_page_setup_dialog(win, file)
+    return True
+
+def show_page_setup_dialog(self, win, file):
+    dialog = Adw.Dialog()
+    dialog.set_title("PDF Page Setup")
+    dialog.set_content_width(400)
+
+    content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+    content_box.set_margin_top(24)
+    content_box.set_margin_bottom(24)
+    content_box.set_margin_start(24)
+    content_box.set_margin_end(24)
+
+    header_label = Gtk.Label()
+    header_label.set_markup("<b>PDF Page Options</b>")
+    header_label.set_halign(Gtk.Align.START)
+    content_box.append(header_label)
+
+    # Paper size
+    paper_size_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+    paper_size_label = Gtk.Label(label="Paper Size:")
+    paper_size_label.set_halign(Gtk.Align.START)
+    paper_size_label.set_hexpand(True)
+    paper_sizes = Gtk.StringList()
+    for size in ("A4", "US Letter", "Legal", "A3", "A5"):
+        paper_sizes.append(size)
+    paper_size_dropdown = Gtk.DropDown.new(paper_sizes, None)
+    paper_size_dropdown.set_selected(0)
+    paper_size_box.append(paper_size_label)
+    paper_size_box.append(paper_size_dropdown)
+    content_box.append(paper_size_box)
+
+    # Orientation (radio via CheckButton grouping)
+    orientation_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+    orientation_label = Gtk.Label(label="Orientation:")
+    orientation_label.set_halign(Gtk.Align.START)
+    orientation_label.set_hexpand(True)
+    portrait_radio = Gtk.CheckButton(label="Portrait")
+    portrait_radio.set_active(True)
+    landscape_radio = Gtk.CheckButton(label="Landscape")
+    landscape_radio.set_group(portrait_radio)
+    orientation_box.append(orientation_label)
+    orientation_box.append(portrait_radio)
+    orientation_box.append(landscape_radio)
+    content_box.append(orientation_box)
+
+    # Margins header
+    margins_label = Gtk.Label()
+    margins_label.set_markup("<b>Margins</b>")
+    margins_label.set_halign(Gtk.Align.START)
+    margins_label.set_margin_top(16)
+    content_box.append(margins_label)
+
+    # Helper to create spin
+    def make_spin():
+        adj = Gtk.Adjustment.new(1.0, 0.0, 300.0, 1.0, 10.0, 0.0)
+        spin = Gtk.SpinButton()
+        spin.set_adjustment(adj)
+        spin.set_digits(2)
+        spin.set_value(1.0)
+        return spin, adj
+
+    top_spin, top_adj = make_spin()
+    right_spin, right_adj = make_spin()
+    bottom_spin, bottom_adj = make_spin()
+    left_spin, left_adj = make_spin()
+
+    # Units dropdown
+    units_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+    units_box.set_margin_start(12)
+    units_label = Gtk.Label(label="Units:")
+    units_label.set_halign(Gtk.Align.START)
+    units_list = Gtk.StringList()
+    for u in ("inches (in)", "millimeters (mm)", "centimeters (cm)", "points (pt)"):
+        units_list.append(u)
+    units_dropdown = Gtk.DropDown.new(units_list, None)
+    units_dropdown.set_selected(0)
+    units_dropdown.current_unit = "in"
+    units_box.append(units_label)
+    units_box.append(units_dropdown)
+    content_box.append(units_box)
+
+    # Conversion factors and limits
+    factors = {"in": 72.0, "mm": 72.0/25.4, "cm": 72.0/2.54, "pt": 1.0}
+    bounds = {
+        "in": (0.0, 5.0, 0.05),
+        "mm": (0.0, 100.0, 1.0),
+        "cm": (0.0, 10.0, 0.1),
+        "pt": (0.0, 300.0, 1.0)
+    }
+    units_map = {0: "in", 1: "mm", 2: "cm", 3: "pt"}
+
+    def to_points(val, unit):
+        return val * factors[unit]
+
+    def from_points(val, unit):
+        return val / factors[unit]
+
+    def on_unit_changed(dropdown, _):
+        old = dropdown.current_unit
+        new = units_map[dropdown.get_selected()]
+        for spin, adj in ((top_spin, top_adj), (right_spin, right_adj),
+                          (bottom_spin, bottom_adj), (left_spin, left_adj)):
+            pts = to_points(spin.get_value(), old)
+            spin.set_value(from_points(pts, new))
+            low, high, step = bounds[new]
+            adj.set_lower(low)
+            adj.set_upper(high)
+            adj.set_step_increment(step)
+            digits = 0 if new == "pt" else (1 if new in ("mm", "cm") else 2)
+            spin.set_digits(digits)
+        dropdown.current_unit = new
+
+    units_dropdown.connect("notify::selected", on_unit_changed)
+
+    # Layout margin grid
+    margins_grid = Gtk.Grid(row_spacing=8, column_spacing=12, margin_start=12)
+    labels_spins = [("Top:", top_spin), ("Right:", right_spin),
+                    ("Bottom:", bottom_spin), ("Left:", left_spin)]
+    for idx, (lbl, spin) in enumerate(labels_spins):
+        l = Gtk.Label(label=lbl)
+        l.set_halign(Gtk.Align.START)
+        margins_grid.attach(l, 0, idx, 1, 1)
+        margins_grid.attach(spin, 1, idx, 1, 1)
+    content_box.append(margins_grid)
+
+    # Buttons
+    button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    button_box.set_halign(Gtk.Align.END)
+    button_box.set_margin_top(24)
+    cancel = Gtk.Button(label="Cancel")
+    cancel.connect("clicked", lambda w: dialog.close())
+    save = Gtk.Button(label="Save PDFiou")
+    save.add_css_class("suggested-action")
+
+    def on_save(btn):
+        idx = paper_size_dropdown.get_selected()
+        name = paper_sizes.get_string(idx)
+        paper = getattr(Gtk, f"PAPER_NAME_{name.upper().replace(' ', '_')}", Gtk.PAPER_NAME_A4)
+        orient = Gtk.PageOrientation.LANDSCAPE if landscape_radio.get_active() else Gtk.PageOrientation.PORTRAIT
+        unit = units_dropdown.current_unit
+        margins = [to_points(sp.get_value(), unit) for sp in (top_spin, right_spin, bottom_spin, left_spin)]
+        dialog.close()
+        self._generate_pdf_with_settings(win, file, paper, orient, *margins)
+
+    save.connect("clicked", on_save)
+    button_box.append(cancel)
+    button_box.append(save)
+    content_box.append(button_box)
+
+    dialog.set_child(content_box)
+    dialog.present(win)
+
+def _generate_pdf_with_settings(self, win, file, paper_size_name, orientation, 
+                               top_margin, right_margin, bottom_margin, left_margin):
+    """Generate PDF with specified page settings"""
+    # Show a loading dialog since PDF conversion can take time
+    loading_dialog = self.show_loading_dialog(win, "Saving document as PDF...")
     
-    # Get the file extension
-    file_ext = os.path.splitext(win.current_file.get_path())[1].lower()
+    # Get the file path for the PDF output
+    output_path = file.get_path()
     
-    # Set secondary text
-    dialog.format_secondary_text(
-        f"This editor cannot save directly back to the original {file_ext} format.\n\n"
-        f"Please use 'Save As' to save your changes to a supported format "
-        f"like HTML, MHTML, PDF, or Text."
-    )
+    try:
+        # Create print settings for PDF output
+        print_settings = Gtk.PrintSettings.new()
+        
+        # Configure settings - using WebKit 6.0 style 
+        print_settings.set(Gtk.PRINT_SETTINGS_OUTPUT_FILE_FORMAT, "pdf")
+        print_settings.set(Gtk.PRINT_SETTINGS_OUTPUT_URI, f"file://{output_path}")
+        print_settings.set(Gtk.PRINT_SETTINGS_PRINTER, "Print to File")
+        
+        # Create page setup with specified settings
+        page_setup = Gtk.PageSetup.new()
+        
+        # Set paper size
+        paper_size = Gtk.PaperSize.new(paper_size_name)
+        page_setup.set_paper_size(paper_size)
+        
+        # Set orientation
+        page_setup.set_orientation(orientation)
+        
+        # Set margins
+        page_setup.set_top_margin(top_margin, Gtk.Unit.POINTS)
+        page_setup.set_right_margin(right_margin, Gtk.Unit.POINTS)
+        page_setup.set_bottom_margin(bottom_margin, Gtk.Unit.POINTS)
+        page_setup.set_left_margin(left_margin, Gtk.Unit.POINTS)
+        
+        # In WebKit 6.0, we can use the PrintOperation more directly
+        print_operation = WebKit.PrintOperation.new(win.webview)
+        print_operation.set_print_settings(print_settings)
+        print_operation.set_page_setup(page_setup)
+        
+        # For headless printing (no dialog), we use the print method directly
+        result = print_operation.print_()
+        
+        # Success handling doesn't need a callback with this approach
+        if loading_dialog:
+            loading_dialog.close()
+            
+        # Update file info - the PDF is now saved
+        win.current_file = file
+        win.modified = False
+        self.update_window_title(win)
+        win.statusbar.set_text(f"PDF saved to: {output_path}")
+        
+        return True
+        
+    except Exception as e:
+        # Handle any errors
+        if loading_dialog:
+            loading_dialog.close()
+        
+        print(f"Error saving PDF: {e}")
+        win.statusbar.set_text(f"Error saving PDF: {e}")
+        self.show_error_dialog(f"Failed to save PDF: {e}")
+        return False
+
+def _on_pdf_print_finished(self, win, file, loading_dialog):
+    """Handle successful PDF print operation"""
+    try:
+        # Close loading dialog
+        if loading_dialog:
+            loading_dialog.close()
+        
+        # Update file info and UI
+        win.current_file = file
+        win.modified = False
+        self.update_window_title(win)
+        win.statusbar.set_text(f"PDF saved successfully: {file.get_path()}")
+        
+    except Exception as e:
+        print(f"Error handling PDF print completion: {e}")
+        win.statusbar.set_text(f"Error saving PDF: {e}")
+
+def _on_pdf_print_failed(self, win, error, loading_dialog):
+    """Handle failed PDF print operation"""
+    try:
+        # Close loading dialog
+        if loading_dialog:
+            loading_dialog.close()
+        
+        # Show error message
+        error_message = error.message if hasattr(error, 'message') else str(error)
+        print(f"PDF print failed: {error_message}")
+        win.statusbar.set_text(f"Error saving PDF: {error_message}")
+        self.show_error_dialog(f"Failed to save PDF: {error_message}")
+        
+    except Exception as e:
+        print(f"Error handling PDF print failure: {e}")
+        win.statusbar.set_text("PDF conversion failed")
+
+def show_format_selection_dialog(self, win):
+    """Show dialog to choose the file format"""
+    dialog = Adw.Dialog()
+    dialog.set_title("Save As")
+    dialog.set_content_width(400)
     
-    # Add buttons
-    dialog.add_button("_Cancel", Gtk.ResponseType.CANCEL)
-    save_as_button = dialog.add_button("_Save As...", Gtk.ResponseType.OK)
-    save_as_button.add_css_class("suggested-action")
+    # Create content box
+    content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+    content_box.set_margin_top(24)
+    content_box.set_margin_bottom(24)
+    content_box.set_margin_start(24)
+    content_box.set_margin_end(24)
     
-    # Connect response
-    dialog.connect("response", self._on_save_warning_response, win)
+    # Add header
+    header_label = Gtk.Label()
+    header_label.set_markup("<b>Choose Export Format</b>")
+    header_label.set_halign(Gtk.Align.START)
+    content_box.append(header_label)
+    
+    # Add format options
+    format_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    format_box.set_margin_top(12)
+    
+    # Create radio buttons for each format
+    format_group = None
+    selected_format = None
+    
+    formats = [
+        {"id": "html", "name": "HTML Document (.html)", "description": "Standard web format with full formatting"},
+        {"id": "mhtml", "name": "Web Archive (.mht)", "description": "Single file including all embedded resources"},
+        {"id": "pdf", "name": "PDF Document (.pdf)", "description": "Portable Document Format for sharing"},
+        {"id": "txt", "name": "Plain Text (.txt)", "description": "Simple text without formatting"},
+    ]
+    
+    # Add markdown if available
+    if HTML2TEXT_AVAILABLE:
+        formats.append({"id": "md", "name": "Markdown (.md)", "description": "Markup language with simple syntax"})
+    
+    for fmt in formats:
+        # Create box for each option with name and description
+        option_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        
+        # Create radio button
+        radio = Gtk.CheckButton(label=fmt["name"])
+        if format_group is None:
+            format_group = radio
+            selected_format = fmt["id"]
+        else:
+            radio.set_group(format_group)
+        
+        # Store format ID in the radio button
+        radio.format_id = fmt["id"]
+        
+        # If this is PDF, make it initially selected
+        if fmt["id"] == "pdf":
+            radio.set_active(True)
+            selected_format = "pdf"
+        
+        # Connect to track selection changes
+        radio.connect("toggled", lambda btn: btn.get_active() and setattr(dialog, "selected_format", btn.format_id))
+        
+        # Add description label
+        desc_label = Gtk.Label(label=fmt["description"])
+        desc_label.add_css_class("dim-label")
+        desc_label.set_halign(Gtk.Align.START)
+        desc_label.set_margin_start(22)  # Indent description
+        
+        # Add to the option box
+        option_box.append(radio)
+        option_box.append(desc_label)
+        
+        # Add to the formats box
+        format_box.append(option_box)
+    
+    # Set initial selected format
+    dialog.selected_format = selected_format
+    
+    # Add the format options to the content box
+    content_box.append(format_box)
+    
+    # Add button box
+    button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    button_box.set_halign(Gtk.Align.END)
+    button_box.set_margin_top(24)
+    
+    # Cancel button
+    cancel_button = Gtk.Button(label="Cancel")
+    cancel_button.connect("clicked", lambda btn: dialog.close())
+    
+    # Next button
+    next_button = Gtk.Button(label="Next")
+    next_button.add_css_class("suggested-action")
+    next_button.connect("clicked", lambda btn: self._on_format_selection_response(win, dialog))
+    
+    # Add buttons to button box
+    button_box.append(cancel_button)
+    button_box.append(next_button)
+    
+    # Add button box to content
+    content_box.append(button_box)
+    
+    # Set dialog content and show
+    dialog.set_child(content_box)
+    dialog.present(win)
+
+def _on_format_selection_response(self, win, dialog):
+    """Handle format selection dialog response"""
+    selected_format = dialog.selected_format
+    dialog.close()
+    
+    # Open appropriate save dialog based on format
+    if selected_format == "pdf":
+        # For PDF, show standard save dialog with PDF filter
+        self.show_pdf_save_dialog(win)
+    elif selected_format == "mhtml":
+        # For MHTML format
+        self.show_mhtml_save_dialog(win)
+    elif selected_format == "html":
+        # For HTML format
+        self.show_html_save_dialog(win)
+    elif selected_format == "txt":
+        # For TXT format
+        self.show_text_save_dialog(win)
+    elif selected_format == "md" and HTML2TEXT_AVAILABLE:
+        # For Markdown format
+        self.show_markdown_save_dialog(win)
+    else:
+        # Default to HTML
+        self.show_html_save_dialog(win)
+
+def show_pdf_save_dialog(self, win):
+    """Show save dialog specifically for PDF files"""
+    dialog = Gtk.FileDialog()
+    dialog.set_title("Save as PDF")
+    
+    # Create filter for PDF files
+    filter_pdf = Gtk.FileFilter()
+    filter_pdf.set_name("PDF files")
+    filter_pdf.add_pattern("*.pdf")
+    
+    filters = Gio.ListStore.new(Gtk.FileFilter)
+    filters.append(filter_pdf)
+    
+    dialog.set_filters(filters)
+    
+    # Set default name
+    if win.current_file:
+        # Take base name from current file
+        name = os.path.splitext(os.path.basename(win.current_file.get_path()))[0]
+        dialog.set_initial_name(f"{name}.pdf")
+    else:
+        # Default name for new documents
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        dialog.set_initial_name(f"Document-{current_date}.pdf")
     
     # Show the dialog
-    dialog.present()
+    dialog.save(win, None, lambda dialog, result: self._on_pdf_save_response(win, dialog, result))
 
-def _on_save_warning_response(self, dialog, response, win):
-    """Handle response from the save warning dialog"""
-    dialog.destroy()
-    
-    if response == Gtk.ResponseType.OK:
-        # Show the Save As dialog
-        self.on_save_as_clicked(win, None)        
-        
+def _on_pdf_save_response(self, win, dialog, result):
+    """Handle response from the PDF save dialog"""
+    try:
+        file = dialog.save_finish(result)
+        if file:
+            # Save as PDF
+            self.save_as_pdf(win, file)
+    except GLib.Error as e:
+        if e.domain != 'gtk-dialog-error-quark' or e.code != 2:  # Ignore cancel
+            self.show_error_dialog(f"Error saving PDF: {e}")    
+            
+            
+def show_page_setup_dialog(self, win, file):
+    dialog = Adw.Dialog()
+    dialog.set_title("PDF Page Setup")
+    dialog.set_content_width(400)
+
+    content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+    content_box.set_margin_top(24)
+    content_box.set_margin_bottom(24)
+    content_box.set_margin_start(24)
+    content_box.set_margin_end(24)
+
+    header_label = Gtk.Label()
+    header_label.set_markup("<b>PDF Page Options</b>")
+    header_label.set_halign(Gtk.Align.START)
+    content_box.append(header_label)
+
+    # Paper size
+    paper_size_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+    paper_size_label = Gtk.Label(label="Paper Size:")
+    paper_size_label.set_halign(Gtk.Align.START)
+    paper_size_label.set_hexpand(True)
+    paper_sizes = Gtk.StringList()
+    for size in ("A4", "US Letter", "Legal", "A3", "A5"):
+        paper_sizes.append(size)
+    paper_size_dropdown = Gtk.DropDown.new(paper_sizes, None)
+    paper_size_dropdown.set_selected(0)
+    paper_size_box.append(paper_size_label)
+    paper_size_box.append(paper_size_dropdown)
+    content_box.append(paper_size_box)
+
+    # Orientation (radio via CheckButton grouping)
+    orientation_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+    orientation_label = Gtk.Label(label="Orientation:")
+    orientation_label.set_halign(Gtk.Align.START)
+    orientation_label.set_hexpand(True)
+    portrait_radio = Gtk.CheckButton(label="Portrait")
+    portrait_radio.set_active(True)
+    landscape_radio = Gtk.CheckButton(label="Landscape")
+    landscape_radio.set_group(portrait_radio)
+    orientation_box.append(orientation_label)
+    orientation_box.append(portrait_radio)
+    orientation_box.append(landscape_radio)
+    content_box.append(orientation_box)
+
+    # Margins header
+    margins_label = Gtk.Label()
+    margins_label.set_markup("<b>Margins</b>")
+    margins_label.set_halign(Gtk.Align.START)
+    margins_label.set_margin_top(16)
+    content_box.append(margins_label)
+
+    # Helper to create spin
+    def make_spin():
+        adj = Gtk.Adjustment.new(1.0, 0.0, 300.0, 1.0, 10.0, 0.0)
+        spin = Gtk.SpinButton()
+        spin.set_adjustment(adj)
+        spin.set_digits(2)
+        spin.set_value(1.0)
+        return spin, adj
+
+    top_spin, top_adj = make_spin()
+    right_spin, right_adj = make_spin()
+    bottom_spin, bottom_adj = make_spin()
+    left_spin, left_adj = make_spin()
+
+    # Units dropdown
+    units_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+    units_box.set_margin_start(12)
+    units_label = Gtk.Label(label="Units:")
+    units_label.set_halign(Gtk.Align.START)
+    units_list = Gtk.StringList()
+    for u in ("inches (in)", "millimeters (mm)", "centimeters (cm)", "points (pt)"):
+        units_list.append(u)
+    units_dropdown = Gtk.DropDown.new(units_list, None)
+    units_dropdown.set_selected(0)
+    units_dropdown.current_unit = "in"
+    units_box.append(units_label)
+    units_box.append(units_dropdown)
+    content_box.append(units_box)
+
+    # Conversion factors and limits
+    factors = {"in": 72.0, "mm": 72.0/25.4, "cm": 72.0/2.54, "pt": 1.0}
+    bounds = {
+        "in": (0.0, 5.0, 0.05),
+        "mm": (0.0, 100.0, 1.0),
+        "cm": (0.0, 10.0, 0.1),
+        "pt": (0.0, 300.0, 1.0)
+    }
+    units_map = {0: "in", 1: "mm", 2: "cm", 3: "pt"}
+
+    def to_points(val, unit):
+        return val * factors[unit]
+
+    def from_points(val, unit):
+        return val / factors[unit]
+
+    def on_unit_changed(dropdown, _):
+        old = dropdown.current_unit
+        new = units_map[dropdown.get_selected()]
+        for spin, adj in ((top_spin, top_adj), (right_spin, right_adj),
+                          (bottom_spin, bottom_adj), (left_spin, left_adj)):
+            pts = to_points(spin.get_value(), old)
+            spin.set_value(from_points(pts, new))
+            low, high, step = bounds[new]
+            adj.set_lower(low)
+            adj.set_upper(high)
+            adj.set_step_increment(step)
+            digits = 0 if new == "pt" else (1 if new in ("mm", "cm") else 2)
+            spin.set_digits(digits)
+        dropdown.current_unit = new
+
+    units_dropdown.connect("notify::selected", on_unit_changed)
+
+    # Layout margin grid
+    margins_grid = Gtk.Grid(row_spacing=8, column_spacing=12, margin_start=12)
+    labels_spins = [("Top:", top_spin), ("Right:", right_spin),
+                    ("Bottom:", bottom_spin), ("Left:", left_spin)]
+    for idx, (lbl, spin) in enumerate(labels_spins):
+        l = Gtk.Label(label=lbl)
+        l.set_halign(Gtk.Align.START)
+        margins_grid.attach(l, 0, idx, 1, 1)
+        margins_grid.attach(spin, 1, idx, 1, 1)
+    content_box.append(margins_grid)
+
+    # Buttons
+    button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    button_box.set_halign(Gtk.Align.END)
+    button_box.set_margin_top(24)
+    cancel = Gtk.Button(label="Cancel")
+    cancel.connect("clicked", lambda w: dialog.close())
+    save = Gtk.Button(label="Save PDF")
+    save.add_css_class("suggested-action")
+
+    def on_save(btn):
+        idx = paper_size_dropdown.get_selected()
+        name = paper_sizes.get_string(idx)
+        paper = getattr(Gtk, f"PAPER_NAME_{name.upper().replace(' ', '_')}", Gtk.PAPER_NAME_A4)
+        orient = Gtk.PageOrientation.LANDSCAPE if landscape_radio.get_active() else Gtk.PageOrientation.PORTRAIT
+        unit = units_dropdown.current_unit
+        margins = [to_points(sp.get_value(), unit) for sp in (top_spin, right_spin, bottom_spin, left_spin)]
+        dialog.close()
+        self._generate_pdf_with_settings(win, file, paper, orient, *margins)
+
+    save.connect("clicked", on_save)
+    button_box.append(cancel)
+    button_box.append(save)
+    content_box.append(button_box)
+
+    dialog.set_child(content_box)
+    dialog.present(win)                 

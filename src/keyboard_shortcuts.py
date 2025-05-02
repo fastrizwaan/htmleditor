@@ -47,6 +47,9 @@ def on_webview_key_pressed(self, controller, keyval, keycode, state):
             self.on_close_shortcut(win)
             return True
 
+        elif keyval == Gdk.KEY_0:
+            self.on_line_spacing_shortcut(win, 1.15)  # 1.15 for default spacing
+            return True
         elif keyval == Gdk.KEY_1:
             self.on_line_spacing_shortcut(win, 1.0)  # 1.0 for single spacing
             return True

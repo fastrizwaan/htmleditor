@@ -62,7 +62,9 @@ class HTMLEditorApp(Adw.Application):
 
             # Save as PDF
             'save_as_pdf', '_save_pdf_step1', '_save_pdf_step2', '_pdf_save_success',
-            '_pdf_save_cleanup', '_cleanup_temp_dir', 'set_secondary_text'
+            '_pdf_save_cleanup', '_cleanup_temp_dir', 'set_secondary_text',
+            'show_page_setup_dialog', '_generate_pdf_with_settings', 
+            '_on_pdf_print_finished', '_on_pdf_print_failed',
             # Callback handlers
             'save_html_callback', 'save_text_callback',
             'save_markdown_callback', 'save_completion_callback',
@@ -2827,25 +2829,37 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         presets_label.set_halign(Gtk.Align.START)
         presets_box.append(presets_label)
         
-        buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        buttons_box.set_homogeneous(True)
+        # First row of buttons
+        buttons_box1 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        buttons_box1.set_homogeneous(True)
         
         single_button = Gtk.Button(label="Single (1.0)")
         single_button.connect("clicked", lambda btn: self.apply_line_spacing(
             win, dialog, 1.0, current_radio.get_active()))
-        buttons_box.append(single_button)
+        buttons_box1.append(single_button)
         
-        one_half_button = Gtk.Button(label="1.5 lines")
+        default_button = Gtk.Button(label="Default (1.15)")
+        default_button.connect("clicked", lambda btn: self.apply_line_spacing(
+            win, dialog, 1.15, current_radio.get_active()))
+        buttons_box1.append(default_button)
+        
+        presets_box.append(buttons_box1)
+        
+        # Second row of buttons
+        buttons_box2 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        buttons_box2.set_homogeneous(True)
+        
+        one_half_button = Gtk.Button(label="One and a half (1.5)")
         one_half_button.connect("clicked", lambda btn: self.apply_line_spacing(
             win, dialog, 1.5, current_radio.get_active()))
-        buttons_box.append(one_half_button)
+        buttons_box2.append(one_half_button)
         
         double_button = Gtk.Button(label="Double (2.0)")
         double_button.connect("clicked", lambda btn: self.apply_line_spacing(
             win, dialog, 2.0, current_radio.get_active()))
-        buttons_box.append(double_button)
+        buttons_box2.append(double_button)
         
-        presets_box.append(buttons_box)
+        presets_box.append(buttons_box2)
         content_box.append(presets_box)
         
         # Custom spacing section
@@ -2857,14 +2871,17 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         custom_box.append(custom_label)
         
         # Add slider for custom spacing
-        adjustment = Gtk.Adjustment.new(1.0, 0.8, 3.0, 0.1, 0.2, 0)
+        adjustment = Gtk.Adjustment.new(1.0, 0.8, 3.0, 0.05, 0.2, 0)
         spacing_scale = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, adjustment=adjustment)
         spacing_scale.set_hexpand(True)
         spacing_scale.set_digits(1)
         spacing_scale.set_draw_value(True)
+        spacing_scale.add_mark(0.8, Gtk.PositionType.BOTTOM, "0.8")
         spacing_scale.add_mark(1.0, Gtk.PositionType.BOTTOM, "1.0")
         spacing_scale.add_mark(1.5, Gtk.PositionType.BOTTOM, "1.5")
         spacing_scale.add_mark(2.0, Gtk.PositionType.BOTTOM, "2.0")
+        spacing_scale.add_mark(2.5, Gtk.PositionType.BOTTOM, "2.5")
+        spacing_scale.add_mark(3.0, Gtk.PositionType.BOTTOM, "3.0")
         custom_box.append(spacing_scale)
         
         # Apply custom button
@@ -3393,7 +3410,8 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         
         # Add line spacing options
         line_spacing_menu.append("Single (1.0)", "win.line-spacing('1.0')")
-        line_spacing_menu.append("1.5 Lines", "win.line-spacing('1.5')")
+        line_spacing_menu.append("Default (1.15)", "win.line-spacing('1.15')")
+        line_spacing_menu.append("One and a half (1.5)", "win.line-spacing('1.5')")
         line_spacing_menu.append("Double (2.0)", "win.line-spacing('2.0')")
         line_spacing_menu.append("Custom...", "win.line-spacing-dialog")
         

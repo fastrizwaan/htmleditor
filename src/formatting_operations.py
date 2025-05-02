@@ -2418,7 +2418,7 @@ def on_show_formatting_marks_toggled(self, win, button):
         win.statusbar.set_text("Hiding formatting marks")
         
 def on_line_spacing_shortcut(self, win, spacing):
-    """Handle Ctrl+1, Ctrl+2, and Ctrl+5 shortcuts for line spacing"""
+    """Handle Ctrl+0, Ctrl+1, Ctrl+2, and Ctrl+5 shortcuts for line spacing"""
     # Create JavaScript code to apply the line spacing to the selected paragraphs
     js_code = f"""
     (function() {{
@@ -2528,8 +2528,18 @@ def on_line_spacing_shortcut(self, win, spacing):
     # Execute the JavaScript
     self.execute_js(win, js_code)
     
-    # Update status bar
-    spacing_text = "single" if spacing == 1.0 else "double" if spacing == 2.0 else "1.5"
+    # Update status bar with appropriate text based on spacing value
+    if spacing == 1.0:
+        spacing_text = "single"
+    elif spacing == 1.15:
+        spacing_text = "default (1.15)"
+    elif spacing == 1.5:
+        spacing_text = "one and a half (1.5)"
+    elif spacing == 2.0:
+        spacing_text = "double"
+    else:
+        spacing_text = str(spacing)
+        
     win.statusbar.set_text(f"Applied {spacing_text} line spacing")
     return True
     
