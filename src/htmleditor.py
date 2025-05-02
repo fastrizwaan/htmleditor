@@ -4392,6 +4392,21 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         # Create a modified insert_table call with 1 row, 1 column (single cell)
         js_code = f"""
         (function() {{
+            // First check if the current selection is inside a table
+            const isInsideTable = (function() {{
+                const selection = window.getSelection();
+                if (!selection.rangeCount) return false;
+                
+                let node = selection.anchorNode;
+                while (node && node !== document.body) {{
+                    if (node.tagName === 'TABLE') {{
+                        return true;
+                    }}
+                    node = node.parentNode;
+                }}
+                return false;
+            }})();
+            
             // Insert a single-cell table with auto width
             insertTable(1, 1, false, {border_width}, "auto", {str(is_floating).lower()});
             
@@ -4417,6 +4432,22 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
                         cell.style.minHeight = '{height}px';
                         cell.style.padding = '10px';
                         cell.innerHTML = ''; // Clear default "Cell" text
+                    }}
+                    
+                    // Set margins based on container
+                    if (isInsideTable) {{
+                        // Set all margins to 0 if inside another table
+                        newTable.style.margin = '0px';
+                        newTable.style.marginTop = '0px';
+                        newTable.style.marginRight = '0px';
+                        newTable.style.marginBottom = '0px';
+                        newTable.style.marginLeft = '0px';
+                        
+                        // Store margin values as attributes
+                        newTable.setAttribute('data-margin-top', '0');
+                        newTable.setAttribute('data-margin-right', '0');
+                        newTable.setAttribute('data-margin-bottom', '0');
+                        newTable.setAttribute('data-margin-left', '0');
                     }}
                     
                     // Set rounded corners
