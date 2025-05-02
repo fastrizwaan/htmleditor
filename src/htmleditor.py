@@ -4425,6 +4425,65 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
                     // Set box shadow if it's floating
                     if ({str(is_floating).lower()}) {{
                         newTable.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+                        
+                        // Ensure resize handle is visible and active
+                        setTimeout(() => {{
+                            // Make sure the table is activated to show handles
+                            activateTable(newTable);
+                            
+                            // Enhance the resize functionality specifically for text boxes
+                            const originalResizeTable = window.resizeTable;
+                            
+                            // Override the resizeTable function temporarily for this operation
+                            window.resizeTable = function(e) {{
+                                if (!isResizing || !activeTable) return;
+                                
+                                const deltaX = e.clientX - dragStartX;
+                                const deltaY = e.clientY - dragStartY;
+                                
+                                // Adjust both width and height for text boxes
+                                if (activeTable.classList.contains('text-box')) {{
+                                    activeTable.style.width = (tableStartX + deltaX) + 'px';
+                                    
+                                    // Also adjust the cell height for text boxes
+                                    const cell = activeTable.querySelector('td');
+                                    if (cell) {{
+                                        const newHeight = tableStartY + deltaY;
+                                        cell.style.height = newHeight + 'px';
+                                        cell.style.minHeight = newHeight + 'px';
+                                    }}
+                                }} else {{
+                                    // Original behavior for regular tables
+                                    activeTable.style.width = (tableStartX + deltaX) + 'px';
+                                }}
+                            }};
+                            
+                            // Modify the startTableResize function to capture height too
+                            const originalStartTableResize = window.startTableResize;
+                            window.startTableResize = function(e, tableElement) {{
+                                e.preventDefault();
+                                isResizing = true;
+                                activeTable = tableElement;
+                                dragStartX = e.clientX;
+                                dragStartY = e.clientY;
+                                
+                                const style = window.getComputedStyle(tableElement);
+                                tableStartX = parseInt(style.width) || tableElement.offsetWidth;
+                                
+                                // Also capture cell height for text boxes
+                                if (tableElement.classList.contains('text-box')) {{
+                                    const cell = tableElement.querySelector('td');
+                                    if (cell) {{
+                                        const cellStyle = window.getComputedStyle(cell);
+                                        tableStartY = parseInt(cellStyle.height) || cell.offsetHeight;
+                                    }} else {{
+                                        tableStartY = parseInt(style.height) || tableElement.offsetHeight;
+                                    }}
+                                }} else {{
+                                    tableStartY = parseInt(style.height) || tableElement.offsetHeight;
+                                }}
+                            }};
+                        }}, 100);
                     }}
                 }}
             }}, 50);
@@ -4438,10 +4497,8 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         if is_floating:
             win.statusbar.set_text("Floating text box inserted")
         else:
-            win.statusbar.set_text("Text box inserted") 
-############### /Text box related methods     
-
- 
+            win.statusbar.set_text("Text box inserted")
+############### /Text box related methods      
  
 def main():
     app = HTMLEditorApp()
