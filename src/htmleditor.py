@@ -47,7 +47,8 @@ class HTMLEditorApp(Adw.Application):
             'convert_with_libreoffice', 'show_loading_dialog',
             
             # File saving methods
-            'on_save_clicked', 'show_format_selection_dialog', 'on_save_as_clicked', 'show_custom_save_dialog',
+            'on_save_clicked', '_on_save_dialog_response', 'show_save_dialog',
+            'show_format_selection_dialog', 'on_save_as_clicked', 'show_custom_save_dialog',
             '_create_custom_save_dialog', '_get_shortened_path',
             '_on_browse_clicked','_on_dialog_response', '_on_format_selection_response',
             '_on_folder_selected', 'show_save_as_warning_dialog', '_on_save_warning_response',

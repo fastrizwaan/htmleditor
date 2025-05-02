@@ -354,9 +354,9 @@ def _simple_markdown_to_html(content):
 def on_save_clicked(self, win, button):
     """Handle save button click by redirecting to Save As for converted documents"""
     # Check if this is a converted document
-    if hasattr(win, 'is_converted_document') and win.is_converted_document:
-        # For converted documents, redirect to Save As - no dialog needed
-        self.on_save_as_clicked(win, button)
+    if hasattr(win, 'is_converted_file') and win.is_converted_file:
+        # For converted documents, show the save dialog that defaults to Documents directory
+        self.show_save_dialog(win, is_save_as=True)
         return
         
     # Normal save operation for non-converted documents
@@ -382,8 +382,115 @@ def on_save_clicked(self, win, button):
     else:
         # Show custom save dialog for new file
         self.show_custom_save_dialog(win)
+        
+def show_save_dialog(self, win, is_save_as=False):
+    """Show file save dialog using AdwDialog"""
+    # Create a file save dialog
+    save_dialog = Gtk.FileDialog()
+    save_dialog.set_title("Save Document")
+    
+    # Create filters
+    html_filter = Gtk.FileFilter()
+    html_filter.set_name("HTML Files (*.html)")
+    html_filter.add_pattern("*.html")
+    html_filter.add_pattern("*.htm")
+    
+    mht_filter = Gtk.FileFilter()
+    mht_filter.set_name("MHTML Files (*.mht)")
+    mht_filter.add_pattern("*.mht")
+    mht_filter.add_pattern("*.mhtml")
+    
+    text_filter = Gtk.FileFilter()
+    text_filter.set_name("Text Files (*.txt)")
+    text_filter.add_pattern("*.txt")
+    
+    rtf_filter = Gtk.FileFilter()
+    rtf_filter.set_name("Rich Text Files (*.rtf)")
+    rtf_filter.add_pattern("*.rtf")
+    
+    all_filter = Gtk.FileFilter()
+    all_filter.set_name("All Files")
+    all_filter.add_pattern("*")
+    
+    # Create a list store for the filters
+    filters = Gio.ListStore.new(Gtk.FileFilter)
+    # Add MHT first for converted documents so it's the default
+    filters.append(mht_filter)
+    filters.append(html_filter)
+    filters.append(text_filter)
+    filters.append(rtf_filter)
+    filters.append(all_filter)
+    
+    # Set filters to dialog
+    save_dialog.set_filters(filters)
+    
+    # Set initial folder to Documents
+    doc_dir = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOCUMENTS)
+    if not doc_dir:  # Fallback to home directory if Documents not available
+        doc_dir = GLib.get_home_dir()
+    
+    # For files converted using LibreOffice, use Document directory instead of temp
+    if hasattr(win, 'is_converted_file') and win.is_converted_file:
+        # Changed from .html to .mht for default extension
+        initial_name = os.path.splitext(os.path.basename(win.current_file.get_path()))[0] + ".mht" if win.current_file else "converted_document.mht"
+        initial_folder = doc_dir
+    else:
+        # Determine initial folder and filename
+        if win.current_file and not is_save_as:
+            initial_folder = os.path.dirname(win.current_file.get_path())
+            initial_name = os.path.basename(win.current_file.get_path())
+        else:
+            initial_folder = doc_dir
+            initial_name = "document.html"
+    
+    # Set initial name
+    save_dialog.set_initial_name(initial_name)
+    
+    # Set initial folder
+    initial_folder_file = Gio.File.new_for_path(initial_folder)
+    save_dialog.set_initial_folder(initial_folder_file)
+    
+    # Save asynchronously
+    save_dialog.save(
+        win,  # parent window
+        None,  # cancellable
+        lambda dialog, result: self._on_save_dialog_response(dialog, result, win)
+    )
 
-
+def _on_save_dialog_response(self, dialog, result, win):
+    """Handle response from save dialog"""
+    try:
+        file = dialog.save_finish(result)
+        if file:
+            file_path = file.get_path()
+            
+            # Make sure it has an extension
+            if not os.path.splitext(file_path)[1]:
+                # Changed from .html to .mht as default extension
+                file_path = file_path + ".mht"
+                file = Gio.File.new_for_path(file_path)
+            
+            # Save based on file extension
+            file_ext = os.path.splitext(file_path)[1].lower()
+            
+            if file_ext in ['.mht', '.mhtml']:
+                self.save_as_mhtml(win, file)
+            elif file_ext in ['.html', '.htm']:
+                self.save_as_html(win, file)
+            elif file_ext in ['.md', '.markdown']:
+                self.save_as_markdown(win, file)
+            elif file_ext in ['.txt']:
+                self.save_as_text(win, file)
+            elif file_ext == '.pdf':
+                self.save_as_pdf(win, file)
+            else:
+                # For unknown extensions, save as MHTML by default (changed from HTML)
+                self.save_as_mhtml(win, file)
+    except GLib.Error as error:
+        # Handle errors (e.g., user cancelled)
+        if not error.matches(Gtk.DialogError.quark(), Gtk.DialogError.DISMISSED):
+            self.show_error_dialog(win, "Error saving file", str(error))
+            
 def on_save_as_clicked(self, win, button):
     """Show custom save as dialog to save current document with a new filename"""
     self.show_custom_save_dialog(win)
@@ -941,9 +1048,9 @@ def _on_get_html_content(self, win, webview, result, file):
                     win.current_file = file
                     win.modified = False
                     
-                    # If this was a converted document, update the status
-                    if hasattr(win, 'is_converted_document') and win.is_converted_document:
-                        win.is_converted_document = False
+                    # If this was a converted file, update the status
+                    if hasattr(win, 'is_converted_file') and win.is_converted_file:
+                        win.is_converted_file = False
                         
                     self.update_window_title(win)
                     win.statusbar.set_text(f"Saved: {file.get_path()}")
@@ -1174,7 +1281,10 @@ def load_file(self, win, filepath):
                             body_match = re.search(r'<body[^>]*>(.*?)</body>', html_content, re.DOTALL | re.IGNORECASE)
                             if body_match:
                                 html_content = body_match.group(1).strip()
-                            
+
+                            # Mark this as a converted file
+                            win.is_converted_file = True
+                                                        
                             # Schedule continuing in the main thread with the HTML content
                             GLib.idle_add(lambda: continue_loading(html_content, converted_file, image_dir))
                         except Exception as e:
