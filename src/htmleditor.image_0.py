@@ -401,6 +401,11 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         self.add_window_menu_button(win)
             
 ## Insert related code
+
+
+    def insert_text_box_js(self):
+        return """ """
+
     def insert_image_js(self):
         """JavaScript for insert image and related functionality"""
         return """ """
@@ -814,6 +819,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         {self.insert_table_js()}
         {self.table_border_style_js()}
         {self.table_color_js()}
+        {self.insert_text_box_js()}
         {self.table_z_index_js()}
         {self.insert_image_js()}
         {self.insert_link_js()}
@@ -4139,6 +4145,9 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
                                         lambda mgr, res: self.on_table_deleted(win, mgr, res))
             user_content_manager.connect("script-message-received::tablesDeactivated", 
                                         lambda mgr, res: self.on_tables_deactivated(win, mgr, res))
+                                        
+            # Register image event handlers
+            self.on_image_toolbar_registered(win)
         except:
             print("Warning: Could not set up JavaScript message handlers")
         
@@ -4164,7 +4173,18 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         win.table_toolbar = self.create_table_toolbar(win)
         win.table_toolbar_revealer.set_child(win.table_toolbar)
         content_box.append(win.table_toolbar_revealer)
-        
+
+        # Create image toolbar with revealer (hidden by default)
+        win.image_toolbar_revealer = Gtk.Revealer()
+        win.image_toolbar_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_UP)
+        win.image_toolbar_revealer.set_transition_duration(250)
+        win.image_toolbar_revealer.set_reveal_child(False)  # Hidden by default
+
+        # Create and add image toolbar
+        image_toolbar = self.create_image_toolbar(win)
+        win.image_toolbar_revealer.set_child(image_toolbar)
+        content_box.append(win.image_toolbar_revealer)
+                
         # Create statusbar with revealer
         win.statusbar_revealer = Gtk.Revealer()
         win.statusbar_revealer.add_css_class("flat-header")
@@ -4273,7 +4293,230 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         
         return win
 ############# /Create Window
-############### Text box related methods
+
+     
+
+############# Additional methods
+    def insert_text_box_js(self):
+        """JavaScript for text box insertion and related functionality"""
+        return """
+        // Function to insert a text box at the current cursor position
+        function insertTextBox(width, height, borderWidth, isFloating) {
+            // Get theme-appropriate colors
+            const borderColor = getBorderColor();
+            
+            // Create table HTML for the text box (1x1 table with special styling)
+            let textBoxHTML = '<table cellspacing="0" cellpadding="5" ';
+            
+            // Add class and style attributes
+            textBoxHTML += 'class="editor-table text-box-table" style="';
+            
+            // Only add border if width > 0
+            if (borderWidth > 0) {
+                textBoxHTML += 'border: ' + borderWidth + 'px solid ' + borderColor + '; ';
+            } else {
+                // Explicitly set border to 0 to override any default CSS
+                textBoxHTML += 'border: 0 none transparent !important; outline: 0 none !important; box-shadow: none !important; ';
+            }
+            
+            textBoxHTML += 'width: ' + width + 'px; height: ' + height + 'px; resize: both; overflow: auto; ';
+            
+            // Add default margins
+            textBoxHTML += 'margin: 6px 6px 0 0;">';
+            
+            // Create a single cell with explicit no border
+            if (borderWidth > 0) {
+                textBoxHTML += '<tr><td style="border: none; padding: 5px; vertical-align: top;">Text box content</td></tr>';
+            } else {
+                textBoxHTML += '<tr><td style="border: 0 none transparent !important; outline: 0 none !important; padding: 5px; vertical-align: top;">Text box content</td></tr>';
+            }
+            
+            textBoxHTML += '</table><p></p>';
+            
+            // Insert the text box at the current cursor position
+            document.execCommand('insertHTML', false, textBoxHTML);
+            
+            // Activate the newly inserted text box
+            setTimeout(() => {
+                const textBoxes = document.querySelectorAll('table.text-box-table');
+                const newTextBox = textBoxes[textBoxes.length - 1];
+                if (newTextBox) {
+                    // Ensure classes are present
+                    if (!newTextBox.classList.contains('editor-table')) {
+                        newTextBox.classList.add('editor-table');
+                    }
+                    
+                    // Set default margins
+                    newTextBox.style.marginTop = '6px';
+                    newTextBox.style.marginRight = '6px';
+                    newTextBox.style.marginBottom = '0px';
+                    newTextBox.style.marginLeft = '0px';
+                    
+                    // Store margin values as attributes
+                    newTextBox.setAttribute('data-margin-top', '6');
+                    newTextBox.setAttribute('data-margin-right', '6');
+                    newTextBox.setAttribute('data-margin-bottom', '0');
+                    newTextBox.setAttribute('data-margin-left', '0');
+                    
+                    // Store border properties for table properties dialog
+                    newTextBox.setAttribute('data-border-width', borderWidth);
+                    newTextBox.setAttribute('data-border-style', 'solid');
+                    newTextBox.setAttribute('data-border-color', borderColor);
+                    
+                    // Mark as a text box for special handling
+                    newTextBox.setAttribute('data-element-type', 'text-box');
+                    
+                    // Make text box floating if requested
+                    if (isFloating) {
+                        newTextBox.classList.add('floating-table');
+                        setTableFloating(newTextBox);
+                    }
+                    
+                    // Important: Ensure there are absolutely no borders when borderWidth is 0
+                    if (borderWidth === 0) {
+                        // Apply !important to override any CSS
+                        newTextBox.style.cssText += `
+                            border: 0 none transparent !important;
+                            outline: 0 none transparent !important;
+                            box-shadow: none !important;
+                        `;
+                        
+                        // Also ensure all cells have no border
+                        const cells = newTextBox.querySelectorAll('td, th');
+                        cells.forEach(cell => {
+                            cell.style.cssText += `
+                                border: 0 none transparent !important;
+                                outline: 0 none transparent !important;
+                            `;
+                        });
+                    }
+                    
+                    activateTable(newTextBox);
+                    try {
+                        window.webkit.messageHandlers.tableClicked.postMessage('table-clicked');
+                    } catch(e) {
+                        console.log("Could not notify about text box click:", e);
+                    }
+                }
+            }, 10);
+        }
+        
+        // Extend the existing setTableBorderStyle function to handle text boxes properly
+        const originalSetTableBorderStyle = window.setTableBorderStyle || function(){};
+        window.setTableBorderStyle = function(style, width, color) {
+            if (!activeTable) return false;
+            
+            // Check if this is a text box
+            const isTextBox = activeTable.classList.contains('text-box-table') || 
+                              activeTable.getAttribute('data-element-type') === 'text-box';
+                              
+            if (isTextBox) {
+                // For text boxes with zero width, be very aggressive about removing all border styling
+                if (width === 0) {
+                    // Remove all border properties with !important
+                    activeTable.style.cssText += `
+                        border: 0 none transparent !important;
+                        outline: 0 none transparent !important;
+                        box-shadow: none !important;
+                    `;
+                    
+                    // Also remove any border classes that might be applied
+                    activeTable.classList.remove('bordered-table');
+                    
+                    // Ensure cells have no border
+                    const cells = activeTable.querySelectorAll('td, th');
+                    cells.forEach(cell => {
+                        cell.style.cssText += `
+                            border: 0 none transparent !important;
+                            outline: 0 none transparent !important;
+                        `;
+                    });
+                    
+                    // Only update the width, keep style and color for when border is re-enabled
+                    activeTable.setAttribute('data-border-width', '0');
+                } else {
+                    // Apply border to the table
+                    activeTable.style.border = width + 'px ' + style + ' ' + color;
+                    
+                    // Remove borders from the cells (text boxes shouldn't have internal borders)
+                    const cells = activeTable.querySelectorAll('td, th');
+                    cells.forEach(cell => {
+                        cell.style.border = 'none';
+                    });
+                    
+                    // Update all stored properties
+                    activeTable.setAttribute('data-border-width', width);
+                    activeTable.setAttribute('data-border-style', style);
+                    activeTable.setAttribute('data-border-color', color);
+                }
+                
+                // Notify that content changed
+                try {
+                    window.webkit.messageHandlers.contentChanged.postMessage('changed');
+                } catch(e) {
+                    console.log("Could not notify about content change:", e);
+                }
+                
+                return true;
+            } else {
+                // For regular tables, check if it's a zero width first
+                if (width === 0) {
+                    // Apply the same aggressive border removal to regular tables
+                    const cells = activeTable.querySelectorAll('td, th');
+                    cells.forEach(cell => {
+                        cell.style.cssText += `
+                            border: 0 none transparent !important;
+                            outline: 0 none transparent !important;
+                        `;
+                    });
+                    
+                    activeTable.style.cssText += `
+                        border: 0 none transparent !important;
+                        outline: 0 none transparent !important;
+                        box-shadow: none !important;
+                    `;
+                    
+                    // Only update the width, keep style and color
+                    activeTable.setAttribute('data-border-width', '0');
+                    
+                    // Notify that content changed
+                    try {
+                        window.webkit.messageHandlers.contentChanged.postMessage('changed');
+                    } catch(e) {
+                        console.log("Could not notify about content change:", e);
+                    }
+                    
+                    return true;
+                } else if (typeof originalSetTableBorderStyle === 'function') {
+                    // Use the original function for regular tables with borders
+                    return originalSetTableBorderStyle(style, width, color);
+                } else {
+                    // Fallback implementation if original function doesn't exist
+                    // Apply the style to all cells
+                    const cells = activeTable.querySelectorAll('td, th');
+                    cells.forEach(cell => {
+                        cell.style.borderStyle = style;
+                        cell.style.borderWidth = width + 'px';
+                        cell.style.borderColor = color;
+                    });
+                    
+                    // Update stored properties
+                    activeTable.setAttribute('data-border-width', width);
+                    activeTable.setAttribute('data-border-style', style);
+                    activeTable.setAttribute('data-border-color', color);
+                    
+                    // Notify that content changed
+                    try {
+                        window.webkit.messageHandlers.contentChanged.postMessage('changed');
+                    } catch(e) {
+                        console.log("Could not notify about content change:", e);
+                    }
+                    
+                    return true;
+                }
+            }
+        };
+        """
     def on_insert_text_box_clicked(self, win, btn):
         """Handle text box insertion button click"""
         win.statusbar.set_text("Inserting text box...")
@@ -4290,50 +4533,35 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         content_box.set_margin_start(24)
         content_box.set_margin_end(24)
         
-        # Width input with +/- buttons
+        # Width input
         width_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         width_label = Gtk.Label(label="Width (px):")
         width_label.set_halign(Gtk.Align.START)
         width_label.set_hexpand(True)
         
-        width_adjustment = Gtk.Adjustment(value=150, lower=50, upper=800, step_increment=10)
+        width_adjustment = Gtk.Adjustment(value=150, lower=50, upper=500, step_increment=10)
         width_spin = Gtk.SpinButton()
         width_spin.set_adjustment(width_adjustment)
         
-        # Create a box for the spinner and +/- buttons
-        width_spinner_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        width_spinner_box.add_css_class("linked")
-
-        
-        width_spinner_box.append(width_spin)
-
-
-        
         width_box.append(width_label)
-        width_box.append(width_spinner_box)
+        width_box.append(width_spin)
         content_box.append(width_box)
         
-        # Height input with +/- buttons
+        # Height input
         height_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         height_label = Gtk.Label(label="Height (px):")
         height_label.set_halign(Gtk.Align.START)
         height_label.set_hexpand(True)
         
-        height_adjustment = Gtk.Adjustment(value=100, lower=30, upper=600, step_increment=10)
+        height_adjustment = Gtk.Adjustment(value=100, lower=50, upper=500, step_increment=10)
         height_spin = Gtk.SpinButton()
         height_spin.set_adjustment(height_adjustment)
         
-        # Create a box for the spinner and +/- buttons
-        height_spinner_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        height_spinner_box.add_css_class("linked")
-        height_spinner_box.append(height_spin)
-
-        
         height_box.append(height_label)
-        height_box.append(height_spinner_box)
+        height_box.append(height_spin)
         content_box.append(height_box)
         
-        # Border width with +/- buttons
+        # Border options
         border_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         border_label = Gtk.Label(label="Border width:")
         border_label.set_halign(Gtk.Align.START)
@@ -4343,20 +4571,13 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         border_spin = Gtk.SpinButton()
         border_spin.set_adjustment(border_adjustment)
         
-        # Create a box for the spinner and +/- buttons
-        border_spinner_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        border_spinner_box.add_css_class("linked")
-        
-        border_spinner_box.append(border_spin)
-
-        
         border_box.append(border_label)
-        border_box.append(border_spinner_box)
+        border_box.append(border_spin)
         content_box.append(border_box)
         
         # Floating option checkbox
         float_check = Gtk.CheckButton(label="Free-floating (text wraps around)")
-        float_check.set_active(True)  # Enabled by default for text boxes
+        float_check.set_active(True)  # Floating is enabled by default for text boxes
         content_box.append(float_check)
         
         # Button box
@@ -4369,9 +4590,9 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         
         insert_button = Gtk.Button(label="Insert")
         insert_button.add_css_class("suggested-action")
-        insert_button.connect("clicked", lambda btn: self._on_textbox_dialog_response(
+        insert_button.connect("clicked", lambda btn: self.on_text_box_dialog_response(
             win, dialog, 
-            width_spin.get_value_as_int(),
+            width_spin.get_value_as_int(), 
             height_spin.get_value_as_int(),
             border_spin.get_value_as_int(),
             float_check.get_active()
@@ -4385,63 +4606,1042 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         dialog.set_child(content_box)
         dialog.present(win)
 
-    def _on_textbox_dialog_response(self, win, dialog, width, height, border_width, is_floating):
+    def on_text_box_dialog_response(self, win, dialog, width, height, border_width, is_floating):
         """Handle response from the text box dialog"""
         dialog.close()
         
-        # Create a modified insert_table call with 1 row, 1 column (single cell)
+        # Execute JavaScript to insert the text box
         js_code = f"""
         (function() {{
-            // Insert a single-cell table with auto width
-            insertTable(1, 1, false, {border_width}, "auto", {str(is_floating).lower()});
-            
-            // Get the newly created table
-            setTimeout(() => {{
-                const tables = document.querySelectorAll('table.editor-table');
-                const newTable = tables[tables.length - 1] || document.querySelector('table:last-of-type');
-                if (newTable) {{
-                    // Apply styling specific to text box
-                    newTable.classList.add('text-box');
-                    
-                    // Set specific width and height
-                    newTable.style.width = '{width}px';
-                    
-                    // Set background to transparent
-                    newTable.style.backgroundColor = 'transparent';
-                    newTable.setAttribute('data-bg-color', 'transparent');
-                    
-                    // Add min-height to make it more box-like
-                    const cell = newTable.querySelector('td');
-                    if (cell) {{
-                        cell.style.height = '{height}px';
-                        cell.style.minHeight = '{height}px';
-                        cell.style.padding = '10px';
-                        cell.innerHTML = ''; // Clear default "Cell" text
-                    }}
-                    
-                    // Set rounded corners
-                    newTable.style.borderRadius = '4px';
-                    
-                    // Set box shadow if it's floating
-                    if ({str(is_floating).lower()}) {{
-                        newTable.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
-                    }}
-                }}
-            }}, 50);
-            
+            insertTextBox({width}, {height}, {border_width}, {str(is_floating).lower()});
             return true;
         }})();
         """
         self.execute_js(win, js_code)
         
-        # Update status message
-        if is_floating:
-            win.statusbar.set_text("Floating text box inserted")
-        else:
-            win.statusbar.set_text("Text box inserted") 
-############### /Text box related methods     
+        # Update status message based on text box type
+        border_text = " with border" if border_width > 0 else " without border"
+        position_text = "Floating" if is_floating else "Fixed"
+        win.statusbar.set_text(f"{position_text} text box{border_text} inserted")     
+####################### Insert Image:
+    def insert_image_js(self):
+        """JavaScript for insert image and related functionality"""
+        return """
+            // Insert image function
+            function insertImage(src, alt, width, height) {
+                // Create new image element
+                let img = document.createElement('img');
+                
+                // Set attributes
+                img.src = src;
+                img.alt = alt || '';
+                
+                // Set size if provided
+                if (width) img.width = width;
+                if (height) img.height = height;
+                
+                // Add a wrapper div with position relative to contain the image and handles
+                const wrapper = document.createElement('div');
+                wrapper.className = 'img-wrapper';
+                wrapper.style.position = 'relative';
+                wrapper.style.display = 'inline-block';
+                wrapper.style.margin = '2px';
+                wrapper.contentEditable = 'false'; // Make the wrapper not editable
+                
+                // Add the image to the wrapper
+                wrapper.appendChild(img);
+                
+                // Insert the wrapped image at current selection
+                document.execCommand('insertHTML', false, wrapper.outerHTML);
+                
+                // After insertion, find the wrapper and set up handles
+                setupImageHandles();
+                
+                // Notify that content changed
+                try {
+                    window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                } catch(e) {
+                    console.log("Could not notify about changes:", e);
+                }
+            }
 
- 
+            // Set up image handles for all image wrappers
+            function setupImageHandles() {
+                // Remove any existing active handles first
+                removeAllImageHandles();
+                
+                // Get all image wrappers
+                const wrappers = document.querySelectorAll('.img-wrapper');
+                
+                wrappers.forEach(wrapper => {
+                    // Make sure the wrapper has position relative
+                    wrapper.style.position = 'relative';
+                    
+                    // Ensure wrapper is not editable
+                    wrapper.contentEditable = 'false';
+                    
+                    // Add the wrapper to the existing img elements if not already wrapped
+                    if (!wrapper.querySelector('img')) {
+                        const img = wrapper.nextElementSibling;
+                        if (img && img.tagName === 'IMG') {
+                            wrapper.appendChild(img);
+                        }
+                    }
+                    
+                    // Add click event to make the image active
+                    wrapper.addEventListener('click', activateImageHandles);
+                });
+                
+                // Find all images that aren't in wrappers and wrap them
+                const images = document.querySelectorAll('#editor img:not(.img-wrapper img)');
+                images.forEach(img => {
+                    // Don't wrap images that are already in wrappers
+                    if (img.parentNode.className === 'img-wrapper') return;
+                    
+                    // Create wrapper
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'img-wrapper';
+                    wrapper.style.position = 'relative';
+                    wrapper.style.display = 'inline-block';
+                    wrapper.style.margin = '2px';
+                    wrapper.contentEditable = 'false'; // Make the wrapper not editable
+                    
+                    // Replace the image with the wrapper containing the image
+                    img.parentNode.insertBefore(wrapper, img);
+                    wrapper.appendChild(img);
+                    
+                    // Add click event to make the image active
+                    wrapper.addEventListener('click', activateImageHandles);
+                });
+            }
+
+            // Activate handles for a specific image wrapper
+            function activateImageHandles(event) {
+                // Prevent default behavior
+                event.preventDefault();
+                event.stopPropagation();
+                
+                // Remove handles from all other images first
+                removeAllImageHandles();
+                
+                // Get the wrapper (this could be the wrapper itself or an image inside it)
+                let wrapper = this;
+                if (this.tagName === 'IMG') {
+                    wrapper = this.parentNode;
+                }
+                
+                // Add active class
+                wrapper.classList.add('img-wrapper-active');
+                
+                // Create drag handle (square at top-left)
+                const dragHandle = document.createElement('div');
+                dragHandle.className = 'img-drag-handle';
+                dragHandle.style.position = 'absolute';
+                dragHandle.style.top = '0';
+                dragHandle.style.left = '0';
+                dragHandle.style.width = '10px';
+                dragHandle.style.height = '10px';
+                dragHandle.style.background = '#1e90ff';
+                dragHandle.style.border = '1px solid white';
+                dragHandle.style.cursor = 'move';
+                dragHandle.style.zIndex = '1000';
+                dragHandle.contentEditable = 'false'; // Make handle not editable
+                
+                // Create resize handle (triangle at bottom-right)
+                const resizeHandle = document.createElement('div');
+                resizeHandle.className = 'img-resize-handle';
+                resizeHandle.style.position = 'absolute';
+                resizeHandle.style.bottom = '0';
+                resizeHandle.style.right = '0';
+                resizeHandle.style.width = '0';
+                resizeHandle.style.height = '0';
+                resizeHandle.style.borderStyle = 'solid';
+                resizeHandle.style.borderWidth = '0 0 10px 10px';
+                resizeHandle.style.borderColor = 'transparent transparent #1e90ff transparent';
+                resizeHandle.style.cursor = 'nwse-resize';
+                resizeHandle.style.zIndex = '1000';
+                resizeHandle.contentEditable = 'false'; // Make handle not editable
+                
+                // Add handles to the wrapper
+                wrapper.appendChild(dragHandle);
+                wrapper.appendChild(resizeHandle);
+                
+                // Get the image inside the wrapper
+                const img = wrapper.querySelector('img');
+                
+                // Setup drag functionality
+                let startX, startY, startLeft, startTop;
+                
+                dragHandle.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Get initial positions
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    startLeft = wrapper.offsetLeft;
+                    startTop = wrapper.offsetTop;
+                    
+                    // Add mousemove and mouseup events to document
+                    document.addEventListener('mousemove', dragMove);
+                    document.addEventListener('mouseup', dragEnd);
+                });
+                
+                function dragMove(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Calculate new position
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+                    
+                    // Update wrapper position
+                    wrapper.style.position = 'relative';
+                    wrapper.style.left = (startLeft + dx) + 'px';
+                    wrapper.style.top = (startTop + dy) + 'px';
+                    
+                    // Notify content changed
+                    try {
+                        window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                    } catch(e) {
+                        console.log("Could not notify about changes:", e);
+                    }
+                }
+                
+                function dragEnd(e) {
+                    if (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                    
+                    // Remove event listeners
+                    document.removeEventListener('mousemove', dragMove);
+                    document.removeEventListener('mouseup', dragEnd);
+                }
+                
+                // Setup resize functionality
+                let startWidth, startHeight, aspectRatio;
+                
+                resizeHandle.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Get initial sizes
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    startWidth = img.offsetWidth;
+                    startHeight = img.offsetHeight;
+                    aspectRatio = startWidth / startHeight;
+                    
+                    // Add mousemove and mouseup events to document
+                    document.addEventListener('mousemove', resizeMove);
+                    document.addEventListener('mouseup', resizeEnd);
+                });
+                
+                function resizeMove(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Calculate new dimensions
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+                    
+                    // Determine which dimension to prioritize based on the greater change
+                    if (Math.abs(dx) > Math.abs(dy)) {
+                        // Prioritize width
+                        const newWidth = Math.max(10, startWidth + dx);
+                        img.width = newWidth;
+                        img.height = newWidth / aspectRatio;
+                    } else {
+                        // Prioritize height
+                        const newHeight = Math.max(10, startHeight + dy);
+                        img.height = newHeight;
+                        img.width = newHeight * aspectRatio;
+                    }
+                    
+                    // Notify content changed
+                    try {
+                        window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                    } catch(e) {
+                        console.log("Could not notify about changes:", e);
+                    }
+                }
+                
+                function resizeEnd(e) {
+                    if (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                    
+                    // Remove event listeners
+                    document.removeEventListener('mousemove', resizeMove);
+                    document.removeEventListener('mouseup', resizeEnd);
+                    
+                    // Notify that image properties changed
+                    try {
+                        window.webkit.messageHandlers.imagePropertiesChanged.postMessage({
+                            width: img.width,
+                            height: img.height
+                        });
+                    } catch(e) {
+                        console.log("Could not notify about image properties change:", e);
+                    }
+                }
+                
+                // When the image is clicked, notify that it was selected
+                try {
+                    window.webkit.messageHandlers.imageClicked.postMessage({
+                        src: img.src,
+                        alt: img.alt || '',
+                        width: img.width || '',
+                        height: img.height || ''
+                    });
+                } catch(e) {
+                    console.log("Could not notify about image click:", e);
+                }
+            }
+
+            // Remove all image handles
+            function removeAllImageHandles() {
+                // Remove active class from all wrappers
+                document.querySelectorAll('.img-wrapper-active').forEach(wrapper => {
+                    wrapper.classList.remove('img-wrapper-active');
+                });
+                
+                // Remove all drag handles
+                document.querySelectorAll('.img-drag-handle').forEach(handle => {
+                    handle.remove();
+                });
+                
+                // Remove all resize handles
+                document.querySelectorAll('.img-resize-handle').forEach(handle => {
+                    handle.remove();
+                });
+            }
+
+            // Document click handler to deselect all images when clicking elsewhere
+            document.addEventListener('click', function(e) {
+                // If the click is not on an image or wrapper, remove all handles
+                if (!e.target.closest('.img-wrapper') && e.target.tagName !== 'IMG') {
+                    removeAllImageHandles();
+                }
+            });
+
+            // Fix for cursor position issues near images
+            document.addEventListener('keydown', function(e) {
+                // If we're typing and there's an active image, deactivate it
+                if (e.key.length === 1 || e.key === 'Delete' || e.key === 'Backspace') {
+                    removeAllImageHandles();
+                }
+            });
+
+            // Block editing of non-editable elements
+            document.addEventListener('beforeinput', function(e) {
+                // Check if event target is inside a non-editable area
+                let node = e.target;
+                while (node && node !== document.body) {
+                    if (node.contentEditable === 'false') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                    }
+                    node = node.parentNode;
+                }
+            }, true);
+
+            // Prevent cursor from being placed inside non-editable elements
+            document.addEventListener('mouseup', function(e) {
+                const selection = window.getSelection();
+                if (!selection.rangeCount) return;
+                
+                const range = selection.getRangeAt(0);
+                let node = range.startContainer;
+                
+                // Check if the selection is within a non-editable element
+                while (node && node !== document.body) {
+                    if (node.contentEditable === 'false') {
+                        // If inside a non-editable element, move cursor after it
+                        const newRange = document.createRange();
+                        newRange.setStartAfter(findOutermostNonEditable(node));
+                        newRange.collapse(true);
+                        selection.removeAllRanges();
+                        selection.addRange(newRange);
+                        break;
+                    }
+                    node = node.parentNode;
+                }
+            });
+
+            // Helper to find the outermost non-editable parent
+            function findOutermostNonEditable(node) {
+                let result = node;
+                let parent = node.parentNode;
+                
+                while (parent && parent !== document.body && parent.contentEditable === 'false') {
+                    result = parent;
+                    parent = parent.parentNode;
+                }
+                
+                return result;
+            }
+        """
+
+    def get_editor_html(self, content=""):
+        """Return HTML for the editor with improved table and text box styles"""
+        content = content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+        return f"""
+        <!DOCTYPE html>
+        <html style="height: 100%;">
+        <head>
+            <title>HTML Editor</title>
+            <style>
+                html, body {{
+                    height: 100%;
+                    padding: 0;
+                    font-family: Sans;
+                }}
+                #editor {{
+                    padding: 0px;
+                    outline: none;
+                    height: 100%;
+                    font-family: Sans;
+                    font-size: 11pt;
+                }}
+                #editor div {{
+                    margin: 0;
+                    padding: 0;
+                }}
+                #editor:empty:not(:focus):before {{
+                    content: "Type here to start editing...";
+                    color: #aaa;
+                    font-style: italic;
+                    position: absolute;
+                    pointer-events: none;
+                    top: 10px;
+                    left: 10px;
+                }}
+                
+                /* Image wrapper and handle styles */
+                .img-wrapper {{
+                    position: relative;
+                    display: inline-block;
+                    margin: 2px;
+                    box-sizing: border-box;
+                    user-select: none;
+                    -webkit-user-select: none;
+                    -moz-user-select: none;
+                    -ms-user-select: none;
+                }}
+
+                .img-wrapper-active {{
+                    outline: 2px solid #1e90ff;
+                    outline-offset: 2px;
+                    z-index: 100;
+                }}
+
+                .img-wrapper img {{
+                    display: block;
+                    max-width: 100%;
+                    user-select: none;
+                    -webkit-user-select: none;
+                }}
+
+                .img-drag-handle {{
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 10px;
+                    height: 10px;
+                    background-color: #1e90ff;
+                    border: 1px solid white;
+                    cursor: move;
+                    z-index: 1000;
+                    pointer-events: auto;
+                    user-select: none;
+                    -webkit-user-select: none;
+                }}
+
+                .img-resize-handle {{
+                    position: absolute;
+                    bottom: 0;
+                    right: 0;
+                    width: 0;
+                    height: 0;
+                    border-style: solid;
+                    border-width: 0 0 10px 10px;
+                    border-color: transparent transparent #1e90ff transparent;
+                    cursor: nwse-resize;
+                    z-index: 1000;
+                    pointer-events: auto;
+                    user-select: none;
+                    -webkit-user-select: none;
+                }}
+                
+                /* This ensures the wrapper DIV doesn't get affected by text editing */
+                #editor [contenteditable="false"] {{
+                    -webkit-user-modify: read-only;
+                    -moz-user-modify: read-only;
+                    user-modify: read-only;
+                    cursor: default;
+                }}
+
+                /* Ensure proper cursor behavior */
+                #editor [contenteditable="false"] img {{
+                    cursor: pointer;
+                }}
+
+                #editor [contenteditable="false"] .img-drag-handle {{
+                    cursor: move;
+                }}
+
+                #editor [contenteditable="false"] .img-resize-handle {{
+                    cursor: nwse-resize;
+                }}
+
+                #editor ::selection {{
+                    background-color: #264f78;
+                    color: inherit;
+                }}
+                
+                @media (prefers-color-scheme: dark) {{
+                    html, body {{
+                        background-color: #1e1e1e;
+                        color: #d4d4d4;
+                    }}
+                    .img-wrapper-active {{
+                        outline-color: #3a8eff;
+                    }}
+                    .img-drag-handle {{
+                        background-color: #3a8eff;
+                        border-color: #222;
+                    }}
+                    .img-resize-handle {{
+                        border-color: transparent transparent #3a8eff transparent;
+                    }}
+                }}
+                
+                @media (prefers-color-scheme: light) {{
+                    html, body {{
+                        background-color: #ffffff;
+                        color: #000000;
+                    }}
+                }}
+            </style>
+            <script>
+                window.initialContent = "{content or '<div><font face=\"Sans\" style=\"font-size: 11pt;\"><br></font></div>'}";
+                {self.get_editor_js()}
+            </script>
+        </head>
+        <body>
+            <div id="editor" contenteditable="true"></div>
+        </body>
+        </html>
+        """
+
+    def on_insert_image_clicked(self, win, btn):
+        """Show a dialog to insert an image"""
+        # Create a file chooser dialog
+        dialog = Gtk.FileDialog.new()
+        dialog.set_title("Select Image")
+        
+        # Set up file filter for images
+        filter = Gtk.FileFilter.new()
+        filter.set_name("Image files")
+        filter.add_mime_type("image/jpeg")
+        filter.add_mime_type("image/png")
+        filter.add_mime_type("image/gif")
+        filter.add_mime_type("image/svg+xml")
+        
+        # Create a list of filters
+        filters = Gio.ListStore.new(Gtk.FileFilter)
+        filters.append(filter)
+        dialog.set_filters(filters)
+        
+        # Show the dialog
+        dialog.open(win, None, self._on_image_file_selected, win)
+
+    def _on_image_file_selected(self, dialog, result, win):
+        """Handle the selected image file"""
+        try:
+            file = dialog.open_finish(result)
+            if file:
+                # Get the file path
+                file_path = file.get_path()
+                
+                # Show image properties dialog
+                self._show_image_properties_dialog(win, file_path)
+        except Exception as e:
+            print(f"Error selecting image: {e}")
+            # Show error message
+            error_dialog = Adw.MessageDialog(
+                transient_for=win,
+                title="Error",
+                body=f"Could not load the image: {e}"
+            )
+            error_dialog.add_response("ok", "OK")
+            error_dialog.present()
+
+    def _show_image_properties_dialog(self, win, file_path=None, img_props=None):
+        """Show dialog to set image properties
+        
+        Args:
+            win: Parent window
+            file_path: Path to image file (for new images)
+            img_props: Image properties dict (for editing existing images)
+        """
+        # Create dialog
+        dialog = Adw.Window()
+        dialog.set_title("Image Properties")
+        dialog.set_transient_for(win)
+        dialog.set_modal(True)
+        dialog.set_default_size(400, 320)
+        
+        # Create content box
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        content_box.set_margin_start(24)
+        content_box.set_margin_end(24)
+        content_box.set_margin_top(24)
+        content_box.set_margin_bottom(24)
+        
+        # Variables to store original dimensions for aspect ratio
+        original_width = 0
+        original_height = 0
+        aspect_ratio = 1.0
+        
+        # Create preview (optional - for small images)
+        try:
+            if file_path:
+                # Load image for preview from file
+                texture = Gdk.Texture.new_from_file(Gio.File.new_for_path(file_path))
+                picture = Gtk.Picture.new_for_file(Gio.File.new_for_path(file_path))
+                
+                # Get dimensions
+                original_width = texture.get_width()
+                original_height = texture.get_height()
+            elif img_props and 'src' in img_props and img_props['src'].startswith('data:'):
+                # This is a placeholder for when you want to edit an existing image
+                # In a full implementation, you would need to create a temporary file
+                # from the data URL and load it
+                
+                # For now, just show a placeholder
+                picture = Gtk.Picture()
+                picture.set_size_request(150, 100)
+                
+                # Set dimensions if available in img_props
+                if 'width' in img_props and img_props['width']:
+                    original_width = int(img_props['width'])
+                if 'height' in img_props and img_props['height']:
+                    original_height = int(img_props['height'])
+            else:
+                # Fallback
+                raise Exception("No image source provided")
+            
+            # Calculate aspect ratio
+            if original_width > 0 and original_height > 0:
+                aspect_ratio = original_width / original_height
+            
+            # Scale down if too large
+            if original_width > 300 or original_height > 200:
+                scale = min(300 / original_width, 200 / original_height)
+                picture.set_size_request(int(original_width * scale), int(original_height * scale))
+            else:
+                picture.set_size_request(original_width, original_height)
+            
+            picture.set_halign(Gtk.Align.CENTER)
+            content_box.append(picture)
+        except Exception as e:
+            print(f"Error creating preview: {e}")
+            # Add label instead of preview
+            preview_label = Gtk.Label(label="Image Preview Not Available")
+            preview_label.set_halign(Gtk.Align.CENTER)
+            content_box.append(preview_label)
+        
+        # Create form fields
+        alt_label = Gtk.Label(label="Alt Text:")
+        alt_label.set_halign(Gtk.Align.START)
+        content_box.append(alt_label)
+        
+        alt_entry = Gtk.Entry()
+        alt_entry.set_placeholder_text("Description of the image")
+        if img_props and 'alt' in img_props:
+            alt_entry.set_text(img_props['alt'])
+        content_box.append(alt_entry)
+        
+        # Size options with aspect ratio lock
+        size_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        
+        width_label = Gtk.Label(label="Width:")
+        width_label.set_halign(Gtk.Align.START)
+        size_box.append(width_label)
+        
+        width_entry = Gtk.SpinButton.new_with_range(1, 2000, 1)
+        width_entry.set_hexpand(True)
+        if img_props and 'width' in img_props and img_props['width']:
+            width_entry.set_value(int(img_props['width']))
+        elif original_width > 0:
+            width_entry.set_value(original_width)
+        size_box.append(width_entry)
+        
+        height_label = Gtk.Label(label="Height:")
+        height_label.set_halign(Gtk.Align.START)
+        size_box.append(height_label)
+        
+        height_entry = Gtk.SpinButton.new_with_range(1, 2000, 1)
+        height_entry.set_hexpand(True)
+        if img_props and 'height' in img_props and img_props['height']:
+            height_entry.set_value(int(img_props['height']))
+        elif original_height > 0:
+            height_entry.set_value(original_height)
+        size_box.append(height_entry)
+        
+        content_box.append(size_box)
+        
+        # Lock aspect ratio checkbox
+        lock_aspect_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        
+        aspect_check = Gtk.CheckButton()
+        aspect_check.set_label("Lock aspect ratio")
+        aspect_check.set_active(True)  # Default to locked
+        lock_aspect_box.append(aspect_check)
+        
+        content_box.append(lock_aspect_box)
+        
+        # Connect signals for width/height with aspect ratio
+        width_handler_id = width_entry.connect("value-changed", lambda w: update_height() if aspect_check.get_active() else None)
+        height_handler_id = height_entry.connect("value-changed", lambda h: update_width() if aspect_check.get_active() else None)
+        
+        # Functions to maintain aspect ratio
+        def update_height():
+            if aspect_ratio > 0:
+                # Temporarily block the height signal to prevent recursion
+                with height_entry.handler_block(height_handler_id):
+                    new_height = width_entry.get_value() / aspect_ratio
+                    height_entry.set_value(round(new_height))
+        
+        def update_width():
+            if aspect_ratio > 0:
+                # Temporarily block the width signal to prevent recursion
+                with width_entry.handler_block(width_handler_id):
+                    new_width = height_entry.get_value() * aspect_ratio
+                    width_entry.set_value(round(new_width))
+        
+        # Add buttons
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        button_box.set_halign(Gtk.Align.END)
+        button_box.set_margin_top(12)
+        
+        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button.connect("clicked", lambda btn: dialog.destroy())
+        button_box.append(cancel_button)
+        
+        if img_props:
+            # For editing existing images
+            apply_button = Gtk.Button(label="Apply")
+            apply_button.add_css_class("suggested-action")
+            apply_button.connect("clicked", lambda btn: self._update_existing_image(
+                win,
+                img_props,
+                alt_entry.get_text(),
+                int(width_entry.get_value()),
+                int(height_entry.get_value()),
+                dialog
+            ))
+            button_box.append(apply_button)
+        else:
+            # For inserting new images
+            insert_button = Gtk.Button(label="Insert")
+            insert_button.add_css_class("suggested-action")
+            insert_button.connect("clicked", lambda btn: self._insert_image_to_editor(
+                win, 
+                file_path, 
+                alt_entry.get_text(), 
+                int(width_entry.get_value()), 
+                int(height_entry.get_value()), 
+                dialog
+            ))
+            button_box.append(insert_button)
+        
+        content_box.append(button_box)
+        
+        # Set content and show dialog
+        dialog.set_content(content_box)
+        dialog.present()
+
+    def _insert_image_to_editor(self, win, file_path, alt_text, width, height, dialog):
+        """Insert the image into the editor"""
+        try:
+            # Convert the file path to a data URL for embedding
+            # For production, you might want to copy the file to a designated location
+            # and use relative paths instead of data URLs
+            import base64
+            with open(file_path, "rb") as image_file:
+                encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+            
+            # Get file extension for mime type
+            _, ext = os.path.splitext(file_path)
+            ext = ext.lower().strip('.')
+            
+            # Map extension to mime type
+            mime_types = {
+                'jpg': 'image/jpeg',
+                'jpeg': 'image/jpeg',
+                'png': 'image/png',
+                'gif': 'image/gif',
+                'svg': 'image/svg+xml'
+            }
+            mime_type = mime_types.get(ext, 'image/jpeg')
+            
+            # Create data URL
+            data_url = f"data:{mime_type};base64,{encoded_string}"
+            
+            # Create JavaScript to insert the image
+            js_code = f"""
+            (function() {{
+                insertImage("{data_url}", "{alt_text}", "{width}", "{height}");
+                return true;
+            }})();
+            """
+            
+            # Execute the JavaScript
+            win.webview.evaluate_javascript(js_code, -1, None, None, None, None, None)
+            
+            # Close the dialog
+            dialog.destroy()
+            
+            # Update status
+            win.statusbar.set_text("Image inserted")
+            
+        except Exception as e:
+            print(f"Error inserting image: {e}")
+            # Show error message
+            error_dialog = Adw.MessageDialog(
+                transient_for=win,
+                title="Error",
+                body=f"Could not insert the image: {e}"
+            )
+            error_dialog.add_response("ok", "OK")
+            error_dialog.present()
+
+    def _update_existing_image(self, win, img_props, alt_text, width, height, dialog):
+        """Update an existing image in the editor"""
+        try:
+            # Create JavaScript to update the image
+            js_code = f"""
+            (function() {{
+                // Get the currently selected image
+                const activeWrapper = document.querySelector('.img-wrapper-active');
+                if (!activeWrapper) return false;
+                
+                const img = activeWrapper.querySelector('img');
+                if (!img) return false;
+                
+                // Update properties
+                img.alt = "{alt_text}";
+                img.width = {width};
+                img.height = {height};
+                
+                // Remove handles to force a refresh
+                removeAllImageHandles();
+                
+                // Notify that content changed
+                try {{
+                    window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                }} catch(e) {{
+                    console.log("Could not notify about changes:", e);
+                }}
+                
+                return true;
+            }})();
+            """
+            
+            # Execute the JavaScript
+            win.webview.evaluate_javascript(js_code, -1, None, None, None, None, None)
+            
+            # Close the dialog
+            dialog.destroy()
+            
+            # Update status
+            win.statusbar.set_text("Image updated")
+            
+        except Exception as e:
+            print(f"Error updating image: {e}")
+            # Show error message
+            error_dialog = Adw.MessageDialog(
+                transient_for=win,
+                title="Error",
+                body=f"Could not update the image: {e}"
+            )
+            error_dialog.add_response("ok", "OK")
+            error_dialog.present()
+
+    def on_image_clicked(self, win, manager, message):
+        """Handle when an image is clicked in the editor"""
+        try:
+            # Extract image properties from the message
+            js_result = message.get_js_value()
+            properties = js_result.to_string()
+            
+            # Parse the properties
+            import json
+            img_props = json.loads(properties)
+            
+            # Show image properties dialog for editing
+            self._show_image_properties_dialog(win, None, img_props)
+            
+            # Update status
+            win.statusbar.set_text("Image selected")
+            
+        except Exception as e:
+            print(f"Error handling image click: {e}")
+
+    def on_image_properties_changed(self, win, manager, message):
+        """Handle image properties changed event"""
+        try:
+            # Extract properties from the message
+            js_result = message.get_js_value()
+            properties = js_result.to_string()
+            
+            # Parse the properties
+            import json
+            props = json.loads(properties)
+            
+            # Update status bar with new dimensions
+            if 'width' in props and 'height' in props:
+                win.statusbar.set_text(f"Image resized to {props['width']}×{props['height']}")
+            
+        except Exception as e:
+            print(f"Error handling image properties change: {e}")
+######################### 
+    def on_image_toolbar_registered(self, win):
+        """Register for image-related events after toolbar is created"""
+        # Register for additional message handlers related to images
+        user_content_manager = win.webview.get_user_content_manager()
+        
+        # Add image handler messages
+        user_content_manager.register_script_message_handler("imageInserted")
+        user_content_manager.register_script_message_handler("imageSelected")
+        user_content_manager.register_script_message_handler("imageDeleted")
+        user_content_manager.register_script_message_handler("imagesDeactivated")
+        
+        # Connect handlers
+        user_content_manager.connect("script-message-received::imageInserted", 
+                                    lambda mgr, res: self.on_image_inserted(win, mgr, res))
+        user_content_manager.connect("script-message-received::imageSelected", 
+                                    lambda mgr, res: self.on_image_selected(win, mgr, res))
+        user_content_manager.connect("script-message-received::imageDeleted", 
+                                    lambda mgr, res: self.on_image_deleted(win, mgr, res))
+        user_content_manager.connect("script-message-received::imagesDeactivated", 
+                                    lambda mgr, res: self.on_images_deactivated(win, mgr, res))
+
+    def create_image_toolbar(self, win):
+        """Create an improved toolbar for image editing"""
+        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        toolbar.set_margin_start(10)
+        toolbar.set_margin_end(10)
+        toolbar.set_margin_top(5)
+        toolbar.set_margin_bottom(5)
+        
+        # Image operations label
+        image_label = Gtk.Label(label="Image:")
+        image_label.set_margin_end(10)
+        toolbar.append(image_label)
+        
+        # Create a group for alignment operations
+        align_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
+        align_group.add_css_class("linked")
+        
+        # Left alignment
+        align_left_button = Gtk.Button(icon_name="format-justify-left-symbolic")
+        align_left_button.set_tooltip_text("Align Left")
+        align_left_button.connect("clicked", lambda btn: self.on_image_align_left(win))
+        align_group.append(align_left_button)
+        
+        # Center alignment
+        align_center_button = Gtk.Button(icon_name="format-justify-center-symbolic")
+        align_center_button.set_tooltip_text("Center")
+        align_center_button.connect("clicked", lambda btn: self.on_image_align_center(win))
+        align_group.append(align_center_button)
+        
+        # Right alignment
+        align_right_button = Gtk.Button(icon_name="format-justify-right-symbolic")
+        align_right_button.set_tooltip_text("Align Right")
+        align_right_button.connect("clicked", lambda btn: self.on_image_align_right(win))
+        align_group.append(align_right_button)
+        
+        # Add alignment group to toolbar
+        toolbar.append(align_group)
+        
+        # Floating toggle button
+        float_button = Gtk.Button(icon_name="overlapping-windows-symbolic")
+        float_button.set_tooltip_text("Toggle floating")
+        float_button.set_margin_start(5)
+        float_button.connect("clicked", lambda btn: self.on_image_float_clicked(win))
+        toolbar.append(float_button)
+        
+        # Small separator
+        separator1 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        separator1.set_margin_start(5)
+        separator1.set_margin_end(5)
+        toolbar.append(separator1)
+        
+        # Z-index controls
+        layer_label = Gtk.Label(label="Layer:")
+        layer_label.set_margin_end(5)
+        toolbar.append(layer_label)
+        
+        # Create a group for layer control buttons
+        layer_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
+        layer_group.add_css_class("linked")
+        
+        # Bring forward button
+        bring_forward_button = Gtk.Button(icon_name="go-up-symbolic")
+        bring_forward_button.set_tooltip_text("Bring Forward")
+        bring_forward_button.connect("clicked", lambda btn: self.on_bring_image_forward_clicked(win))
+        layer_group.append(bring_forward_button)
+        
+        # Send backward button
+        send_backward_button = Gtk.Button(icon_name="go-down-symbolic")
+        send_backward_button.set_tooltip_text("Send Backward")
+        send_backward_button.connect("clicked", lambda btn: self.on_send_image_backward_clicked(win))
+        layer_group.append(send_backward_button)
+        
+        # Add layer group to toolbar
+        toolbar.append(layer_group)
+        
+        # Small separator
+        separator2 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        separator2.set_margin_start(5)
+        separator2.set_margin_end(5)
+        toolbar.append(separator2)
+        
+        # Properties button
+        properties_button = Gtk.Button(icon_name="document-properties-symbolic")
+        properties_button.set_tooltip_text("Image Properties")
+        properties_button.connect("clicked", lambda btn: self.on_edit_image_properties_clicked(win))
+        toolbar.append(properties_button)
+        
+        # Delete button
+        delete_button = Gtk.Button(icon_name="edit-delete-symbolic")
+        delete_button.set_tooltip_text("Delete Image")
+        delete_button.set_margin_start(5)
+        delete_button.connect("clicked", lambda btn: self.on_delete_image_clicked(win))
+        toolbar.append(delete_button)
+        
+        # Spacer
+        spacer = Gtk.Box()
+        spacer.set_hexpand(True)
+        toolbar.append(spacer)
+        
+        # Close button
+        close_button = Gtk.Button(icon_name="window-close-symbolic")
+        close_button.set_tooltip_text("Close image toolbar")
+        close_button.connect("clicked", lambda btn: self.on_close_image_toolbar_clicked(win))
+        toolbar.append(close_button)
+        
+        return toolbar
+        
+        
+        
  
 def main():
     app = HTMLEditorApp()
