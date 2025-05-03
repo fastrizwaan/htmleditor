@@ -3,7 +3,7 @@
    viewBox="0 0 16 16"
    version="1.1"
    id="svg2"
-   sodipodi:docname="format-line-spacing.svg"
+   sodipodi:docname="text_line_spacing.svg"
    inkscape:version="1.4 (e7c3feb100, 2024-10-09)"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
@@ -19,8 +19,8 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:zoom="1"
-     inkscape:cx="16.5"
-     inkscape:cy="12"
+     inkscape:cx="28.5"
+     inkscape:cy="-3"
      inkscape:window-width="1920"
      inkscape:window-height="1011"
      inkscape:window-x="0"
@@ -41,45 +41,24 @@
       </style>
   </defs>
   <path
+     id="path1"
+     style="fill:currentColor;fill-opacity:1;stroke:none;stroke-width:1.06904"
+     class="ColorScheme-Text"
+     d="m 7,3 v 1 1 h 8 V 4 3 Z" />
+  <path
      style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.73205"
-     d="M 3.0000001,2 0,5 h 2 v 5.5 H 0 l 3.0000001,3 L 6,10.5 H 4 V 5 h 2 z"
+     d="M 3.0000001,2 0,5 h 2 v 6 H 0 L 3.0000001,14 6,11 H 4 V 5 h 2 z"
      class="ColorScheme-Accent"
      id="path2"
      sodipodi:nodetypes="ccccccccccc" />
   <path
+     id="path9"
      style="fill:currentColor;fill-opacity:1;stroke:none;stroke-width:1.06904"
-     d="m 7,2 v 1 h 9 V 2 Z"
      class="ColorScheme-Text"
-     id="path14"
-     sodipodi:nodetypes="ccccc" />
+     d="m 7,7 v 1 1 h 8 V 8 7 Z" />
   <path
+     id="path11"
      style="fill:currentColor;fill-opacity:1;stroke:none;stroke-width:1.06904"
-     d="m 7,4 v 1 h 9 V 4 Z"
      class="ColorScheme-Text"
-     id="path15"
-     sodipodi:nodetypes="ccccc" />
-  <path
-     style="fill:currentColor;fill-opacity:1;stroke:none;stroke-width:1.06904"
-     d="m 7,8 v 1 h 9 V 8 Z"
-     class="ColorScheme-Text"
-     id="path17"
-     sodipodi:nodetypes="ccccc" />
-  <path
-     style="fill:currentColor;fill-opacity:1;stroke:none;stroke-width:1.06904"
-     d="m 7,10 v 1 h 9 v -1 z"
-     class="ColorScheme-Text"
-     id="path18"
-     sodipodi:nodetypes="ccccc" />
-  <path
-     style="fill:currentColor;fill-opacity:1;stroke:none;stroke-width:1.06904"
-     d="m 7,12 v 1 h 9 v -1 z"
-     class="ColorScheme-Text"
-     id="path19"
-     sodipodi:nodetypes="ccccc" />
-  <path
-     style="fill:currentColor;fill-opacity:1;stroke:none;stroke-width:1.06904"
-     d="m 7,6 v 1 h 9 V 6 Z"
-     class="ColorScheme-Text"
-     id="path21"
-     sodipodi:nodetypes="ccccc" />
+     d="m 7,11 v 1 1 h 8 v -1 -1 z" />
 </svg>

@@ -3385,7 +3385,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         spacing_group.set_margin_start(0)
         
         # Line spacing button menu
-        line_spacing_button = Gtk.MenuButton(icon_name="line_space_new")
+        line_spacing_button = Gtk.MenuButton(icon_name="format-line-spacing-symbolic")
         line_spacing_button.set_size_request(40, 36)
         line_spacing_button.set_tooltip_text("Line Spacing")
 
@@ -3403,7 +3403,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         line_spacing_button.set_menu_model(line_spacing_menu)
         
         # Paragraph spacing button menu
-        para_spacing_button = Gtk.MenuButton(icon_name="paragraph_line_spacing")
+        para_spacing_button = Gtk.MenuButton(icon_name="format-paragraph-spacing-symbolic")
         para_spacing_button.set_size_request(40, 36)
         para_spacing_button.set_tooltip_text("Paragraph Spacing")
 
