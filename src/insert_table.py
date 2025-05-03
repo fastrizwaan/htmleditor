@@ -345,8 +345,9 @@ def table_insert_functions_js(self):
         tableHTML += '</table>';
         
         // Only add paragraph after table if it's not nested inside another table
+        // Make sure to create a visible and properly sized paragraph element
         if (!isNestedTable) {
-            tableHTML += '<p></p>';
+            tableHTML += '<p><br></p>';
         }
         
         // Insert the table at the current cursor position
@@ -385,6 +386,14 @@ def table_insert_functions_js(self):
                     window.webkit.messageHandlers.tableClicked.postMessage('table-clicked');
                 } catch(e) {
                     console.log("Could not notify about table click:", e);
+                }
+                
+                // Ensure the paragraph after the table is properly initialized
+                if (!isNestedTable) {
+                    const paraAfterTable = newTable.nextElementSibling;
+                    if (paraAfterTable && paraAfterTable.tagName === 'P' && !paraAfterTable.innerHTML) {
+                        paraAfterTable.innerHTML = '<br>';
+                    }
                 }
             }
         }, 10);
