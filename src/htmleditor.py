@@ -3206,7 +3206,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         win.current_file = None
         win.auto_save_source_id = None
         
-        win.set_default_size(676, 480)
+        win.set_default_size(1000, 768)
         win.set_title("Untitled - HTML Editor")
         
         # Create main box to contain all UI elements
