@@ -401,6 +401,9 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         self.add_window_menu_button(win)
             
 ## Insert related code
+    def insert_image_js(self):
+        """JavaScript for insert image and related functionality"""
+        return """ """
 
     def insert_link_js(self):
         """JavaScript for insert link and related functionality"""
@@ -408,6 +411,13 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
 
     # Python handler for insertion
 
+    def on_insert_text_box_clicked(self, win, btn):
+        """Handle text box insertion button click, textbox"""
+        return
+        
+    def on_insert_image_clicked(self, win, btn):
+        """Handle image insertion button click"""
+        return
 
     def on_insert_link_clicked(self, win, btn):
         """show a dialog with URL and Text """
@@ -805,6 +815,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         {self.table_border_style_js()}
         {self.table_color_js()}
         {self.table_z_index_js()}
+        {self.insert_image_js()}
         {self.insert_link_js()}
         {self.init_editor_js()}
         """
@@ -4610,6 +4621,201 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         image_box.append(image_button)
         content_box.append(image_box)
         
+        # Alignment options
+        align_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        align_label = Gtk.Label(label="Alignment:")
+        align_label.set_halign(Gtk.Align.START)
+        align_label.set_hexpand(True)
+        
+        align_combo = Gtk.DropDown()
+        align_options = Gtk.StringList()
+        align_options.append("Center")
+        align_options.append("Left")
+        align_options.append("Right")
+        align_combo.set_model(align_options)
+        align_combo.set_selected(0)  # Default to Center
+        
+        align_box.append(align_label)
+        align_box.append(align_combo)
+        content_box.append(align_box)
+        
+        # Caption checkbox
+        caption_check = Gtk.CheckButton(label="Add caption")
+        caption_check.set_active(True)
+        content_box.append(caption_check)
+        
+        # Button box
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        button_box.set_halign(Gtk.Align.END)
+        button_box.set_margin_top(16)
+        
+        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button.connect("clicked", lambda btn: dialog.close())
+        
+        insert_button = Gtk.Button(label="Insert")
+        insert_button.add_css_class("suggested-action")
+        insert_button.set_sensitive(False)  # Disabled until image is selected
+        
+        # Connect the insert button
+        insert_button.connect("clicked", lambda btn: self._on_image_table_response(
+            win, dialog, 
+            image_button.selected_path,
+            width_spin.get_value_as_int(),
+            border_spin.get_value_as_int(),
+            align_options.get_string(align_combo.get_selected()),
+            caption_check.get_active()
+        ))
+        
+        # Connect to enable insert button when image is selected
+        def update_insert_button_state(*args):
+            insert_button.set_sensitive(image_button.selected_path is not None)
+        
+        # Add callback for image selection
+        image_button.connect("notify::label", update_insert_button_state)
+        
+        button_box.append(cancel_button)
+        button_box.append(insert_button)
+        content_box.append(button_box)
+        
+        # Set dialog content and present
+        dialog.set_child(content_box)
+        dialog.present(win)
+
+    def _show_image_chooser(self, win, image_button):
+        """Show a file chooser for selecting an image"""
+        dialog = Gtk.FileChooserDialog(
+            title="Select Image",
+            transient_for=win,
+            action=Gtk.FileChooserAction.OPEN
+        )
+        
+        # Add response buttons
+        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        dialog.add_button("Open", Gtk.ResponseType.ACCEPT)
+        
+        # Add filters for image files
+        image_filter = Gtk.FileFilter()
+        image_filter.set_name("Image files")
+        image_filter.add_mime_type("image/jpeg")
+        image_filter.add_mime_type("image/png")
+        image_filter.add_mime_type("image/gif")
+        image_filter.add_mime_type("image/svg+xml")
+        dialog.add_filter(image_filter)
+        
+        # Handle the response
+        dialog.connect("response", lambda d, response: self._on_image_chooser_response(
+            d, response, image_button))
+        
+        dialog.show()
+
+    def _on_image_chooser_response(self, dialog, response, image_button):
+        """Handle the response from the image chooser"""
+        if response == Gtk.ResponseType.ACCEPT:
+            file_path = dialog.get_file().get_path()
+            
+            # Store the path
+            image_button.selected_path = file_path
+            
+            # Update the button label to show selected file
+            import os
+            filename = os.path.basename(file_path)
+            if len(filename) > 20:
+                filename = filename[:17] + "..."
+            image_button.set_label(filename)
+        
+        dialog.destroy()
+
+    def on_insert_image_clicked(self, win, btn):
+        """Handle insertion of an image inside a table cell"""
+        win.statusbar.set_text("Inserting image in table...")
+        
+        # Create a dialog to configure the image table
+        dialog = Adw.Dialog()
+        dialog.set_title("Insert Image in Table")
+        dialog.set_content_width(350)
+        
+        # Create layout for dialog content
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        content_box.set_margin_top(24)
+        content_box.set_margin_bottom(24)
+        content_box.set_margin_start(24)
+        content_box.set_margin_end(24)
+        
+        # Width input with +/- buttons
+        width_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        width_label = Gtk.Label(label="Width (px):")
+        width_label.set_halign(Gtk.Align.START)
+        width_label.set_hexpand(True)
+        
+        width_adjustment = Gtk.Adjustment(value=200, lower=50, upper=800, step_increment=10)
+        width_spin = Gtk.SpinButton()
+        width_spin.set_adjustment(width_adjustment)
+        
+        # Create a box for the spinner and +/- buttons
+        width_spinner_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        width_spinner_box.add_css_class("linked")
+        
+        width_minus_btn = Gtk.Button.new_from_icon_name("list-remove-symbolic")
+        width_minus_btn.connect("clicked", lambda btn: width_spin.spin(Gtk.SpinType.STEP_BACKWARD, 10))
+        
+        width_plus_btn = Gtk.Button.new_from_icon_name("list-add-symbolic")
+        width_plus_btn.connect("clicked", lambda btn: width_spin.spin(Gtk.SpinType.STEP_FORWARD, 10))
+        
+        width_spinner_box.append(width_spin)
+        width_spinner_box.append(width_minus_btn)
+        width_spinner_box.append(width_plus_btn)
+        
+        width_box.append(width_label)
+        width_box.append(width_spinner_box)
+        content_box.append(width_box)
+        
+        # Border width with +/- buttons
+        border_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        border_label = Gtk.Label(label="Border width:")
+        border_label.set_halign(Gtk.Align.START)
+        border_label.set_hexpand(True)
+        
+        border_adjustment = Gtk.Adjustment(value=1, lower=0, upper=5, step_increment=1)
+        border_spin = Gtk.SpinButton()
+        border_spin.set_adjustment(border_adjustment)
+        
+        # Create a box for the spinner and +/- buttons
+        border_spinner_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        border_spinner_box.add_css_class("linked")
+        
+        border_minus_btn = Gtk.Button.new_from_icon_name("list-remove-symbolic")
+        border_minus_btn.connect("clicked", lambda btn: border_spin.spin(Gtk.SpinType.STEP_BACKWARD, 1))
+        
+        border_plus_btn = Gtk.Button.new_from_icon_name("list-add-symbolic")
+        border_plus_btn.connect("clicked", lambda btn: border_spin.spin(Gtk.SpinType.STEP_FORWARD, 1))
+        
+        border_spinner_box.append(border_spin)
+        border_spinner_box.append(border_minus_btn)
+        border_spinner_box.append(border_plus_btn)
+        
+        border_box.append(border_label)
+        border_box.append(border_spinner_box)
+        content_box.append(border_box)
+        
+        # Image selection button
+        image_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        image_label = Gtk.Label(label="Image:")
+        image_label.set_halign(Gtk.Align.START)
+        image_label.set_hexpand(True)
+        
+        image_button = Gtk.Button(label="Select Image...")
+        image_button.set_hexpand(True)
+        
+        # Store the selected image path
+        image_button.selected_path = None
+        
+        # Connect click handler for image selection
+        image_button.connect("clicked", lambda btn: self._show_image_chooser(win, btn))
+        
+        image_box.append(image_label)
+        image_box.append(image_button)
+        content_box.append(image_box)
+        
         # Free-floating option checkbox
         float_check = Gtk.CheckButton(label="Free-floating (text wraps around)")
         float_check.set_active(True)  # Enabled by default
@@ -4656,53 +4862,6 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         # Set dialog content and present
         dialog.set_child(content_box)
         dialog.present(win)
-        
-        
-    def _show_image_chooser(self, win, image_button):
-        """Show a file chooser for selecting an image"""
-        dialog = Gtk.FileChooserDialog(
-            title="Select Image",
-            transient_for=win,
-            action=Gtk.FileChooserAction.OPEN
-        )
-        
-        # Add response buttons
-        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        dialog.add_button("Open", Gtk.ResponseType.ACCEPT)
-        
-        # Add filters for image files
-        image_filter = Gtk.FileFilter()
-        image_filter.set_name("Image files")
-        image_filter.add_mime_type("image/jpeg")
-        image_filter.add_mime_type("image/png")
-        image_filter.add_mime_type("image/gif")
-        image_filter.add_mime_type("image/svg+xml")
-        dialog.add_filter(image_filter)
-        
-        # Handle the response
-        dialog.connect("response", lambda d, response: self._on_image_chooser_response(
-            d, response, image_button))
-        
-        dialog.show()
-
-    def _on_image_chooser_response(self, dialog, response, image_button):
-        """Handle the response from the image chooser"""
-        if response == Gtk.ResponseType.ACCEPT:
-            file_path = dialog.get_file().get_path()
-            
-            # Store the path
-            image_button.selected_path = file_path
-            
-            # Update the button label to show selected file
-            import os
-            filename = os.path.basename(file_path)
-            if len(filename) > 20:
-                filename = filename[:17] + "..."
-            image_button.set_label(filename)
-        
-        dialog.destroy()
-
-
 
     def _on_image_table_response(self, win, dialog, image_path, width, border_width, is_floating, add_caption):
         """Handle response from the image table dialog"""
@@ -4839,9 +4998,8 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
                     // Apply styling specific to image table
                     newTable.classList.add('image-table');
                     
-                    // Set original width and store it as an attribute for later use
+                    // Set width
                     newTable.style.width = '{width}px';
-                    newTable.setAttribute('data-original-width', '{width}');
                     
                     // Set background to transparent
                     newTable.style.backgroundColor = 'transparent';
@@ -4938,56 +5096,10 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
                         
                         if (activeTable.classList.contains('image-table')) {{
                             // Only adjust width for image tables - height will follow with aspect ratio
-                            const newWidth = tableStartX + deltaX;
-                            activeTable.style.width = newWidth + 'px';
-                            // Update the original width attribute so alignment changes remember this size
-                            activeTable.setAttribute('data-original-width', newWidth);
+                            activeTable.style.width = (tableStartX + deltaX) + 'px';
                         }} else {{
                             // Original behavior for regular tables
                             activeTable.style.width = (tableStartX + deltaX) + 'px';
-                        }}
-                    }};
-                    
-                    // Override the setTableAlignment function to maintain image size
-                    const originalSetTableAlignment = window.setTableAlignment;
-                    window.setTableAlignment = function(alignClass) {{
-                        if (!activeTable) return;
-                        
-                        // Check if it's an image table
-                        if (activeTable.classList.contains('image-table')) {{
-                            // Get the original width
-                            const originalWidth = activeTable.getAttribute('data-original-width') || '{width}';
-                            
-                            // Remove all alignment classes
-                            activeTable.classList.remove('left-align', 'right-align', 'center-align', 'no-wrap', 'floating-table');
-                            
-                            // Add the requested alignment class
-                            activeTable.classList.add(alignClass);
-                            
-                            // Reset positioning if it was previously floating
-                            if (activeTable.style.position === 'absolute') {{
-                                activeTable.style.position = 'relative';
-                                activeTable.style.top = '';
-                                activeTable.style.left = '';
-                                activeTable.style.zIndex = '';
-                            }}
-                            
-                            // Set width based on alignment, preserving original width where appropriate
-                            if (alignClass === 'no-wrap') {{
-                                activeTable.style.width = '100%';
-                            }} else {{
-                                // Use the original width for other alignments
-                                activeTable.style.width = originalWidth + 'px';
-                            }}
-                        }} else {{
-                            // Use original function for non-image tables
-                            return originalSetTableAlignment(alignClass);
-                        }}
-                        
-                        try {{
-                            window.webkit.messageHandlers.contentChanged.postMessage('changed');
-                        }} catch(e) {{
-                            console.log("Could not notify about content change:", e);
                         }}
                     }};
                     

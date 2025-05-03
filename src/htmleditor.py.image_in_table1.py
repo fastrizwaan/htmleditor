@@ -401,6 +401,9 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         self.add_window_menu_button(win)
             
 ## Insert related code
+    def insert_image_js(self):
+        """JavaScript for insert image and related functionality"""
+        return """ """
 
     def insert_link_js(self):
         """JavaScript for insert link and related functionality"""
@@ -408,6 +411,13 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
 
     # Python handler for insertion
 
+    def on_insert_text_box_clicked(self, win, btn):
+        """Handle text box insertion button click, textbox"""
+        return
+        
+    def on_insert_image_clicked(self, win, btn):
+        """Handle image insertion button click"""
+        return
 
     def on_insert_link_clicked(self, win, btn):
         """show a dialog with URL and Text """
@@ -805,6 +815,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         {self.table_border_style_js()}
         {self.table_color_js()}
         {self.table_z_index_js()}
+        {self.insert_image_js()}
         {self.insert_link_js()}
         {self.init_editor_js()}
         """
@@ -4610,10 +4621,23 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         image_box.append(image_button)
         content_box.append(image_box)
         
-        # Free-floating option checkbox
-        float_check = Gtk.CheckButton(label="Free-floating (text wraps around)")
-        float_check.set_active(True)  # Enabled by default
-        content_box.append(float_check)
+        # Alignment options
+        align_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        align_label = Gtk.Label(label="Alignment:")
+        align_label.set_halign(Gtk.Align.START)
+        align_label.set_hexpand(True)
+        
+        align_combo = Gtk.DropDown()
+        align_options = Gtk.StringList()
+        align_options.append("Center")
+        align_options.append("Left")
+        align_options.append("Right")
+        align_combo.set_model(align_options)
+        align_combo.set_selected(0)  # Default to Center
+        
+        align_box.append(align_label)
+        align_box.append(align_combo)
+        content_box.append(align_box)
         
         # Caption checkbox
         caption_check = Gtk.CheckButton(label="Add caption")
@@ -4638,7 +4662,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
             image_button.selected_path,
             width_spin.get_value_as_int(),
             border_spin.get_value_as_int(),
-            float_check.get_active(),
+            align_options.get_string(align_combo.get_selected()),
             caption_check.get_active()
         ))
         
@@ -4656,8 +4680,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         # Set dialog content and present
         dialog.set_child(content_box)
         dialog.present(win)
-        
-        
+
     def _show_image_chooser(self, win, image_button):
         """Show a file chooser for selecting an image"""
         dialog = Gtk.FileChooserDialog(
@@ -4702,13 +4725,18 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         
         dialog.destroy()
 
-
-
-    def _on_image_table_response(self, win, dialog, image_path, width, border_width, is_floating, add_caption):
+    def _on_image_table_response(self, win, dialog, image_path, width, border_width, alignment, add_caption):
         """Handle response from the image table dialog"""
         if not image_path:
             dialog.close()
             return
+        
+        # Determine alignment class
+        align_class = "center-align"
+        if alignment == "Left":
+            align_class = "left-align"
+        elif alignment == "Right":
+            align_class = "right-align"
         
         # Create base64 of the image
         import base64
@@ -4725,111 +4753,26 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         
         dialog.close()
         
-        # Insert the image table with proper positioning within existing cells/tables
+        # Check if selection is inside a table
         js_code = f"""
         (function() {{
-            // First determine the current context - where we're inserting
-            const selection = window.getSelection();
-            if (!selection.rangeCount) return false;
-            
-            let node = selection.anchorNode;
-            let insideTable = false;
-            let insideCell = false;
-            let targetCell = null;
-            let targetTable = null;
-            
-            // Find if we're inside a table and/or a cell
-            while (node && node !== document.body) {{
-                if (node.tagName === 'TD' || node.tagName === 'TH') {{
-                    insideCell = true;
-                    targetCell = node;
-                }}
-                if (node.tagName === 'TABLE') {{
-                    insideTable = true;
-                    targetTable = node;
-                    // If we've found the table but not a specific cell, don't go further
-                    if (!insideCell) break;
-                }}
-                node = node.parentNode;
-            }}
-            
-            // If we're inside a cell, insert directly into that cell
-            if (insideCell && targetCell) {{
-                // Create container for the image
-                const containerDiv = document.createElement('div');
-                containerDiv.style.width = '100%';
-                containerDiv.style.height = 'auto';
-                containerDiv.style.overflow = 'hidden';
-                containerDiv.style.position = 'relative';
+            // First check if the current selection is inside a table
+            const isInsideTable = (function() {{
+                const selection = window.getSelection();
+                if (!selection.rangeCount) return false;
                 
-                // Create image element
-                const img = document.createElement('img');
-                img.src = 'data:{mime_type};base64,{encoded_image}';
-                img.style.maxWidth = '100%';
-                img.style.display = 'block';
-                img.style.width = '100%';
-                img.style.pointerEvents = 'none';
-                img.setAttribute('data-embedded', 'true');
-                img.setAttribute('alt', '{filename}');
-                img.setAttribute('draggable', 'false');
-                
-                // Add the image to the container
-                containerDiv.appendChild(img);
-                
-                // Create a wrapper to hold the image and optional caption
-                const wrapper = document.createElement('div');
-                wrapper.style.width = '{width}px';
-                wrapper.style.maxWidth = '100%';
-                wrapper.style.margin = '0 auto';
-                wrapper.classList.add('image-wrapper');
-                
-                // Add the container to the wrapper
-                wrapper.appendChild(containerDiv);
-                
-                // If caption is enabled, add it
-                if ({str(add_caption).lower()}) {{
-                    const captionDiv = document.createElement('div');
-                    captionDiv.style.fontSize = '0.9em';
-                    captionDiv.style.color = '#555';
-                    captionDiv.style.marginTop = '5px';
-                    captionDiv.style.textAlign = 'center';
-                    captionDiv.textContent = '{filename}';
-                    captionDiv.setAttribute('contenteditable', 'true');
-                    
-                    wrapper.appendChild(captionDiv);
-                }}
-                
-                // Get the range and insert at cursor position
-                const range = selection.getRangeAt(0);
-                range.deleteContents();
-                range.insertNode(wrapper);
-                
-                // Prevent dragging on the entire wrapper
-                wrapper.addEventListener('dragstart', function(e) {{
-                    e.preventDefault();
-                    return false;
-                }}, true);
-                
-                // Prevent selection except for caption
-                wrapper.addEventListener('mousedown', function(e) {{
-                    if (!e.target.hasAttribute('contenteditable')) {{
-                        e.preventDefault();
+                let node = selection.anchorNode;
+                while (node && node !== document.body) {{
+                    if (node.tagName === 'TABLE') {{
+                        return true;
                     }}
-                }}, true);
-                
-                // Notify content changed
-                try {{
-                    window.webkit.messageHandlers.contentChanged.postMessage('changed');
-                }} catch(e) {{
-                    console.log("Could not notify about content change:", e);
+                    node = node.parentNode;
                 }}
-                
-                return true;
-            }}
+                return false;
+            }})();
             
-            // If we're not in a cell, insert a table with the image
             // Insert a single-cell table with auto width
-            insertTable(1, 1, false, {border_width}, "auto", {str(is_floating).lower()});
+            insertTable(1, 1, false, {border_width}, "auto", false);
             
             // Get the newly created table
             setTimeout(() => {{
@@ -4838,10 +4781,10 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
                 if (newTable) {{
                     // Apply styling specific to image table
                     newTable.classList.add('image-table');
+                    newTable.classList.add('{align_class}');
                     
-                    // Set original width and store it as an attribute for later use
+                    // Set width
                     newTable.style.width = '{width}px';
-                    newTable.setAttribute('data-original-width', '{width}');
                     
                     // Set background to transparent
                     newTable.style.backgroundColor = 'transparent';
@@ -4908,7 +4851,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
                     }}
                     
                     // Set margins based on container
-                    if (insideTable) {{
+                    if (isInsideTable) {{
                         // Set all margins to 0 if inside another table
                         newTable.style.margin = '0px';
                         newTable.style.marginTop = '0px';
@@ -4938,56 +4881,10 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
                         
                         if (activeTable.classList.contains('image-table')) {{
                             // Only adjust width for image tables - height will follow with aspect ratio
-                            const newWidth = tableStartX + deltaX;
-                            activeTable.style.width = newWidth + 'px';
-                            // Update the original width attribute so alignment changes remember this size
-                            activeTable.setAttribute('data-original-width', newWidth);
+                            activeTable.style.width = (tableStartX + deltaX) + 'px';
                         }} else {{
                             // Original behavior for regular tables
                             activeTable.style.width = (tableStartX + deltaX) + 'px';
-                        }}
-                    }};
-                    
-                    // Override the setTableAlignment function to maintain image size
-                    const originalSetTableAlignment = window.setTableAlignment;
-                    window.setTableAlignment = function(alignClass) {{
-                        if (!activeTable) return;
-                        
-                        // Check if it's an image table
-                        if (activeTable.classList.contains('image-table')) {{
-                            // Get the original width
-                            const originalWidth = activeTable.getAttribute('data-original-width') || '{width}';
-                            
-                            // Remove all alignment classes
-                            activeTable.classList.remove('left-align', 'right-align', 'center-align', 'no-wrap', 'floating-table');
-                            
-                            // Add the requested alignment class
-                            activeTable.classList.add(alignClass);
-                            
-                            // Reset positioning if it was previously floating
-                            if (activeTable.style.position === 'absolute') {{
-                                activeTable.style.position = 'relative';
-                                activeTable.style.top = '';
-                                activeTable.style.left = '';
-                                activeTable.style.zIndex = '';
-                            }}
-                            
-                            // Set width based on alignment, preserving original width where appropriate
-                            if (alignClass === 'no-wrap') {{
-                                activeTable.style.width = '100%';
-                            }} else {{
-                                // Use the original width for other alignments
-                                activeTable.style.width = originalWidth + 'px';
-                            }}
-                        }} else {{
-                            // Use original function for non-image tables
-                            return originalSetTableAlignment(alignClass);
-                        }}
-                        
-                        try {{
-                            window.webkit.messageHandlers.contentChanged.postMessage('changed');
-                        }} catch(e) {{
-                            console.log("Could not notify about content change:", e);
                         }}
                     }};
                     
@@ -5032,6 +4929,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         
         # Update status message
         win.statusbar.set_text("Image inserted in table")
+
 
 ############### /Text box related methods      
 

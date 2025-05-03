@@ -1,8 +1,10 @@
+#!/usr/bin/env python3
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 from gi.repository import Gtk, Adw, Gdk, GLib, Gio, Pango, PangoCairo
 
+# insert_table.py, This module contains find-related methods for the HTML Editor application
 
 def _parse_color_string(self, color_str):
     """Parse a color string (hex, rgb, or rgba) into a Gdk.RGBA object"""
@@ -309,7 +311,7 @@ def table_insert_functions_js(self):
         if (hasHeader) {
             tableHTML += '<tr>';
             for (let j = 0; j < cols; j++) {
-                tableHTML += '<th style="border: ' + borderWidth + 'px solid ' + borderColor + '; padding: 5px; background-color: ' + headerBgColor + ';">Header ' + (j+1) + '</th>';
+                tableHTML += '<th style="border: ' + borderWidth + 'px solid ' + borderColor + '; padding: 5px; background-color: ' + headerBgColor + ';"> </th>';
             }
             tableHTML += '</tr>';
             rows--; // Reduce regular rows by one since we added a header
@@ -319,7 +321,7 @@ def table_insert_functions_js(self):
         for (let i = 0; i < rows; i++) {
             tableHTML += '<tr>';
             for (let j = 0; j < cols; j++) {
-                tableHTML += '<td style="border: ' + borderWidth + 'px solid ' + borderColor + '; padding: 5px; min-width: 30px;">Cell</td>';
+                tableHTML += '<td style="border: ' + borderWidth + 'px solid ' + borderColor + '; padding: 5px; min-width: 30px;"></td>';
             }
             tableHTML += '</tr>';
         }
