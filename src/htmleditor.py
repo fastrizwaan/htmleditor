@@ -4659,48 +4659,55 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         
         
     def _show_image_chooser(self, win, image_button):
-        """Show a file chooser for selecting an image"""
-        dialog = Gtk.FileChooserDialog(
-            title="Select Image",
-            transient_for=win,
-            action=Gtk.FileChooserAction.OPEN
-        )
+        """Show a file chooser for selecting an image using GTK4 FileDialog"""
+        # Create a FileDialog (modern replacement for FileChooserDialog)
+        dialog = Gtk.FileDialog()
+        dialog.set_title("Select Image")
         
-        # Add response buttons
-        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        dialog.add_button("Open", Gtk.ResponseType.ACCEPT)
-        
-        # Add filters for image files
+        # Create filter for image files
         image_filter = Gtk.FileFilter()
         image_filter.set_name("Image files")
         image_filter.add_mime_type("image/jpeg")
         image_filter.add_mime_type("image/png")
         image_filter.add_mime_type("image/gif")
         image_filter.add_mime_type("image/svg+xml")
-        dialog.add_filter(image_filter)
         
-        # Handle the response
-        dialog.connect("response", lambda d, response: self._on_image_chooser_response(
-            d, response, image_button))
+        # Create a filter list store
+        filters = Gio.ListStore.new(Gtk.FileFilter)
+        filters.append(image_filter)
         
-        dialog.show()
+        # Set the filters to the dialog
+        dialog.set_filters(filters)
+        
+        # Show the open dialog asynchronously
+        dialog.open(
+            win,
+            None,  # No cancellable object
+            self._on_image_chooser_response,
+            image_button
+        )
 
-    def _on_image_chooser_response(self, dialog, response, image_button):
-        """Handle the response from the image chooser"""
-        if response == Gtk.ResponseType.ACCEPT:
-            file_path = dialog.get_file().get_path()
-            
-            # Store the path
-            image_button.selected_path = file_path
-            
-            # Update the button label to show selected file
-            import os
-            filename = os.path.basename(file_path)
-            if len(filename) > 20:
-                filename = filename[:17] + "..."
-            image_button.set_label(filename)
-        
-        dialog.destroy()
+    def _on_image_chooser_response(self, dialog, result, image_button):
+        """Handle the response from the image chooser dialog"""
+        try:
+            file = dialog.open_finish(result)
+            if file:
+                # Get the path from the file
+                file_path = file.get_path()
+                
+                # Store the path
+                image_button.selected_path = file_path
+                
+                # Update the button label to show selected file
+                import os
+                filename = os.path.basename(file_path)
+                if len(filename) > 20:
+                    filename = filename[:17] + "..."
+                image_button.set_label(filename)
+        except GLib.Error as error:
+            # Handle error (typically user cancellation)
+            if error.domain != 'gtk-dialog-error-quark' or error.code != 2:  # Ignore cancel
+                print(f"Error selecting image: {error.message}")
 
 
 
