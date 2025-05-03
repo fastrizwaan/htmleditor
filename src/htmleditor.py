@@ -4709,8 +4709,6 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
             if error.domain != 'gtk-dialog-error-quark' or error.code != 2:  # Ignore cancel
                 print(f"Error selecting image: {error.message}")
 
-
-
     def _on_image_table_response(self, win, dialog, image_path, width, border_width, is_floating, add_caption):
         """Handle response from the image table dialog"""
         if not image_path:
@@ -4732,109 +4730,25 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         
         dialog.close()
         
-        # Insert the image table with proper positioning within existing cells/tables
+        # Insert a table with the image at the current selection point
         js_code = f"""
         (function() {{
-            // First determine the current context - where we're inserting
+            // Determine the current context - where we're inserting
             const selection = window.getSelection();
             if (!selection.rangeCount) return false;
             
             let node = selection.anchorNode;
             let insideTable = false;
-            let insideCell = false;
-            let targetCell = null;
-            let targetTable = null;
             
-            // Find if we're inside a table and/or a cell
+            // Find if we're inside a table
             while (node && node !== document.body) {{
-                if (node.tagName === 'TD' || node.tagName === 'TH') {{
-                    insideCell = true;
-                    targetCell = node;
-                }}
                 if (node.tagName === 'TABLE') {{
                     insideTable = true;
-                    targetTable = node;
-                    // If we've found the table but not a specific cell, don't go further
-                    if (!insideCell) break;
+                    break;
                 }}
                 node = node.parentNode;
             }}
             
-            // If we're inside a cell, insert directly into that cell
-            if (insideCell && targetCell) {{
-                // Create container for the image
-                const containerDiv = document.createElement('div');
-                containerDiv.style.width = '100%';
-                containerDiv.style.height = 'auto';
-                containerDiv.style.overflow = 'hidden';
-                containerDiv.style.position = 'relative';
-                
-                // Create image element
-                const img = document.createElement('img');
-                img.src = 'data:{mime_type};base64,{encoded_image}';
-                img.style.maxWidth = '100%';
-                img.style.display = 'block';
-                img.style.width = '100%';
-                img.style.pointerEvents = 'none';
-                img.setAttribute('data-embedded', 'true');
-                img.setAttribute('alt', '{filename}');
-                img.setAttribute('draggable', 'false');
-                
-                // Add the image to the container
-                containerDiv.appendChild(img);
-                
-                // Create a wrapper to hold the image and optional caption
-                const wrapper = document.createElement('div');
-                wrapper.style.width = '{width}px';
-                wrapper.style.maxWidth = '100%';
-                wrapper.style.margin = '0 auto';
-                wrapper.classList.add('image-wrapper');
-                
-                // Add the container to the wrapper
-                wrapper.appendChild(containerDiv);
-                
-                // If caption is enabled, add it
-                if ({str(add_caption).lower()}) {{
-                    const captionDiv = document.createElement('div');
-                    captionDiv.style.fontSize = '0.9em';
-                    captionDiv.style.color = '#555';
-                    captionDiv.style.marginTop = '5px';
-                    captionDiv.style.textAlign = 'center';
-                    captionDiv.textContent = '{filename}';
-                    captionDiv.setAttribute('contenteditable', 'true');
-                    
-                    wrapper.appendChild(captionDiv);
-                }}
-                
-                // Get the range and insert at cursor position
-                const range = selection.getRangeAt(0);
-                range.deleteContents();
-                range.insertNode(wrapper);
-                
-                // Prevent dragging on the entire wrapper
-                wrapper.addEventListener('dragstart', function(e) {{
-                    e.preventDefault();
-                    return false;
-                }}, true);
-                
-                // Prevent selection except for caption
-                wrapper.addEventListener('mousedown', function(e) {{
-                    if (!e.target.hasAttribute('contenteditable')) {{
-                        e.preventDefault();
-                    }}
-                }}, true);
-                
-                // Notify content changed
-                try {{
-                    window.webkit.messageHandlers.contentChanged.postMessage('changed');
-                }} catch(e) {{
-                    console.log("Could not notify about content change:", e);
-                }}
-                
-                return true;
-            }}
-            
-            // If we're not in a cell, insert a table with the image
             // Insert a single-cell table with auto width
             insertTable(1, 1, false, {border_width}, "auto", {str(is_floating).lower()});
             
@@ -4998,7 +4912,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
                         }}
                     }};
                     
-                    // Also override the document-level selection to prevent image selection
+                    // Override the document-level selection to prevent image selection
                     const originalSelectionHandler = document.onselectionchange;
                     document.onselectionchange = function(e) {{
                         const selection = window.getSelection();
