@@ -4954,9 +4954,440 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         # Update status message
         win.statusbar.set_text("Image inserted in table")
 
-############### /Text box related methods      
+############### /Text box related methods   
 
- 
+########### insert link   
+    def insert_link_js(self):
+        """JavaScript for insert link and related functionality"""
+        return """
+        // Function to insert a link at the current cursor position
+        function insertLink(url, text, title) {
+            // Ensure we have valid parameters
+            url = url || '#';
+            text = text || url;
+            title = title || '';
+            
+            // Create link HTML
+            let linkHTML = '<a href="' + url + '"';
+            
+            // Add title attribute if provided
+            if (title && title.trim() !== '') {
+                linkHTML += ' title="' + title + '"';
+            }
+            
+            // Add target attribute for external links
+            if (url.startsWith('http://') || url.startsWith('https://')) {
+                linkHTML += ' target="_blank" rel="noopener noreferrer"';
+            }
+            
+            // Complete the link
+            linkHTML += '>' + text + '</a>';
+            
+            // Get current selection
+            const selection = window.getSelection();
+            
+            // If there's a selection, we'll use it as the link text
+            if (selection.rangeCount > 0 && !selection.isCollapsed) {
+                // Get the selected text
+                const selectedText = selection.toString();
+                
+                // Use the selected text instead of the provided text
+                if (selectedText.trim() !== '') {
+                    linkHTML = '<a href="' + url + '"';
+                    
+                    if (title && title.trim() !== '') {
+                        linkHTML += ' title="' + title + '"';
+                    }
+                    
+                    if (url.startsWith('http://') || url.startsWith('https://')) {
+                        linkHTML += ' target="_blank" rel="noopener noreferrer"';
+                    }
+                    
+                    linkHTML += '>' + selectedText + '</a>';
+                    
+                    // Delete the selected text
+                    document.execCommand('delete');
+                }
+            }
+            
+            // Insert the link
+            document.execCommand('insertHTML', false, linkHTML);
+            
+            // Notify that content changed
+            try {
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            } catch(e) {
+                console.log("Could not notify about content change:", e);
+            }
+            
+            return true;
+        }
+        
+        // Function to check if the cursor is inside or near a link
+        function getLinkAtCursor() {
+            // Get current selection
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return null;
+            
+            let node = selection.anchorNode;
+            
+            // If we're in a text node, get its parent
+            if (node.nodeType === 3) {
+                node = node.parentNode;
+            }
+            
+            // Check if we're inside an A tag
+            if (node.tagName === 'A') {
+                return {
+                    url: node.href || '',
+                    text: node.textContent || '',
+                    title: node.title || '',
+                    element: node
+                };
+            }
+            
+            // Check if we're inside a child of an A tag
+            while (node && node !== document.body) {
+                if (node.tagName === 'A') {
+                    return {
+                        url: node.href || '',
+                        text: node.textContent || '',
+                        title: node.title || '',
+                        element: node
+                    };
+                }
+                node = node.parentNode;
+            }
+            
+            // Not inside a link
+            return null;
+        }
+        
+        // Function to update a link
+        function updateLink(element, url, text, title) {
+            if (!element || element.tagName !== 'A') {
+                // Try to find the link element in the document
+                if (typeof element === 'string') {
+                    // If element is a URL string, try to find by href
+                    const links = document.querySelectorAll('a');
+                    for (let i = 0; i < links.length; i++) {
+                        if (links[i].href === element || 
+                            links[i].getAttribute('href') === element) {
+                            element = links[i];
+                            break;
+                        }
+                    }
+                } else if (element && element.url) {
+                    // If element is a link info object
+                    const links = document.querySelectorAll('a');
+                    for (let i = 0; i < links.length; i++) {
+                        if (links[i].href === element.url || 
+                            links[i].getAttribute('href') === element.url) {
+                            element = links[i];
+                            break;
+                        }
+                    }
+                }
+                
+                // If we still don't have a valid element, return false
+                if (!element || element.tagName !== 'A') {
+                    return false;
+                }
+            }
+            
+            // Update href
+            element.href = url || '#';
+            
+            // Update text content if provided
+            if (text && text.trim() !== '') {
+                element.textContent = text;
+            }
+            
+            // Update title
+            if (title && title.trim() !== '') {
+                element.title = title;
+            } else {
+                element.removeAttribute('title');
+            }
+            
+            // Update target for external links
+            if (url.startsWith('http://') || url.startsWith('https://')) {
+                element.target = '_blank';
+                element.rel = 'noopener noreferrer';
+            } else {
+                element.removeAttribute('target');
+                element.removeAttribute('rel');
+            }
+            
+            // Notify that content changed
+            try {
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            } catch(e) {
+                console.log("Could not notify about content change:", e);
+            }
+            
+            return true;
+        }
+        
+        // Function to remove a link (keeping the text)
+        function removeLink(element) {
+            // First try to find the link element if we're given a URL or link info
+            if (!element || element.tagName !== 'A') {
+                // If element is a URL string, try to find by href
+                if (typeof element === 'string') {
+                    const links = document.querySelectorAll('a');
+                    for (let i = 0; i < links.length; i++) {
+                        if (links[i].href === element || 
+                            links[i].getAttribute('href') === element) {
+                            element = links[i];
+                            break;
+                        }
+                    }
+                } else if (element && element.url) {
+                    // If element is a link info object
+                    const links = document.querySelectorAll('a');
+                    for (let i = 0; i < links.length; i++) {
+                        if (links[i].href === element.url || 
+                            links[i].getAttribute('href') === element.url) {
+                            element = links[i];
+                            break;
+                        }
+                    }
+                }
+                
+                // If we still don't have a valid element, return false
+                if (!element || element.tagName !== 'A') {
+                    return false;
+                }
+            }
+            
+            // Get the text content
+            const text = element.textContent;
+            
+            // Create a text node to replace the link
+            const textNode = document.createTextNode(text);
+            
+            // Replace the link with its text content
+            element.parentNode.replaceChild(textNode, element);
+            
+            // Notify that content changed
+            try {
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            } catch(e) {
+                console.log("Could not notify about content change:", e);
+            }
+            
+            return true;
+        }
+        """
+
+    def on_insert_link_clicked(self, win, btn):
+        """Show a dialog with URL and Text for link insertion"""
+        # First, check if there's already a link at the cursor position
+        js_code = """
+        (function() {
+            const linkInfo = getLinkAtCursor();
+            return JSON.stringify(linkInfo);
+        })();
+        """
+        
+        win.webview.evaluate_javascript(
+            js_code,
+            -1, None, None, None,
+            lambda webview, result, data: self._show_link_dialog(win, webview, result),
+            None
+        )
+
+    def _show_link_dialog(self, win, webview, result):
+        """Show the link dialog with current link info if available"""
+        try:
+            js_result = webview.evaluate_javascript_finish(result)
+            link_info = None
+            
+            if js_result:
+                # Try different ways to get the string result based on WebKit version
+                if hasattr(js_result, 'get_js_value'):
+                    result_str = js_result.get_js_value().to_string()
+                elif hasattr(js_result, 'to_string'):
+                    result_str = js_result.to_string() 
+                else:
+                    result_str = str(js_result)
+                    
+                # Check if we have valid JSON (not "null")
+                if result_str and result_str != "null":
+                    import json
+                    link_info = json.loads(result_str)
+            
+            # Create a dialog to configure the link
+            dialog = Adw.Dialog()
+            dialog.set_title("Insert Link" if not link_info else "Edit Link")
+            dialog.set_content_width(400)
+            
+            # Create content box
+            content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+            content_box.set_margin_top(24)
+            content_box.set_margin_bottom(24)
+            content_box.set_margin_start(24)
+            content_box.set_margin_end(24)
+            
+            # URL input
+            url_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            url_label = Gtk.Label(label="URL:")
+            url_label.set_halign(Gtk.Align.START)
+            url_label.set_hexpand(True)
+            url_label.set_width_chars(8)
+            
+            url_entry = Gtk.Entry()
+            url_entry.set_placeholder_text("https://example.com")
+            url_entry.set_hexpand(True)
+            
+            # Set current URL if editing
+            if link_info and 'url' in link_info:
+                url_entry.set_text(link_info['url'])
+            
+            url_box.append(url_label)
+            url_box.append(url_entry)
+            content_box.append(url_box)
+            
+            # Text input
+            text_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            text_label = Gtk.Label(label="Text:")
+            text_label.set_halign(Gtk.Align.START)
+            text_label.set_hexpand(True)
+            text_label.set_width_chars(8)
+            
+            text_entry = Gtk.Entry()
+            text_entry.set_placeholder_text("Link text")
+            text_entry.set_hexpand(True)
+            
+            # Set current text if editing
+            if link_info and 'text' in link_info:
+                text_entry.set_text(link_info['text'])
+            
+            text_box.append(text_label)
+            text_box.append(text_entry)
+            content_box.append(text_box)
+            
+            # Title input (optional)
+            title_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            title_label = Gtk.Label(label="Title:")
+            title_label.set_halign(Gtk.Align.START)
+            title_label.set_hexpand(True)
+            title_label.set_width_chars(8)
+            
+            title_entry = Gtk.Entry()
+            title_entry.set_placeholder_text("Tooltip text (optional)")
+            title_entry.set_hexpand(True)
+            
+            # Set current title if editing
+            if link_info and 'title' in link_info:
+                title_entry.set_text(link_info['title'])
+            
+            title_box.append(title_label)
+            title_box.append(title_entry)
+            content_box.append(title_box)
+            
+            # Button box
+            button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            button_box.set_halign(Gtk.Align.END)
+            button_box.set_margin_top(16)
+            
+            # Add Remove button if editing
+            if link_info:
+                remove_button = Gtk.Button(label="Remove Link")
+                remove_button.add_css_class("destructive-action")
+                remove_button.connect("clicked", lambda btn: self._on_remove_link(win, dialog, link_info))
+                button_box.append(remove_button)
+                
+                # Add spacer
+                spacer = Gtk.Box()
+                spacer.set_hexpand(True)
+                button_box.append(spacer)
+            
+            # Cancel button
+            cancel_button = Gtk.Button(label="Cancel")
+            cancel_button.connect("clicked", lambda btn: dialog.close())
+            
+            # Insert/Update button
+            action_button = Gtk.Button(label="Insert" if not link_info else "Update")
+            action_button.add_css_class("suggested-action")
+            action_button.connect("clicked", lambda btn: self._on_link_dialog_response(
+                win, dialog, 
+                url_entry.get_text(),
+                text_entry.get_text(),
+                title_entry.get_text(),
+                link_info
+            ))
+            
+            button_box.append(cancel_button)
+            button_box.append(action_button)
+            content_box.append(button_box)
+            
+            # Set dialog content and present
+            dialog.set_child(content_box)
+            dialog.present(win)
+            
+        except Exception as e:
+            print(f"Error showing link dialog: {e}")
+            win.statusbar.set_text("Error showing link dialog")
+
+    def _on_link_dialog_response(self, win, dialog, url, text, title, link_info):
+        """Handle the response from the link dialog"""
+        dialog.close()
+        
+        # Validate URL (add https:// if missing)
+        if url and not url.startswith("http://") and not url.startswith("https://") and url != "#":
+            url = "https://" + url
+        
+        # If no URL is provided, use '#' as a placeholder
+        if not url:
+            url = "#"
+        
+        # If no text is provided, use the URL
+        if not text:
+            text = url
+        
+        # Escape quotes and special characters in URL, text and title
+        import json
+        url = json.dumps(url)[1:-1]  # Use JSON to properly escape
+        text = json.dumps(text)[1:-1]
+        title = json.dumps(title)[1:-1]
+        
+        if link_info:
+            # Update existing link
+            js_code = f"""
+            (function() {{
+                // Pass the link info object to find and update the link
+                return updateLink({json.dumps(link_info)}, "{url}", "{text}", "{title}");
+            }})();
+            """
+            self.execute_js(win, js_code)
+            win.statusbar.set_text("Link updated")
+        else:
+            # Insert new link
+            js_code = f"""
+            (function() {{
+                return insertLink("{url}", "{text}", "{title}");
+            }})();
+            """
+            self.execute_js(win, js_code)
+            win.statusbar.set_text("Link inserted")
+
+    def _on_remove_link(self, win, dialog, link_info):
+        """Remove a link while keeping its text content"""
+        dialog.close()
+        
+        # Use JSON to properly serialize the link_info object
+        import json
+        js_code = f"""
+        (function() {{
+            // Pass the link info object to find and remove the link
+            return removeLink({json.dumps(link_info)});
+        }})();
+        """
+        self.execute_js(win, js_code)
+        win.statusbar.set_text("Link removed")
+######################### /insert text #
 def main():
     app = HTMLEditorApp()
     return app.run(sys.argv)
