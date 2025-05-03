@@ -4061,7 +4061,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
 
         # In the create_window method, where the insert group is defined
         # Add a Word Art button to the insert group
-        wordart_button = Gtk.Button(icon_name="format-word-art-symbolic")  
+        wordart_button = Gtk.Button(icon_name="format-word-art-symbolic")  # Using larger text icon for Word Art
         wordart_button.set_size_request(40, 36)
         wordart_button.set_tooltip_text("Insert Word Art")
         wordart_button.connect("clicked", lambda btn: self.on_wordart_clicked(win, btn))
@@ -5843,7 +5843,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         """Show dialog to select Word Art style"""
         dialog = Adw.Dialog()
         dialog.set_title("Insert Word Art")
-        dialog.set_content_width(500)
+        dialog.set_content_width(750)
         
         # Create main content box
         content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -5871,7 +5871,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         
         # Create a scrolled window to contain the style grid
         scrolled_window = Gtk.ScrolledWindow()
-        scrolled_window.set_min_content_height(300)
+        scrolled_window.set_min_content_height(350)
         scrolled_window.set_vexpand(True)
         
         # Create a grid for style options
@@ -5893,8 +5893,20 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
             {"id": "fire", "name": "Fire", "preview": "Fire"},
             {"id": "comic", "name": "Comic", "preview": "Comic"},
             {"id": "metallic", "name": "Metallic", "preview": "Metal"},
-            {"id": "3d", "name": "3D", "preview": "3D Text"},
+            {"id": "3d", "name": "3D Text", "preview": "3D Text"},
             {"id": "glitch", "name": "Glitch", "preview": "Glitch"},
+            {"id": "rainbow", "name": "Rainbow", "preview": "Rainbow"},
+            {"id": "newspaper", "name": "Newspaper", "preview": "News"},
+            {"id": "blueprint", "name": "Blueprint", "preview": "Blueprint"},
+            {"id": "cyberpunk", "name": "Cyberpunk", "preview": "Cyber"},
+            {"id": "toxic", "name": "Toxic", "preview": "Toxic"},
+            {"id": "grunge", "name": "Grunge", "preview": "Grunge"},
+            {"id": "pixel", "name": "Pixel", "preview": "Pixel"},
+            {"id": "handwritten", "name": "Handwritten", "preview": "Handwritten"},
+            {"id": "marquee", "name": "Marquee", "preview": "Marquee"},
+            {"id": "matrix", "name": "Matrix", "preview": "Matrix"},
+            {"id": "bubble", "name": "Bubble", "preview": "Bubble"},
+            {"id": "vintage", "name": "Vintage", "preview": "Vintage"}
         ]
         
         # Generate CSS styles for previews
@@ -5914,7 +5926,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
             background-color: #666; 
             color: transparent;
             text-shadow: 2px 2px 3px rgba(255,255,255,0.5);
-            -webkit-background-clip: text;
+            background-clip: text;
             font-weight: bold; 
             font-size: 18px; 
         }
@@ -5939,14 +5951,14 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         }
         .wordart-gradient { 
             background: linear-gradient(to right, #ff8a00, #e52e71, #2d00f7);
-            -webkit-background-clip: text;
+            background-clip: text;
             color: transparent;
             font-weight: bold; 
             font-size: 18px; 
         }
         .wordart-fire { 
             background: linear-gradient(0deg, #ff8c00, #ff0000);
-            -webkit-background-clip: text;
+            background-clip: text;
             color: transparent;
             font-weight: bold; 
             font-size: 18px; 
@@ -5960,7 +5972,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         }
         .wordart-metallic { 
             background: linear-gradient(to bottom, #d5d5d5 0%, #919191 98%);
-            -webkit-background-clip: text;
+            background-clip: text;
             color: transparent;
             text-shadow: 2px 2px 3px rgba(255,255,255,0.5);
             font-weight: bold; 
@@ -5982,6 +5994,95 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
             font-weight: bold; 
             font-size: 18px;
         }
+        .wordart-rainbow {
+            background: linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet);
+            background-clip: text;
+            color: transparent;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .wordart-newspaper {
+            font-family: 'Times New Roman', serif;
+            font-weight: 900;
+            font-size: 18px;
+            text-transform: uppercase;
+            border-top: 2px solid #000;
+            border-bottom: 2px solid #000;
+            padding: 2px 0;
+        }
+        .wordart-blueprint {
+            color: #2980b9;
+            font-family: monospace;
+            text-shadow: 0 0 1px #2980b9;
+            font-weight: normal;
+            font-size: 18px;
+            border: 1px solid #2980b9;
+            padding: 2px 5px;
+        }
+        .wordart-cyberpunk {
+            color: #f0f;
+            text-shadow: 3px 3px 0 #0ff;
+            font-weight: bold;
+            font-size: 18px;
+            letter-spacing: 1px;
+        }
+        .wordart-toxic {
+            color: #39ff14;
+            text-shadow: 0 0 5px #39ff14;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .wordart-grunge {
+            color: #333;
+            font-family: 'Impact', sans-serif;
+            text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;
+            font-weight: bold;
+            font-size: 18px;
+            letter-spacing: -1px;
+        }
+        .wordart-pixel {
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 18px;
+            color: #000;
+            text-shadow: 2px 2px 0 #fff;
+            letter-spacing: 2px;
+        }
+        .wordart-handwritten {
+            font-family: cursive;
+            font-size: 18px;
+            font-style: italic;
+            color: #1e3a8a;
+        }
+        .wordart-marquee {
+            color: #FFF;
+            text-shadow: 0 0 5px #FFF, 0 0 10px #FFF, 0 0 15px #FFF, 0 0 20px #FF0000, 0 0 30px #FF0000;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .wordart-matrix {
+            color: #0F0;
+            font-family: monospace;
+            text-shadow: 0 0 5px #0F0;
+            font-weight: bold;
+            font-size: 18px;
+            letter-spacing: 1px;
+        }
+        .wordart-bubble {
+            color: #2d88ff;
+            text-shadow: 0 0 3px #fff, 0 0 6px #fff;
+            font-weight: bold;
+            font-size: 18px;
+            letter-spacing: 1px;
+        }
+        .wordart-vintage {
+            color: #a67951;
+            font-family: serif;
+            text-shadow: 1px 1px 1px #d8c5ad;
+            font-weight: normal;
+            font-size: 18px;
+            letter-spacing: 1px;
+        }
         """
         
         # Apply CSS to the application
@@ -6002,8 +6103,8 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         
         # Add styles to the grid
         for i, style in enumerate(word_art_styles):
-            row = i // 3
-            col = i % 3
+            row = i // 4  # 4 columns instead of 3
+            col = i % 4
             
             # Create a frame for the style
             frame = Gtk.Frame()
@@ -6150,6 +6251,42 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
                 case 'glitch':
                     wordArtHtml = '<span style="display: inline-block; color: #00fffc; text-shadow: 2px 0 #ff00c1, -2px 0 #fffc00; font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
                     break;
+                case 'rainbow':
+                    wordArtHtml = '<span style="display: inline-block; background: linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet); background-clip: text; color: transparent; font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'newspaper':
+                    wordArtHtml = '<span style="display: inline-block; font-family: \\'Times New Roman\\', serif; font-weight: 900; font-size: 24px; text-transform: uppercase; border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 5px 0;">{escaped_text}</span>';
+                    break;
+                case 'blueprint':
+                    wordArtHtml = '<span style="display: inline-block; color: #2980b9; font-family: monospace; text-shadow: 0 0 1px #2980b9; font-weight: normal; font-size: 24px; border: 1px solid #2980b9; padding: 5px 10px;">{escaped_text}</span>';
+                    break;
+                case 'cyberpunk':
+                    wordArtHtml = '<span style="display: inline-block; color: #f0f; text-shadow: 3px 3px 0 #0ff; font-weight: bold; font-size: 24px; letter-spacing: 1px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'toxic':
+                    wordArtHtml = '<span style="display: inline-block; color: #39ff14; text-shadow: 0 0 5px #39ff14; font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'grunge':
+                    wordArtHtml = '<span style="display: inline-block; color: #333; font-family: \\'Impact\\', sans-serif; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff; font-weight: bold; font-size: 24px; letter-spacing: -1px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'pixel':
+                    wordArtHtml = '<span style="display: inline-block; font-family: monospace; font-weight: bold; font-size: 24px; color: #000; text-shadow: 2px 2px 0 #fff; letter-spacing: 2px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'handwritten':
+                    wordArtHtml = '<span style="display: inline-block; font-family: cursive; font-size: 24px; font-style: italic; color: #1e3a8a; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'marquee':
+                    wordArtHtml = '<span style="display: inline-block; color: #FFF; text-shadow: 0 0 5px #FFF, 0 0 10px #FFF, 0 0 15px #FFF, 0 0 20px #FF0000, 0 0 30px #FF0000; font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'matrix':
+                    wordArtHtml = '<span style="display: inline-block; color: #0F0; font-family: monospace; text-shadow: 0 0 5px #0F0; font-weight: bold; font-size: 24px; letter-spacing: 1px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'bubble':
+                    wordArtHtml = '<span style="display: inline-block; color: #2d88ff; text-shadow: 0 0 3px #fff, 0 0 6px #fff; font-weight: bold; font-size: 24px; letter-spacing: 1px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'vintage':
+                    wordArtHtml = '<span style="display: inline-block; color: #a67951; font-family: serif; text-shadow: 1px 1px 1px #d8c5ad; font-weight: normal; font-size: 24px; letter-spacing: 1px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
                 default:
                     wordArtHtml = '<span style="display: inline-block; font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
             }}
@@ -6176,31 +6313,896 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         return """
         // Function to create Word Art with various styles
         function createWordArt(text, style) {
-            // Clean text for HTML insertion
-            const textContent = text.replace(/'/g, "\\'");
-            
             // Create Word Art HTML based on style
             let wordArtHtml = '';
             
             switch (style) {
                 case 'shadow':
-                    wordArtHtml = `<span style="display: inline-block; text-shadow: 4px 4px 8px rgba(0,0,0,0.5); 
-                                    font-weight: bold; font-size: 24px; padding: 10px 0;">${textContent}</span>`;
+                    wordArtHtml = '<span style="display: inline-block; text-shadow: 4px 4px 8px rgba(0,0,0,0.5); font-weight: bold; font-size: 24px; padding: 10px 0;">' + text + '</span>';
                     break;
                 case 'outline':
-                    wordArtHtml = `<span style="display: inline-block; color: white; 
-                                    text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
-                                    font-weight: bold; font-size: 24px; padding: 10px 0;">${textContent}</span>`;
+                    wordArtHtml = '<span style="display: inline-block; color: white; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; font-weight: bold; font-size: 24px; padding: 10px 0;">' + text + '</span>';
                     break;
-                // Add more styles here...
+                case 'inset':
+                    wordArtHtml = '<span style="display: inline-block; background-color: #666; color: transparent; text-shadow: 2px 2px 3px rgba(255,255,255,0.5); background-clip: text; font-weight: bold; font-size: 24px; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'neon':
+                    wordArtHtml = '<span style="display: inline-block; color: #fff; text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 15px #0073e6, 0 0 20px #0073e6; font-weight: bold; font-size: 24px; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'retro':
+                    wordArtHtml = '<span style="display: inline-block; color: #fc0; text-shadow: 2px 2px 0px #f00; font-family: monospace; font-weight: bold; font-size: 24px; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'emboss':
+                    wordArtHtml = '<span style="display: inline-block; color: #555; text-shadow: -1px -1px 1px #000, 1px 1px 1px #fff; font-weight: bold; font-size: 24px; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'gradient':
+                    wordArtHtml = '<span style="display: inline-block; background: linear-gradient(to right, #ff8a00, #e52e71, #2d00f7); background-clip: text; color: transparent; font-weight: bold; font-size: 24px; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'fire':
+                    wordArtHtml = '<span style="display: inline-block; background: linear-gradient(0deg, #ff8c00, #ff0000); background-clip: text; color: transparent; font-weight: bold; font-size: 24px; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'comic':
+                    wordArtHtml = '<span style="display: inline-block; color: #fd0; text-shadow: -3px 0 4px #000; font-family: fantasy, \\'Comic Sans MS\\', cursive; font-weight: bold; font-size: 24px; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'metallic':
+                    wordArtHtml = '<span style="display: inline-block; background: linear-gradient(to bottom, #d5d5d5 0%, #919191 98%); background-clip: text; color: transparent; text-shadow: 2px 2px 3px rgba(255,255,255,0.5); font-weight: bold; font-size: 24px; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case '3d':
+                    wordArtHtml = '<span style="display: inline-block; color: #5e17eb; text-shadow: 0px 1px 0px #c5bce4, 0px 2px 0px #a197c0, 0px 3px 0px #7c738e, 0px 4px 0px #58505f, 0px 5px 10px rgba(0, 0, 0, 0.6); font-weight: bold; font-size: 24px; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'glitch':
+                    wordArtHtml = '<span style="display: inline-block; color: #00fffc; text-shadow: 2px 0 #ff00c1, -2px 0 #fffc00; font-weight: bold; font-size: 24px; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'rainbow':
+                    wordArtHtml = '<span style="display: inline-block; background: linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet); background-clip: text; color: transparent; font-weight: bold; font-size: 24px; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'newspaper':
+                    wordArtHtml = '<span style="display: inline-block; font-family: \\'Times New Roman\\', serif; font-weight: 900; font-size: 24px; text-transform: uppercase; border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 5px 0;">' + text + '</span>';
+                    break;
+                case 'blueprint':
+                    wordArtHtml = '<span style="display: inline-block; color: #2980b9; font-family: monospace; text-shadow: 0 0 1px #2980b9; font-weight: normal; font-size: 24px; border: 1px solid #2980b9; padding: 5px 10px;">' + text + '</span>';
+                    break;
+                case 'cyberpunk':
+                    wordArtHtml = '<span style="display: inline-block; color: #f0f; text-shadow: 3px 3px 0 #0ff; font-weight: bold; font-size: 24px; letter-spacing: 1px; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'toxic':
+                    wordArtHtml = '<span style="display: inline-block; color: #39ff14; text-shadow: 0 0 5px #39ff14; font-weight: bold; font-size: 24px; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'grunge':
+                    wordArtHtml = '<span style="display: inline-block; color: #333; font-family: \\'Impact\\', sans-serif; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff; font-weight: bold; font-size: 24px; letter-spacing: -1px; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'pixel':
+                    wordArtHtml = '<span style="display: inline-block; font-family: monospace; font-weight: bold; font-size: 24px; color: #000; text-shadow: 2px 2px 0 #fff; letter-spacing: 2px; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'handwritten':
+                    wordArtHtml = '<span style="display: inline-block; font-family: cursive; font-size: 24px; font-style: italic; color: #1e3a8a; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'marquee':
+                    wordArtHtml = '<span style="display: inline-block; color: #FFF; text-shadow: 0 0 5px #FFF, 0 0 10px #FFF, 0 0 15px #FFF, 0 0 20px #FF0000, 0 0 30px #FF0000; font-weight: bold; font-size: 24px; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'matrix':
+                    wordArtHtml = '<span style="display: inline-block; color: #0F0; font-family: monospace; text-shadow: 0 0 5px #0F0; font-weight: bold; font-size: 24px; letter-spacing: 1px; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'bubble':
+                    wordArtHtml = '<span style="display: inline-block; color: #2d88ff; text-shadow: 0 0 3px #fff, 0 0 6px #fff; font-weight: bold; font-size: 24px; letter-spacing: 1px; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'vintage':
+                    wordArtHtml = '<span style="display: inline-block; color: #a67951; font-family: serif; text-shadow: 1px 1px 1px #d8c5ad; font-weight: normal; font-size: 24px; letter-spacing: 1px; padding: 10px 0;">' + text + '</span>';
+                    break;
                 default:
-                    wordArtHtml = `<span style="display: inline-block; font-weight: bold; 
-                                    font-size: 24px; padding: 10px 0;">${textContent}</span>`;
+                    wordArtHtml = '<span style="display: inline-block; font-weight: bold; font-size: 24px; padding: 10px 0;">' + text + '</span>';
             }
             
             return wordArtHtml;
         }
+        
+        // Function to insert Word Art at cursor position
+        function insertWordArt(text, style) {
+            const wordArtHtml = createWordArt(text, style);
+            document.execCommand('insertHTML', false, wordArtHtml);
+            
+            // Notify that content changed
+            try {
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            } catch(e) {
+                console.log("Could not notify about content change:", e);
+            }
+            
+            return true;
+        }
         """
+####################### modern wordart
+    def on_wordart_clicked(self, win, btn):
+        """Show dialog to select Word Art style"""
+        dialog = Adw.Dialog()
+        dialog.set_title("Insert Word Art")
+        dialog.set_content_width(550)
+        
+        # Create main content box
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        content_box.set_margin_top(24)
+        content_box.set_margin_bottom(24)
+        content_box.set_margin_start(24)
+        content_box.set_margin_end(24)
+        
+        # Text entry for Word Art content
+        text_label = Gtk.Label(label="Text:")
+        text_label.set_halign(Gtk.Align.START)
+        text_label.set_margin_bottom(6)
+        content_box.append(text_label)
+        
+        text_entry = Gtk.Entry()
+        text_entry.set_placeholder_text("Enter text for Word Art")
+        text_entry.set_margin_bottom(12)
+        content_box.append(text_entry)
+        
+        # Create notebook with tabs for different style categories
+        style_notebook = Gtk.Notebook()
+        style_notebook.set_vexpand(True)
+        
+        # Create a toggle button group for styles
+        style_buttons = []
+        
+        # CLASSIC TAB - Classic Word Art styles from image
+        classic_tab_content = self._create_classic_wordart_tab(style_buttons)
+        classic_tab_label = Gtk.Label(label="Classic")
+        style_notebook.append_page(classic_tab_content, classic_tab_label)
+        
+        # MODERN TAB - Modern CSS effects
+        modern_tab_content = self._create_modern_wordart_tab(style_buttons)
+        modern_tab_label = Gtk.Label(label="Modern")
+        style_notebook.append_page(modern_tab_content, modern_tab_label)
+        
+        # Add the notebook to the dialog
+        content_box.append(style_notebook)
+        
+        # Button box
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        button_box.set_halign(Gtk.Align.END)
+        button_box.set_margin_top(16)
+        
+        # Cancel button
+        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button.connect("clicked", lambda btn: dialog.close())
+        button_box.append(cancel_button)
+        
+        # Clear button
+        clear_button = Gtk.Button(label="Clear Word Art")
+        clear_button.connect("clicked", lambda btn: self._on_clear_wordart(win, dialog))
+        button_box.append(clear_button)
+        
+        # Insert button
+        insert_button = Gtk.Button(label="Insert")
+        insert_button.add_css_class("suggested-action")
+        
+        # Function to get selected style
+        def get_selected_style():
+            for button in style_buttons:
+                if button.get_active():
+                    return button.style_id
+            return None
+        
+        # Connect insert button
+        insert_button.connect("clicked", lambda btn: self._on_wordart_dialog_response(
+            win, dialog, text_entry.get_text(), get_selected_style()))
+        
+        button_box.append(insert_button)
+        content_box.append(button_box)
+        
+        # Set dialog content and present
+        dialog.set_child(content_box)
+        dialog.present(win)
+        
+        # Activate first style button by default
+        if style_buttons:
+            style_buttons[0].set_active(True)
+
+    def _create_classic_wordart_tab(self, style_buttons):
+        """Create the classic Word Art styles tab content"""
+        # Create a scrolled window to contain the style grid
+        scrolled_window = Gtk.ScrolledWindow()
+        scrolled_window.set_min_content_height(350)
+        scrolled_window.set_vexpand(True)
+        
+        # Create a grid for style options
+        styles_grid = Gtk.Grid()
+        styles_grid.set_row_spacing(12)
+        styles_grid.set_column_spacing(12)
+        styles_grid.set_row_homogeneous(True)
+        styles_grid.set_column_homogeneous(True)
+        
+        # Define classic Word Art styles
+        classic_styles = [
+            {"id": "classic_plain", "name": "Plain", "preview": "A"},
+            {"id": "classic_blue", "name": "Blue", "preview": "A"},
+            {"id": "classic_orange_fill", "name": "Orange Fill", "preview": "A"},
+            {"id": "classic_blue_outline", "name": "Blue Outline", "preview": "A"},
+            {"id": "classic_yellow", "name": "Yellow", "preview": "A"},
+            {"id": "classic_gray", "name": "Gray", "preview": "A"},
+            {"id": "classic_light_blue", "name": "Light Blue", "preview": "A"},
+            {"id": "classic_yellow_gradient", "name": "Yellow Gradient", "preview": "A"},
+            {"id": "classic_blue_shadow", "name": "Blue Shadow", "preview": "A"},
+            {"id": "classic_silver", "name": "Silver", "preview": "A"},
+            {"id": "classic_bold_black", "name": "Bold Black", "preview": "A"},
+            {"id": "classic_black_outline", "name": "Black Outline", "preview": "A"},
+            {"id": "classic_blue_gradient", "name": "Blue Gradient", "preview": "A"},
+            {"id": "classic_orange_outline", "name": "Orange Outline", "preview": "A"},
+            {"id": "classic_gray_shadow", "name": "Gray Shadow", "preview": "A"},
+            {"id": "classic_hatched", "name": "Hatched", "preview": "A"},
+            {"id": "classic_3d_gray", "name": "3D Gray", "preview": "A"},
+            {"id": "classic_blue_bubble", "name": "Blue Bubble", "preview": "A"},
+            {"id": "classic_hollow_blue", "name": "Hollow Blue", "preview": "A"},
+            {"id": "classic_3d_black", "name": "3D Black", "preview": "A"}
+        ]
+        
+        # Generate CSS styles for previews
+        classic_css = """
+        .wordart-classic_plain { 
+            font-family: Arial, sans-serif;
+            font-weight: bold; 
+            font-size: 24px;
+            color: #000;
+        }
+        .wordart-classic_blue { 
+            font-family: Arial, sans-serif;
+            font-weight: bold; 
+            font-size: 24px;
+            color: #4472C4;
+        }
+        .wordart-classic_orange_fill { 
+            font-family: Arial, sans-serif;
+            font-weight: bold; 
+            font-size: 24px;
+            color: #ED7D31;
+        }
+        .wordart-classic_blue_outline { 
+            font-family: Arial, sans-serif;
+            font-weight: bold; 
+            font-size: 24px;
+            color: white;
+            text-shadow: -1px -1px 0 #4472C4, 1px -1px 0 #4472C4, -1px 1px 0 #4472C4, 1px 1px 0 #4472C4;
+        }
+        .wordart-classic_yellow { 
+            font-family: Arial, sans-serif;
+            font-weight: bold; 
+            font-size: 24px;
+            color: #FFD966;
+        }
+        .wordart-classic_gray { 
+            font-family: Arial, sans-serif;
+            font-weight: bold; 
+            font-size: 24px;
+            color: #A5A5A5;
+        }
+        .wordart-classic_light_blue { 
+            font-family: Arial, sans-serif;
+            font-weight: bold; 
+            font-size: 24px;
+            color: #5B9BD5;
+        }
+        .wordart-classic_yellow_gradient { 
+            font-family: Arial, sans-serif;
+            font-weight: bold; 
+            font-size: 24px;
+            background: linear-gradient(to bottom, #FFD966, #BF8F00);
+            background-clip: text;
+            color: transparent;
+        }
+        .wordart-classic_blue_shadow { 
+            font-family: Arial, sans-serif;
+            font-weight: bold; 
+            font-size: 24px;
+            color: #5B9BD5;
+            text-shadow: 2px 2px 3px rgba(0,0,0,0.3);
+        }
+        .wordart-classic_silver { 
+            font-family: Arial, sans-serif;
+            font-weight: bold; 
+            font-size: 24px;
+            background: linear-gradient(to bottom, #F2F2F2, #BFBFBF);
+            background-clip: text;
+            color: transparent;
+        }
+        .wordart-classic_bold_black { 
+            font-family: Arial Black, sans-serif;
+            font-weight: 900; 
+            font-size: 24px;
+            color: #000;
+        }
+        .wordart-classic_black_outline { 
+            font-family: Arial, sans-serif;
+            font-weight: bold; 
+            font-size: 24px;
+            color: white;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+        }
+        .wordart-classic_blue_gradient { 
+            font-family: Arial, sans-serif;
+            font-weight: bold; 
+            font-size: 24px;
+            background: linear-gradient(to bottom, #4472C4, #2F528F);
+            background-clip: text;
+            color: transparent;
+        }
+        .wordart-classic_orange_outline { 
+            font-family: Arial, sans-serif;
+            font-weight: bold; 
+            font-size: 24px;
+            color: white;
+            text-shadow: -1px -1px 0 #ED7D31, 1px -1px 0 #ED7D31, -1px 1px 0 #ED7D31, 1px 1px 0 #ED7D31;
+        }
+        .wordart-classic_gray_shadow { 
+            font-family: Arial, sans-serif;
+            font-weight: bold; 
+            font-size: 24px;
+            color: #A5A5A5;
+            text-shadow: 2px 2px 3px rgba(0,0,0,0.3);
+        }
+        .wordart-classic_hatched { 
+            font-family: Arial, sans-serif;
+            font-weight: bold; 
+            font-size: 24px;
+            background-image: repeating-linear-gradient(45deg, #000, #000 2px, transparent 2px, transparent 4px);
+            background-clip: text;
+            color: transparent;
+            -webkit-text-stroke: 1px black;
+        }
+        .wordart-classic_3d_gray { 
+            font-family: Arial, sans-serif;
+            font-weight: bold; 
+            font-size: 24px;
+            color: #A5A5A5;
+            text-shadow: 1px 1px 0px #fff, 2px 2px 0px #A5A5A5, 3px 3px 0px #999;
+        }
+        .wordart-classic_blue_bubble { 
+            font-family: Arial, sans-serif;
+            font-weight: bold; 
+            font-size: 24px;
+            color: #4472C4;
+            text-shadow: 0 0 5px rgba(68, 114, 196, 0.5);
+            border: 1px solid #4472C4;
+            border-radius: 5px;
+            padding: 0 5px;
+        }
+        .wordart-classic_hollow_blue { 
+            font-family: Arial, sans-serif;
+            font-weight: bold; 
+            font-size: 24px;
+            color: transparent;
+            -webkit-text-stroke: 1px #4472C4;
+        }
+        .wordart-classic_3d_black { 
+            font-family: Arial, sans-serif;
+            font-weight: bold; 
+            font-size: 24px;
+            color: #000;
+            text-shadow: 1px 1px 0px #666, 2px 2px 0px #444, 3px 3px 0px #222, 4px 4px 4px rgba(0,0,0,0.3);
+        }
+        """
+        
+        # Apply CSS to the application
+        provider = Gtk.CssProvider()
+        provider.load_from_data(classic_css.encode())
+        
+        Gtk.StyleContext.add_provider_for_display(
+            Gdk.Display.get_default(), 
+            provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+        
+        # Add styles to the grid (5x4 grid layout)
+        for i, style in enumerate(classic_styles):
+            row = i // 5
+            col = i % 5
+            
+            # Create a frame for the style
+            frame = Gtk.Frame()
+            frame.set_margin_top(6)
+            frame.set_margin_bottom(6)
+            frame.set_margin_start(6)
+            frame.set_margin_end(6)
+            
+            # Create a box for the style preview
+            style_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            style_box.set_margin_top(12)
+            style_box.set_margin_bottom(12)
+            style_box.set_margin_start(12)
+            style_box.set_margin_end(12)
+            
+            # Preview label with styling
+            preview = Gtk.Label(label=style["preview"])
+            preview.add_css_class(f"wordart-{style['id']}")
+            preview.set_halign(Gtk.Align.CENTER)
+            preview.set_margin_bottom(6)
+            
+            # Toggle button for selection
+            select_button = Gtk.ToggleButton(label="Select")
+            select_button.style_id = style["id"]
+            
+            # Add to button group for radio behavior
+            if len(style_buttons) > 0:
+                select_button.set_group(style_buttons[0])
+            style_buttons.append(select_button)
+            
+            # Add to box
+            style_box.append(preview)
+            style_box.append(select_button)
+            
+            # Add to frame
+            frame.set_child(style_box)
+            
+            # Add to grid
+            styles_grid.attach(frame, col, row, 1, 1)
+        
+        # Add the grid to the scrolled window
+        scrolled_window.set_child(styles_grid)
+        
+        return scrolled_window
+
+    def _create_modern_wordart_tab(self, style_buttons):
+        """Create the modern Word Art styles tab content"""
+        # Create a scrolled window to contain the style grid
+        scrolled_window = Gtk.ScrolledWindow()
+        scrolled_window.set_min_content_height(350)
+        scrolled_window.set_vexpand(True)
+        
+        # Create a grid for style options
+        styles_grid = Gtk.Grid()
+        styles_grid.set_row_spacing(12)
+        styles_grid.set_column_spacing(12)
+        styles_grid.set_row_homogeneous(True)
+        styles_grid.set_column_homogeneous(True)
+        
+        # Define modern Word Art styles
+        modern_styles = [
+            {"id": "shadow", "name": "Shadow", "preview": "Shadow"},
+            {"id": "outline", "name": "Outline", "preview": "Outline"},
+            {"id": "inset", "name": "Inset", "preview": "Inset"},
+            {"id": "neon", "name": "Neon Glow", "preview": "Neon"},
+            {"id": "retro", "name": "Retro", "preview": "Retro"},
+            {"id": "emboss", "name": "Embossed", "preview": "Emboss"},
+            {"id": "gradient", "name": "Gradient", "preview": "Gradient"},
+            {"id": "fire", "name": "Fire", "preview": "Fire"},
+            {"id": "comic", "name": "Comic", "preview": "Comic"},
+            {"id": "metallic", "name": "Metallic", "preview": "Metal"},
+            {"id": "3d", "name": "3D Text", "preview": "3D Text"},
+            {"id": "glitch", "name": "Glitch", "preview": "Glitch"},
+            {"id": "rainbow", "name": "Rainbow", "preview": "Rainbow"},
+            {"id": "newspaper", "name": "Newspaper", "preview": "News"},
+            {"id": "blueprint", "name": "Blueprint", "preview": "Blueprint"},
+            {"id": "cyberpunk", "name": "Cyberpunk", "preview": "Cyber"},
+            {"id": "toxic", "name": "Toxic", "preview": "Toxic"},
+            {"id": "grunge", "name": "Grunge", "preview": "Grunge"},
+            {"id": "pixel", "name": "Pixel", "preview": "Pixel"},
+            {"id": "handwritten", "name": "Handwritten", "preview": "Handwritten"}
+        ]
+        
+        # Generate CSS styles for previews - reuse the CSS from earlier implementation
+        # Use the existing CSS provider for these styles
+        
+        # Add styles to the grid (4 columns layout)
+        for i, style in enumerate(modern_styles):
+            row = i // 4
+            col = i % 4
+            
+            # Create a frame for the style
+            frame = Gtk.Frame()
+            frame.set_margin_top(6)
+            frame.set_margin_bottom(6)
+            frame.set_margin_start(6)
+            frame.set_margin_end(6)
+            
+            # Create a box for the style preview
+            style_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            style_box.set_margin_top(12)
+            style_box.set_margin_bottom(12)
+            style_box.set_margin_start(12)
+            style_box.set_margin_end(12)
+            
+            # Preview label with styling
+            preview = Gtk.Label(label=style["preview"])
+            preview.add_css_class(f"wordart-{style['id']}")
+            preview.set_halign(Gtk.Align.CENTER)
+            preview.set_margin_bottom(6)
+            
+            # Style name
+            name_label = Gtk.Label(label=style["name"])
+            name_label.set_halign(Gtk.Align.CENTER)
+            
+            # Toggle button for selection
+            select_button = Gtk.ToggleButton(label="Select")
+            select_button.style_id = style["id"]
+            
+            # Add to button group for radio behavior
+            if len(style_buttons) > 0:
+                select_button.set_group(style_buttons[0])
+            style_buttons.append(select_button)
+            
+            # Add to box
+            style_box.append(preview)
+            style_box.append(name_label)
+            style_box.append(select_button)
+            
+            # Add to frame
+            frame.set_child(style_box)
+            
+            # Add to grid
+            styles_grid.attach(frame, col, row, 1, 1)
+        
+        # Add the grid to the scrolled window
+        scrolled_window.set_child(styles_grid)
+        
+        return scrolled_window
+
+    def _on_clear_wordart(self, win, dialog):
+        """Clear Word Art styling from selected text"""
+        dialog.close()
+        
+        js_code = """
+        (function() {
+            // Get the selected text
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return false;
+            
+            const range = selection.getRangeAt(0);
+            if (range.collapsed) return false; // No selection
+            
+            // Create a temporary span element
+            const tempSpan = document.createElement('span');
+            
+            // Extract the text content only
+            const textContent = range.toString();
+            
+            // Place just the text content in the span
+            tempSpan.textContent = textContent;
+            
+            // Delete the selected content
+            range.deleteContents();
+            
+            // Insert the plain text
+            range.insertNode(tempSpan);
+            
+            // Clean up any nested spans
+            const tempHtml = tempSpan.outerHTML;
+            tempSpan.parentNode.removeChild(tempSpan);
+            
+            // Insert as plain text
+            document.execCommand('insertText', false, textContent);
+            
+            // Notify that content changed
+            try {
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            } catch(e) {
+                console.log("Could not notify about content change:", e);
+            }
+            
+            return true;
+        })();
+        """
+        
+        self.execute_js(win, js_code)
+        win.statusbar.set_text("Word Art styling removed")
+
+    def _on_wordart_dialog_response(self, win, dialog, text, style_id):
+        """Handle the response from the Word Art dialog"""
+        if not text:
+            # Show error if no text provided
+            self.show_error_dialog(win, "Please enter text for the Word Art")
+            return
+        
+        if not style_id:
+            # Show error if no style selected
+            self.show_error_dialog(win, "Please select a Word Art style")
+            return
+        
+        # Close the dialog
+        dialog.close()
+        
+        # Escape single quotes in the text to avoid JS errors
+        escaped_text = text.replace("'", "\\'")
+        
+        # Apply the Word Art style to the text
+        js_code = f"""
+        (function() {{
+            // Create the Word Art HTML
+            let wordArtHtml = '';
+            
+            switch ('{style_id}') {{
+                // Classic styles
+                case 'classic_plain':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #000; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'classic_blue':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #4472C4; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'classic_orange_fill':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #ED7D31; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'classic_blue_outline':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: white; text-shadow: -1px -1px 0 #4472C4, 1px -1px 0 #4472C4, -1px 1px 0 #4472C4, 1px 1px 0 #4472C4; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'classic_yellow':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #FFD966; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'classic_gray':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #A5A5A5; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'classic_light_blue':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #5B9BD5; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'classic_yellow_gradient':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; background: linear-gradient(to bottom, #FFD966, #BF8F00); background-clip: text; color: transparent; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'classic_blue_shadow':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #5B9BD5; text-shadow: 2px 2px 3px rgba(0,0,0,0.3); padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'classic_silver':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; background: linear-gradient(to bottom, #F2F2F2, #BFBFBF); background-clip: text; color: transparent; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'classic_bold_black':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial Black, sans-serif; font-weight: 900; font-size: 24px; color: #000; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'classic_black_outline':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: white; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'classic_blue_gradient':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; background: linear-gradient(to bottom, #4472C4, #2F528F); background-clip: text; color: transparent; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'classic_orange_outline':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: white; text-shadow: -1px -1px 0 #ED7D31, 1px -1px 0 #ED7D31, -1px 1px 0 #ED7D31, 1px 1px 0 #ED7D31; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'classic_gray_shadow':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #A5A5A5; text-shadow: 2px 2px 3px rgba(0,0,0,0.3); padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'classic_hatched':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; border: 1px solid black; padding: 5px; background-image: repeating-linear-gradient(45deg, #000, #000 2px, transparent 2px, transparent 4px); -webkit-text-stroke: 1px black; color: white; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'classic_3d_gray':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #A5A5A5; text-shadow: 1px 1px 0px #fff, 2px 2px 0px #A5A5A5, 3px 3px 0px #999; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'classic_blue_bubble':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #4472C4; text-shadow: 0 0 5px rgba(68, 114, 196, 0.5); border: 1px solid #4472C4; border-radius: 5px; padding: 5px 10px;">{escaped_text}</span>';
+                    break;
+                case 'classic_hollow_blue':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: transparent; -webkit-text-stroke: 1px #4472C4; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'classic_3d_black':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #000; text-shadow: 1px 1px 0px #666, 2px 2px 0px #444, 3px 3px 0px #222, 4px 4px 4px rgba(0,0,0,0.3); padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                    
+                // Modern styles
+                case 'shadow':
+                    wordArtHtml = '<span style="display: inline-block; text-shadow: 4px 4px 8px rgba(0,0,0,0.5); font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'outline':
+                    wordArtHtml = '<span style="display: inline-block; color: white; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'inset':
+                    wordArtHtml = '<span style="display: inline-block; background-color: #666; color: transparent; text-shadow: 2px 2px 3px rgba(255,255,255,0.5); background-clip: text; font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'neon':
+                    wordArtHtml = '<span style="display: inline-block; color: #fff; text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 15px #0073e6, 0 0 20px #0073e6; font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'retro':
+                    wordArtHtml = '<span style="display: inline-block; color: #fc0; text-shadow: 2px 2px 0px #f00; font-family: monospace; font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'emboss':
+                    wordArtHtml = '<span style="display: inline-block; color: #555; text-shadow: -1px -1px 1px #000, 1px 1px 1px #fff; font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'gradient':
+                    wordArtHtml = '<span style="display: inline-block; background: linear-gradient(to right, #ff8a00, #e52e71, #2d00f7); background-clip: text; color: transparent; font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'fire':
+                    wordArtHtml = '<span style="display: inline-block; background: linear-gradient(0deg, #ff8c00, #ff0000); background-clip: text; color: transparent; font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'comic':
+                    wordArtHtml = '<span style="display: inline-block; color: #fd0; text-shadow: -3px 0 4px #000; font-family: fantasy, \\'Comic Sans MS\\', cursive; font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'metallic':
+                    wordArtHtml = '<span style="display: inline-block; background: linear-gradient(to bottom, #d5d5d5 0%, #919191 98%); background-clip: text; color: transparent; text-shadow: 2px 2px 3px rgba(255,255,255,0.5); font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case '3d':
+                    wordArtHtml = '<span style="display: inline-block; color: #5e17eb; text-shadow: 0px 1px 0px #c5bce4, 0px 2px 0px #a197c0, 0px 3px 0px #7c738e, 0px 4px 0px #58505f, 0px 5px 10px rgba(0, 0, 0, 0.6); font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'glitch':
+                    wordArtHtml = '<span style="display: inline-block; color: #00fffc; text-shadow: 2px 0 #ff00c1, -2px 0 #fffc00; font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'rainbow':
+                    wordArtHtml = '<span style="display: inline-block; background: linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet); background-clip: text; color: transparent; font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'newspaper':
+                    wordArtHtml = '<span style="display: inline-block; font-family: \\'Times New Roman\\', serif; font-weight: 900; font-size: 24px; text-transform: uppercase; border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 5px 0;">{escaped_text}</span>';
+                    break;
+                case 'blueprint':
+                    wordArtHtml = '<span style="display: inline-block; color: #2980b9; font-family: monospace; text-shadow: 0 0 1px #2980b9; font-weight: normal; font-size: 24px; border: 1px solid #2980b9; padding: 5px 10px;">{escaped_text}</span>';
+                    break;
+                case 'cyberpunk':
+                    wordArtHtml = '<span style="display: inline-block; color: #f0f; text-shadow: 3px 3px 0 #0ff; font-weight: bold; font-size: 24px; letter-spacing: 1px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'toxic':
+                    wordArtHtml = '<span style="display: inline-block; color: #39ff14; text-shadow: 0 0 5px #39ff14; font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'grunge':
+                    wordArtHtml = '<span style="display: inline-block; color: #333; font-family: \\'Impact\\', sans-serif; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff; font-weight: bold; font-size: 24px; letter-spacing: -1px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'pixel':
+                    wordArtHtml = '<span style="display: inline-block; font-family: monospace; font-weight: bold; font-size: 24px; color: #000; text-shadow: 2px 2px 0 #fff; letter-spacing: 2px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'handwritten':
+                    wordArtHtml = '<span style="display: inline-block; font-family: cursive; font-size: 24px; font-style: italic; color: #1e3a8a; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'marquee':
+                    wordArtHtml = '<span style="display: inline-block; color: #FFF; text-shadow: 0 0 5px #FFF, 0 0 10px #FFF, 0 0 15px #FFF, 0 0 20px #FF0000, 0 0 30px #FF0000; font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'matrix':
+                    wordArtHtml = '<span style="display: inline-block; color: #0F0; font-family: monospace; text-shadow: 0 0 5px #0F0; font-weight: bold; font-size: 24px; letter-spacing: 1px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'bubble':
+                    wordArtHtml = '<span style="display: inline-block; color: #2d88ff; text-shadow: 0 0 3px #fff, 0 0 6px #fff; font-weight: bold; font-size: 24px; letter-spacing: 1px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                case 'vintage':
+                    wordArtHtml = '<span style="display: inline-block; color: #a67951; font-family: serif; text-shadow: 1px 1px 1px #d8c5ad; font-weight: normal; font-size: 24px; letter-spacing: 1px; padding: 10px 0;">{escaped_text}</span>';
+                    break;
+                default:
+                    wordArtHtml = '<span style="display: inline-block; font-weight: bold; font-size: 24px; padding: 10px 0;">{escaped_text}</span>';
+            }}
+            
+            // Insert the Word Art HTML
+            document.execCommand('insertHTML', false, wordArtHtml);
+            
+            // Notify that content changed
+            try {{
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            }} catch(e) {{
+                console.log("Could not notify about content change:", e);
+            }}
+            
+            return true;
+        }})();
+        """
+        
+        self.execute_js(win, js_code)
+        win.statusbar.set_text(f"Word Art inserted with {style_id} style")
+
+    def wordart_js(self):
+        """JavaScript for Word Art functionality"""
+        return """
+        // Function to create Word Art with various styles
+        function createWordArt(text, style) {
+            // Create Word Art HTML based on style
+            let wordArtHtml = '';
+            
+            switch (style) {
+                // Classic styles
+                case 'classic_plain':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #000; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'classic_blue':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #4472C4; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'classic_orange_fill':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #ED7D31; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'classic_blue_outline':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: white; text-shadow: -1px -1px 0 #4472C4, 1px -1px 0 #4472C4, -1px 1px 0 #4472C4, 1px 1px 0 #4472C4; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'classic_yellow':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #FFD966; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'classic_gray':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #A5A5A5; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'classic_light_blue':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #5B9BD5; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'classic_yellow_gradient':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; background: linear-gradient(to bottom, #FFD966, #BF8F00); background-clip: text; color: transparent; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'classic_blue_shadow':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #5B9BD5; text-shadow: 2px 2px 3px rgba(0,0,0,0.3); padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'classic_silver':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; background: linear-gradient(to bottom, #F2F2F2, #BFBFBF); background-clip: text; color: transparent; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'classic_bold_black':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial Black, sans-serif; font-weight: 900; font-size: 24px; color: #000; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'classic_black_outline':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: white; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'classic_blue_gradient':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; background: linear-gradient(to bottom, #4472C4, #2F528F); background-clip: text; color: transparent; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'classic_orange_outline':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: white; text-shadow: -1px -1px 0 #ED7D31, 1px -1px 0 #ED7D31, -1px 1px 0 #ED7D31, 1px 1px 0 #ED7D31; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'classic_gray_shadow':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #A5A5A5; text-shadow: 2px 2px 3px rgba(0,0,0,0.3); padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'classic_hatched':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; border: 1px solid black; padding: 5px; background-image: repeating-linear-gradient(45deg, #000, #000 2px, transparent 2px, transparent 4px); -webkit-text-stroke: 1px black; color: white; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'classic_3d_gray':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #A5A5A5; text-shadow: 1px 1px 0px #fff, 2px 2px 0px #A5A5A5, 3px 3px 0px #999; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'classic_blue_bubble':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #4472C4; text-shadow: 0 0 5px rgba(68, 114, 196, 0.5); border: 1px solid #4472C4; border-radius: 5px; padding: 5px 10px;">' + text + '</span>';
+                    break;
+                case 'classic_hollow_blue':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: transparent; -webkit-text-stroke: 1px #4472C4; padding: 10px 0;">' + text + '</span>';
+                    break;
+                case 'classic_3d_black':
+                    wordArtHtml = '<span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; font-size: 24px; color: #000; text-shadow: 1px 1px 0px #666, 2px 2px 0px #444, 3px 3px 0px #222, 4px 4px 4px rgba(0,0,0,0.3); padding: 10px 0;">' + text + '</span>';
+                    break;
+                
+                // Modern styles
+                case 'shadow':
+                    wordArtHtml = '<span style="display: inline-block; text-shadow: 4px 4px 8px rgba(0,0,0,0.5); font-weight: bold; font-size: 24px; padding: 10px 0;">' + text + '</span>';
+                    break;
+                    
+                // Include all other modern styles from your previous implementation
+                
+                default:
+                    wordArtHtml = '<span style="display: inline-block; font-weight: bold; font-size: 24px; padding: 10px 0;">' + text + '</span>';
+            }
+            
+            return wordArtHtml;
+        }
+        
+        // Function to insert Word Art at cursor position
+        function insertWordArt(text, style) {
+            const wordArtHtml = createWordArt(text, style);
+            document.execCommand('insertHTML', false, wordArtHtml);
+            
+            // Notify that content changed
+            try {
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            } catch(e) {
+                console.log("Could not notify about content change:", e);
+            }
+            
+            return true;
+        }
+        
+        // Function to clear Word Art styling from selected text
+        function clearWordArt() {
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return false;
+            
+            const range = selection.getRangeAt(0);
+            if (range.collapsed) return false; // No selection
+            
+            // Extract the text content only
+            const textContent = range.toString();
+            
+            // Delete the selected content
+            range.deleteContents();
+            
+            // Insert as plain text
+            document.execCommand('insertText', false, textContent);
+            
+            // Notify that content changed
+            try {
+                window.webkit.messageHandlers.contentChanged.postMessage('changed');
+            } catch(e) {
+                console.log("Could not notify about content change:", e);
+            }
+            
+            return true;
+        }
+        """
+
+
+
+
+
+
+
+
+
+
+
+
 
 def main():
     app = HTMLEditorApp()

@@ -4061,7 +4061,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
 
         # In the create_window method, where the insert group is defined
         # Add a Word Art button to the insert group
-        wordart_button = Gtk.Button(icon_name="format-word-art-symbolic")  
+        wordart_button = Gtk.Button(icon_name="format-text-larger-symbolic")  # Using larger text icon for Word Art
         wordart_button.set_size_request(40, 36)
         wordart_button.set_tooltip_text("Insert Word Art")
         wordart_button.connect("clicked", lambda btn: self.on_wordart_clicked(win, btn))
