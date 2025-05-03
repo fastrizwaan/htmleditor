@@ -301,6 +301,21 @@ def table_insert_functions_js(self):
         const borderColor = getBorderColor();
         const headerBgColor = getHeaderBgColor();
         
+        // Check if we're inserting inside another table cell
+        const selection = window.getSelection();
+        let isNestedTable = false;
+        
+        if (selection.rangeCount > 0) {
+            let node = selection.anchorNode;
+            while (node && node !== document.body) {
+                if (node.tagName === 'TD' || node.tagName === 'TH') {
+                    isNestedTable = true;
+                    break;
+                }
+                node = node.parentNode;
+            }
+        }
+        
         // Create table HTML
         let tableHTML = '<table cellspacing="0" cellpadding="5" ';
         
@@ -326,7 +341,13 @@ def table_insert_functions_js(self):
             tableHTML += '</tr>';
         }
         
-        tableHTML += '</table><p></p>';
+        // Close the table tag
+        tableHTML += '</table>';
+        
+        // Only add paragraph after table if it's not nested inside another table
+        if (!isNestedTable) {
+            tableHTML += '<p></p>';
+        }
         
         // Insert the table at the current cursor position
         document.execCommand('insertHTML', false, tableHTML);
