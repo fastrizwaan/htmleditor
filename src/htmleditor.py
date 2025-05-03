@@ -4050,11 +4050,19 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         link_button.set_tooltip_text("Insert link")
         link_button.connect("clicked", lambda btn: self.on_insert_link_clicked(win, btn))
 
+
+        # Insert date/time button
+        insert_date_time_button = Gtk.Button(icon_name="today-symbolic")
+        insert_date_time_button.set_size_request(40, 36)
+        insert_date_time_button.set_tooltip_text("Insert Date/Time")
+        insert_date_time_button.connect("clicked", lambda btn: self.on_insert_datetime_clicked(win, btn))
+        
         # Add buttons to insert group
         insert_group.append(table_button)
         insert_group.append(text_box_button)
         insert_group.append(image_button)
         insert_group.append(link_button)
+        insert_group.append(insert_date_time_button)
         # Add insert group to toolbar
         win.toolbars_wrapbox.append(insert_group)
 
@@ -5388,6 +5396,305 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         self.execute_js(win, js_code)
         win.statusbar.set_text("Link removed")
 ######################### /insert text #
+    def on_insert_datetime_clicked(self, win, btn):
+        """Show enhanced dialog to select date/time format with three-column layout in a scrolled window"""
+        dialog = Adw.Dialog()
+        dialog.set_title("Insert Date Time")
+        
+        # Create main content box
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        content_box.set_margin_top(24)
+        content_box.set_margin_bottom(24)
+        content_box.set_margin_start(24)
+        content_box.set_margin_end(24)
+        
+        # Get current date and time for preview
+        import datetime
+        now = datetime.datetime.now()
+        
+        # Create a scrolled window to contain the grid
+        scrolled_window = Gtk.ScrolledWindow()
+        # Set dimensions to show at least 4 items vertically without scrolling
+        scrolled_window.set_min_content_height(300)
+        # Width to ensure all 3 columns are clearly visible
+        scrolled_window.set_min_content_width(600)
+        scrolled_window.set_vexpand(True)
+        scrolled_window.set_hexpand(True)
+        
+        # Create a grid layout for the three columns
+        format_grid = Gtk.Grid()
+        format_grid.set_row_spacing(6)
+        format_grid.set_column_spacing(6)
+        format_grid.set_column_homogeneous(True)
+        format_grid.set_margin_top(6)
+        format_grid.set_margin_bottom(6)
+        format_grid.set_margin_start(6)
+        format_grid.set_margin_end(6)
+        
+        # Create headers for each column
+        date_header = Gtk.Label()
+        date_header.set_markup("<b>Date</b>")
+        date_header.set_halign(Gtk.Align.CENTER)
+        date_header.add_css_class("title-4")
+        date_header.set_margin_bottom(6)
+        
+        time_header = Gtk.Label()
+        time_header.set_markup("<b>Time</b>")
+        time_header.set_halign(Gtk.Align.CENTER)
+        time_header.add_css_class("title-4")
+        time_header.set_margin_bottom(6)
+        
+        datetime_header = Gtk.Label()
+        datetime_header.set_markup("<b>Date &amp; Time</b>")
+        datetime_header.set_halign(Gtk.Align.CENTER)
+        datetime_header.add_css_class("title-4")
+        datetime_header.set_margin_bottom(6)
+        
+        # Add headers to the grid
+        format_grid.attach(date_header, 0, 0, 1, 1)
+        format_grid.attach(time_header, 1, 0, 1, 1)
+        format_grid.attach(datetime_header, 2, 0, 1, 1)
+        
+        # Define format options
+        date_formats = [
+            {"name": "Short", "format": now.strftime("%m/%d/%Y"), "type": "date_short"},
+            {"name": "Medium", "format": now.strftime("%b %d, %Y"), "type": "date_medium"},
+            {"name": "Long", "format": now.strftime("%B %d, %Y"), "type": "date_long"},
+            {"name": "Full", "format": now.strftime("%A, %B %d, %Y"), "type": "date_full"},
+            {"name": "ISO", "format": now.strftime("%Y-%m-%d"), "type": "date_iso"},
+            {"name": "European", "format": now.strftime("%d/%m/%Y"), "type": "date_euro"},
+        ]
+        
+        time_formats = [
+            {"name": "12-hour", "format": now.strftime("%I:%M %p"), "type": "time_12"},
+            {"name": "24-hour", "format": now.strftime("%H:%M"), "type": "time_24"},
+            {"name": "12h with seconds", "format": now.strftime("%I:%M:%S %p"), "type": "time_12_sec"},
+            {"name": "24h with seconds", "format": now.strftime("%H:%M:%S"), "type": "time_24_sec"},
+        ]
+        
+        datetime_formats = [
+            {"name": "Short", "format": now.strftime("%m/%d/%Y %I:%M %p"), "type": "datetime_short"},
+            {"name": "Medium", "format": now.strftime("%b %d, %Y %H:%M"), "type": "datetime_medium"},
+            {"name": "Long", "format": now.strftime("%B %d, %Y at %I:%M %p"), "type": "datetime_long"},
+            {"name": "ISO", "format": now.strftime("%Y-%m-%d %H:%M:%S"), "type": "datetime_iso"},
+            {"name": "RFC", "format": now.strftime("%a, %d %b %Y %H:%M:%S"), "type": "datetime_rfc"},
+        ]
+        
+        # Store all format buttons to access the selected one later
+        win.format_buttons = []
+        
+        # Create Date format buttons (column 0)
+        for i, fmt in enumerate(date_formats):
+            button = Gtk.ToggleButton(label=fmt["name"])
+            button.format_type = fmt["type"]
+            button.format_value = fmt["format"]
+            
+            # Add tooltip showing the format preview
+            button.set_tooltip_text(fmt["format"])
+            
+            # Add to button group for radio button behavior
+            if win.format_buttons:
+                button.set_group(win.format_buttons[0])
+            
+            win.format_buttons.append(button)
+            
+            # Create a box to arrange the button and preview
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            box.set_margin_top(2)
+            box.set_margin_bottom(2)
+            
+            # Make button wider to better display text
+            button.set_hexpand(True)
+            button.set_size_request(-1, 36)  # Width: default, Height: 36px
+            box.append(button)
+            
+            # Add small preview label
+            preview = Gtk.Label(label=fmt["format"])
+            preview.add_css_class("caption")
+            preview.add_css_class("dim-label")
+            preview.set_margin_top(2)
+            box.append(preview)
+            
+            # Add to grid
+            format_grid.attach(box, 0, i+1, 1, 1)
+        
+        # Create Time format buttons (column 1)
+        for i, fmt in enumerate(time_formats):
+            button = Gtk.ToggleButton(label=fmt["name"])
+            button.format_type = fmt["type"]
+            button.format_value = fmt["format"]
+            
+            # Add tooltip
+            button.set_tooltip_text(fmt["format"])
+            
+            # Add to button group
+            button.set_group(win.format_buttons[0])
+            win.format_buttons.append(button)
+            
+            # Create a box to arrange the button and preview
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            box.set_margin_top(2)
+            box.set_margin_bottom(2)
+            
+            # Make button wider to better display text
+            button.set_hexpand(True)
+            button.set_size_request(-1, 36)  # Width: default, Height: 36px
+            box.append(button)
+            
+            # Add small preview label
+            preview = Gtk.Label(label=fmt["format"])
+            preview.add_css_class("caption")
+            preview.add_css_class("dim-label")
+            preview.set_margin_top(2)
+            box.append(preview)
+            
+            # Add to grid
+            format_grid.attach(box, 1, i+1, 1, 1)
+        
+        # Create Date & Time format buttons (column 2)
+        for i, fmt in enumerate(datetime_formats):
+            button = Gtk.ToggleButton(label=fmt["name"])
+            button.format_type = fmt["type"]
+            button.format_value = fmt["format"]
+            
+            # Add tooltip
+            button.set_tooltip_text(fmt["format"])
+            
+            # Add to button group
+            button.set_group(win.format_buttons[0])
+            win.format_buttons.append(button)
+            
+            # Create a box to arrange the button and preview
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            box.set_margin_top(2)
+            box.set_margin_bottom(2)
+            
+            # Make button wider to better display text
+            button.set_hexpand(True)
+            button.set_size_request(-1, 36)  # Width: default, Height: 36px
+            box.append(button)
+            
+            # Add small preview label
+            preview = Gtk.Label(label=fmt["format"])
+            preview.add_css_class("caption")
+            preview.add_css_class("dim-label")
+            preview.set_margin_top(2)
+            box.append(preview)
+            
+            # Add to grid
+            format_grid.attach(box, 2, i+1, 1, 1)
+        
+        # Add grid to scrolled window
+        scrolled_window.set_child(format_grid)
+        
+        # Add scrolled window to content box
+        content_box.append(scrolled_window)
+        
+        # Button box
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        button_box.set_halign(Gtk.Align.END)
+        button_box.set_margin_top(4)
+        
+        # Cancel button
+        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button.connect("clicked", lambda btn: dialog.close())
+        button_box.append(cancel_button)
+        
+        # Insert button
+        insert_button = Gtk.Button(label="Insert")
+        insert_button.add_css_class("suggested-action")
+        insert_button.connect("clicked", lambda btn: self.insert_selected_datetime_format(win, dialog))
+        button_box.append(insert_button)
+        
+        content_box.append(button_box)
+        
+        # Create a clamp to hold the content
+        clamp = Adw.Clamp()
+        clamp.set_child(content_box)
+        
+        # Set up the dialog content using a box
+        dialog_content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        dialog_content.append(clamp)
+        
+        # Connect the content to the dialog
+        dialog.connect("closed", lambda d: None)  # Ensure proper cleanup
+        dialog.set_child(dialog_content)
+        
+        # Present the dialog
+        dialog.present(win)
+        
+        # Make first button active by default
+        if win.format_buttons:
+            win.format_buttons[0].set_active(True)
+
+    def insert_selected_datetime_format(self, win, dialog):
+        """Insert date/time with the selected format"""
+        # Check if any format button is selected
+        selected_button = None
+        for button in win.format_buttons:
+            if button.get_active():
+                selected_button = button
+                break
+        
+        if selected_button:
+            # Get the pre-formatted value directly from the button
+            formatted_date = selected_button.format_value
+            
+            # Insert the formatted date at the current cursor position
+            js_code = f"""
+            (function() {{
+                document.execCommand('insertText', false, `{formatted_date}`);
+                return true;
+            }})();
+            """
+            win.webview.evaluate_javascript(js_code, -1, None, None, None, None, None)
+            win.statusbar.set_text(f"Inserted {selected_button.format_type} format")
+            dialog.close()
+        else:
+            # No selection - show a message
+            self.show_error_dialog(win, "Please select a date/time format")
+
+    def show_error_dialog(self, win, message):
+        """Show error message dialog"""
+        dialog = Adw.Dialog.new()
+        dialog.set_title("Error")
+        dialog.set_content_width(350)
+        
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=20)
+        content_box.set_margin_top(24)
+        content_box.set_margin_bottom(24)
+        content_box.set_margin_start(24)
+        content_box.set_margin_end(24)
+        
+        error_icon = Gtk.Image.new_from_icon_name("dialog-error-symbolic")
+        error_icon.set_pixel_size(48)
+        error_icon.set_margin_bottom(12)
+        content_box.append(error_icon)
+        
+        message_label = Gtk.Label(label=message)
+        message_label.set_wrap(True)
+        message_label.set_max_width_chars(40)
+        content_box.append(message_label)
+        
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        button_box.set_halign(Gtk.Align.CENTER)
+        button_box.set_margin_top(12)
+        
+        ok_button = Gtk.Button(label="OK")
+        ok_button.add_css_class("suggested-action")
+        ok_button.connect("clicked", lambda btn: dialog.close())
+        button_box.append(ok_button)
+        
+        content_box.append(button_box)
+        
+        dialog.set_child(content_box)
+        dialog.present(win)
+
+
+
+
+
+
 def main():
     app = HTMLEditorApp()
     return app.run(sys.argv)
