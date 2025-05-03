@@ -806,6 +806,7 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         {self.table_color_js()}
         {self.table_z_index_js()}
         {self.insert_link_js()}
+        {self.rtl_toggle_js()}
         {self.init_editor_js()}
         """
 
@@ -4066,6 +4067,23 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         # Add insert group to toolbar
         win.toolbars_wrapbox.append(insert_group)
 
+        # --- RTL/LTR Direction button ---
+        # Create a toggle button group for text direction
+        direction_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        direction_group.add_css_class("linked")
+        direction_group.set_margin_start(0)
+
+        # RTL toggle button
+        win.rtl_button = Gtk.ToggleButton(icon_name="text-direction-ltr-symbolic")
+        win.rtl_button.set_icon_name("format-text-direction-rtl-symbolic")
+        win.rtl_button.set_tooltip_text("Toggle Right-to-Left Text Direction")
+        win.rtl_button.set_focus_on_click(False)
+        win.rtl_button.set_size_request(40, 36)
+        win.rtl_button.connect("toggled", lambda btn: self.on_rtl_toggled(win, btn))
+        direction_group.append(win.rtl_button)
+
+        # Add the direction group to the toolbar
+        win.toolbars_wrapbox.append(direction_group)
 
         # --- Add the Show HTML button ---
         show_html_button = Gtk.Button(icon_name="text-x-generic-symbolic")
@@ -4146,7 +4164,9 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         
         win.webview.load_html(self.get_initial_html(), None)
         content_box.append(win.webview)
-        
+        # Set up event to initialize RTL state when editor loads
+        win.webview.connect("load-changed", lambda view, event: 
+                            self.initialize_rtl_state(win) if event == WebKit.LoadEvent.FINISHED else None)
         # Find bar with revealer - kept at the bottom above statusbar
         win.find_bar = self.create_find_bar(win)
         content_box.append(win.find_bar)
@@ -5690,8 +5710,124 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
         dialog.set_child(content_box)
         dialog.present(win)
 
+############################
+########### ltr rtl direction
+    def rtl_toggle_js(self):
+        """JavaScript for RTL/LTR toggling"""
+        return """
+        // Function to toggle right-to-left mode
+        function toggleRTL() {
+            const editor = document.getElementById('editor');
+            if (!editor) return false;
+            
+            // Get current direction
+            const currentDir = editor.dir || 'ltr';
+            
+            // Toggle direction
+            const newDir = currentDir === 'ltr' ? 'rtl' : 'ltr';
+            editor.dir = newDir;
+            
+            // Also update text-align based on direction for better appearance
+            if (newDir === 'rtl') {
+                editor.style.textAlign = 'right';
+            } else {
+                editor.style.textAlign = 'left';
+            }
+            
+            // Return the new direction state for the UI to update
+            return newDir === 'rtl';
+        }
+        
+        // Function to check current RTL state
+        function isRTL() {
+            const editor = document.getElementById('editor');
+            if (!editor) return false;
+            
+            return editor.dir === 'rtl';
+        }
+        """
 
+    def on_rtl_toggled(self, win, button):
+        """Handle RTL button toggle"""
+        # Update button icon based on state
+        if button.get_active():
+            button.set_icon_name("format-text-direction-rtl-symbolic")
+        else:
+            button.set_icon_name("format-text-direction-ltr-symbolic")
+        
+        # Execute JavaScript to toggle RTL mode
+        js_code = "toggleRTL();"
+        win.webview.evaluate_javascript(
+            js_code, 
+            -1, None, None, None, 
+            lambda webview, result, data: self.on_rtl_toggled_result(win, webview, result, button),
+            None
+        )
 
+    def on_rtl_toggled_result(self, win, webview, result, button):
+        """Handle result of RTL toggle"""
+        try:
+            js_result = webview.evaluate_javascript_finish(result)
+            if js_result:
+                # Extract boolean value from result based on WebKit version
+                is_rtl = False
+                if hasattr(js_result, 'get_js_value'):
+                    is_rtl = js_result.get_js_value().to_boolean()
+                elif hasattr(js_result, 'to_boolean'):
+                    is_rtl = js_result.to_boolean()
+                else:
+                    # Try to convert string result to boolean
+                    result_str = str(js_result).lower()
+                    is_rtl = result_str == 'true'
+                
+                # Make sure button state matches the actual RTL state
+                if button.get_active() != is_rtl:
+                    button.set_active(is_rtl)
+                
+                # Update status message
+                if is_rtl:
+                    win.statusbar.set_text("Right-to-left mode enabled")
+                else:
+                    win.statusbar.set_text("Left-to-right mode enabled")
+        except Exception as e:
+            print(f"Error toggling RTL: {e}")
+            win.statusbar.set_text(f"Error toggling text direction: {e}")
+
+    def initialize_rtl_state(self, win):
+        """Check the current RTL state when editor is loaded"""
+        js_code = "isRTL();"
+        win.webview.evaluate_javascript(
+            js_code,
+            -1, None, None, None,
+            lambda webview, result, data: self._update_rtl_button(win, webview, result),
+            None
+        )
+
+    def _update_rtl_button(self, win, webview, result):
+        """Update the RTL button state based on editor's current direction"""
+        try:
+            js_result = webview.evaluate_javascript_finish(result)
+            if js_result:
+                # Extract boolean value from result
+                is_rtl = False
+                if hasattr(js_result, 'get_js_value'):
+                    is_rtl = js_result.get_js_value().to_boolean()
+                elif hasattr(js_result, 'to_boolean'):
+                    is_rtl = js_result.to_boolean()
+                else:
+                    # Try to convert string result to boolean
+                    result_str = str(js_result).lower()
+                    is_rtl = result_str == 'true'
+                
+                # Update button state
+                win.rtl_button.set_active(is_rtl)
+                # Set correct icon
+                win.rtl_button.set_icon_name(
+                    "text-direction-rtl-symbolic" if is_rtl else "text-direction-ltr-symbolic"
+                )
+        except Exception as e:
+            print(f"Error initializing RTL state: {e}")
+########### /ltr rtl direction
 
 
 
