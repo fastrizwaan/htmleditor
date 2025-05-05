@@ -6201,7 +6201,262 @@ dropdown.flat:hover { background: rgba(127, 127, 127, 0.25); }
             return wordArtHtml;
         }
         """
-
+#################
+    def on_font_size_change_shortcut(self, win, points_change):
+        """Handle font size change via keyboard shortcuts (Ctrl+[ / Ctrl+] or Ctrl+Shift+< / Ctrl+Shift+>)
+        
+        Args:
+            win: The window object
+            points_change: Integer representing the size change in points
+        """
+        # First, get the current font size from the dropdown
+        dropdown = win.font_size_dropdown
+        selected_item = dropdown.get_selected_item()
+        current_size_pt = selected_item.get_string()
+        
+        # Convert to integer
+        try:
+            current_size = int(current_size_pt)
+        except ValueError:
+            current_size = 12  # Default if conversion fails
+        
+        # Get all available sizes from the font size dropdown
+        font_sizes = []
+        model = dropdown.get_model()
+        for i in range(model.get_n_items()):
+            font_sizes.append(int(model.get_string(i)))
+        
+        # Find the next size in the sequence based on direction
+        if points_change > 0:  # Increasing
+            new_size = None
+            for size in sorted(font_sizes):
+                if size > current_size:
+                    new_size = size
+                    break
+            if new_size is None:
+                new_size = max(font_sizes)
+        else:  # Decreasing
+            new_size = None
+            for size in sorted(font_sizes, reverse=True):
+                if size < current_size:
+                    new_size = size
+                    break
+            if new_size is None:
+                new_size = min(font_sizes)
+        
+        # Update the dropdown selection
+        for i, size in enumerate(font_sizes):
+            if size == new_size:
+                if win.font_size_handler_id:
+                    win.font_size_dropdown.handler_block(win.font_size_handler_id)
+                dropdown.set_selected(i)
+                if win.font_size_handler_id:
+                    win.font_size_dropdown.handler_unblock(win.font_size_handler_id)
+                break
+        
+        # Apply the font size change with better cursor positioning
+        js_code = f"""
+        (function() {{
+            // Store the new font size globally
+            if (!window.fontSizeState) {{
+                window.fontSizeState = {{}};
+            }}
+            window.fontSizeState.nextSize = '{new_size}pt';
+            
+            // Get editor and selection
+            const editor = document.getElementById('editor');
+            const selection = window.getSelection();
+            
+            if (!selection.rangeCount) return false;
+            
+            const range = selection.getRangeAt(0);
+            
+            // If text is selected, apply font size to selection
+            if (!range.collapsed) {{
+                // Apply font size to selected text
+                document.execCommand('fontSize', false, '7');
+                
+                const fontElements = editor.querySelectorAll('font[size="7"]');
+                for (const font of fontElements) {{
+                    font.removeAttribute('size');
+                    font.style.fontSize = '{new_size}pt';
+                }}
+                
+                // Clean up the DOM
+                cleanupEditorTags();
+                
+                // Record state
+                saveState();
+                window.lastContent = editor.innerHTML;
+                window.redoStack = [];
+                
+                try {{
+                    window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                }} catch(e) {{
+                    console.log("Could not notify about changes:", e);
+                }}
+            }} else {{
+                // No text selected - we'll set up the size for the next typed character
+                
+                // Clear any existing handlers
+                if (window.fontSizeHandler) {{
+                    editor.removeEventListener('input', window.fontSizeHandler);
+                    window.fontSizeHandler = null;
+                }}
+                
+                window.fontSizeHandler = function(e) {{
+                    // Remove the handler immediately to ensure it only runs once
+                    editor.removeEventListener('input', window.fontSizeHandler);
+                    window.fontSizeHandler = null;
+                    
+                    // Size to apply
+                    const fontSize = window.fontSizeState.nextSize;
+                    
+                    // Get the current selection
+                    const sel = window.getSelection();
+                    if (!sel.rangeCount) return;
+                    
+                    const currRange = sel.getRangeAt(0);
+                    
+                    // We need text nodes for this to work
+                    if (!currRange.startContainer || currRange.startContainer.nodeType !== 3) return;
+                    
+                    // If nothing was typed or no offset, ignore
+                    if (currRange.startOffset <= 0) return;
+                    
+                    try {{
+                        // Create a range just for the last typed character
+                        const charRange = document.createRange();
+                        charRange.setStart(currRange.startContainer, currRange.startOffset - 1);
+                        charRange.setEnd(currRange.startContainer, currRange.startOffset);
+                        
+                        // Remember where the cursor is
+                        const endContainer = currRange.endContainer;
+                        const endOffset = currRange.endOffset;
+                        
+                        // Select just the typed character
+                        sel.removeAllRanges();
+                        sel.addRange(charRange);
+                        
+                        // Apply formatting to the selected character
+                        document.execCommand('fontSize', false, '7');
+                        
+                        // Update the font elements with the correct size
+                        const fontElements = editor.querySelectorAll('font[size="7"]');
+                        for (const font of fontElements) {{
+                            font.removeAttribute('size');
+                            font.style.fontSize = fontSize;
+                        }}
+                        
+                        // Important: Set the cursor AFTER the new character
+                        // The DOM structure has changed, so we need to find where to put the cursor
+                        // We know we want to place it after the newly formatted character
+                        
+                        // Create a new selection at the right place
+                        const newRange = document.createRange();
+                        
+                        // Find the newly created font element
+                        const newFontElements = Array.from(editor.querySelectorAll('font')).filter(
+                            font => font.style.fontSize === fontSize
+                        );
+                        
+                        if (newFontElements.length > 0) {{
+                            // Find the last text node inside this font element
+                            const lastFont = newFontElements[newFontElements.length - 1];
+                            let lastTextNode = null;
+                            
+                            // Function to find the last text node in an element
+                            function findLastTextNode(node) {{
+                                if (node.nodeType === 3) return node;
+                                
+                                let result = null;
+                                for (let i = node.childNodes.length - 1; i >= 0; i--) {{
+                                    result = findLastTextNode(node.childNodes[i]);
+                                    if (result) return result;
+                                }}
+                                
+                                return null;
+                            }}
+                            
+                            lastTextNode = findLastTextNode(lastFont);
+                            
+                            if (lastTextNode) {{
+                                // Place cursor at the end of the text node
+                                newRange.setStart(lastTextNode, lastTextNode.length);
+                                newRange.setEnd(lastTextNode, lastTextNode.length);
+                            }} else {{
+                                // If no text node found, place cursor after the font element
+                                const parent = lastFont.parentNode;
+                                const index = Array.from(parent.childNodes).indexOf(lastFont);
+                                newRange.setStart(parent, index + 1);
+                                newRange.setEnd(parent, index + 1);
+                            }}
+                        }} else {{
+                            // If we can't find the font element, try to restore to original position
+                            try {{
+                                newRange.setStart(endContainer, endOffset);
+                                newRange.setEnd(endContainer, endOffset);
+                            }} catch (e) {{
+                                // If that fails too, just set cursor at the start of editor
+                                newRange.setStart(editor, 0);
+                                newRange.setEnd(editor, 0);
+                            }}
+                        }}
+                        
+                        // Apply the new selection
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                        
+                        // Clean up the DOM
+                        cleanupEditorTags();
+                        
+                        // Record state
+                        saveState();
+                        window.lastContent = editor.innerHTML;
+                        window.redoStack = [];
+                        
+                        try {{
+                            window.webkit.messageHandlers.contentChanged.postMessage("changed");
+                        }} catch(e) {{
+                            console.log("Could not notify about changes:", e);
+                        }}
+                    }} catch (error) {{
+                        console.error("Error applying font size:", error);
+                    }}
+                }};
+                
+                // Add the input handler
+                editor.addEventListener('input', window.fontSizeHandler);
+                
+                // Add a handler to clean up if user clicks elsewhere
+                if (window.fontSizeClickHandler) {{
+                    document.removeEventListener('mousedown', window.fontSizeClickHandler);
+                }}
+                
+                window.fontSizeClickHandler = function() {{
+                    if (window.fontSizeHandler) {{
+                        editor.removeEventListener('input', window.fontSizeHandler);
+                        window.fontSizeHandler = null;
+                    }}
+                    document.removeEventListener('mousedown', window.fontSizeClickHandler);
+                }};
+                
+                document.addEventListener('mousedown', window.fontSizeClickHandler);
+            }}
+            
+            return true;
+        }})();
+        """
+        
+        # Execute the JavaScript code
+        self.execute_js(win, js_code)
+        
+        # Update status message
+        msg_action = "increased" if points_change > 0 else "decreased"
+        win.statusbar.set_text(f"Font size {msg_action} to {new_size}pt")
+        
+        # Keep focus on webview
+        win.webview.grab_focus()
 def main():
     app = HTMLEditorApp()
     return app.run(sys.argv)
